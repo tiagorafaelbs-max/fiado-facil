@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fiado Fácil — Chega de perder dinheiro com fiado</title>
+  <meta name="description" content="Registre, cobre e receba seu fiado direto do celular. Cobrança pelo WhatsApp, Pix integrado, histórico de cada cliente. Grátis para começar." />
+  <meta property="og:title" content="Fiado Fácil — Chega de perder dinheiro com fiado" />
+  <meta property="og:description" content="O caderninho virou app. Registre vendas, cobre pelo WhatsApp e receba pelo Pix." />
+  <meta property="og:image" content="./og-image.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&family=DM+Mono:wght@500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --navy: #0C1F3F;
+      --navy-mid: #162d52;
+      --amber: #E8920A;
+      --amber-light: #FEF3C7;
+      --amber-border: #FDE68A;
+      --paper: #FAFAF7;
+      --ink: #1C1917;
+      --muted: #78716C;
+      --border: #E7E5E4;
+      --white: #ffffff;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'DM Sans', sans-serif; background: var(--paper); color: var(--ink); overflow-x: hidden; font-size: 16px; line-height: 1.6; }
+
+    /* NAV */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+      padding: 0 32px; height: 64px;
+      display: flex; align-items: center; justify-content: space-between;
+      background: rgba(12, 31, 63, 0.97);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .nav-logo { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; color: var(--white); text-decoration: none; letter-spacing: -0.3px; }
+    .nav-logo em { color: var(--amber); font-style: normal; }
+    .nav-links { display: flex; gap: 28px; align-items: center; }
+    .nav-links a { font-size: 14px; color: rgba(255,255,255,0.6); text-decoration: none; font-weight: 500; transition: color 0.2s; }
+    .nav-links a:hover { color: var(--white); }
+    .nav-cta { background: var(--amber) !important; color: var(--white) !important; padding: 9px 22px !important; border-radius: 8px !important; font-weight: 700 !important; transition: opacity 0.2s !important; }
+    .nav-cta:hover { opacity: 0.88 !important; }
+
+    /* HERO */
+    .hero {
+      min-height: 100vh;
+      background: var(--navy);
+      padding: 120px 80px 80px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      align-items: center;
+      gap: 64px;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute; top: -300px; right: -300px;
+      width: 700px; height: 700px;
+      background: radial-gradient(circle, rgba(232,146,10,0.08) 0%, transparent 65%);
+      pointer-events: none;
+    }
+    .hero-eyebrow {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(232,146,10,0.12); border: 1px solid rgba(232,146,10,0.3);
+      border-radius: 6px; padding: 5px 12px;
+      font-size: 11px; font-weight: 700; color: var(--amber);
+      letter-spacing: 1px; text-transform: uppercase;
+      margin-bottom: 24px;
+    }
+    .hero h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(36px, 4vw, 58px);
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -0.5px;
+      color: var(--white);
+      margin-bottom: 20px;
+    }
+    .hero h1 em { color: var(--amber); font-style: normal; }
+    .hero-sub { font-size: 18px; color: rgba(255,255,255,0.58); line-height: 1.7; max-width: 460px; margin-bottom: 36px; }
+    .hero-cta { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 40px; }
+
+    .btn-primary { background: var(--amber); color: var(--white); padding: 16px 32px; border-radius: 10px; font-size: 16px; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; transition: transform 0.15s, box-shadow 0.15s; }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(232,146,10,0.4); }
+    .btn-secondary { background: transparent; color: rgba(255,255,255,0.72); padding: 16px 28px; border-radius: 10px; font-size: 16px; font-weight: 600; text-decoration: none; border: 1.5px solid rgba(255,255,255,0.15); transition: border-color 0.2s, color 0.2s; }
+    .btn-secondary:hover { border-color: rgba(255,255,255,0.4); color: var(--white); }
+
+    .hero-proof { display: flex; align-items: center; gap: 14px; }
+    .proof-dots { display: flex; }
+    .proof-dots span { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--navy); background: var(--navy-mid); display: flex; align-items: center; justify-content: center; font-size: 14px; margin-left: -8px; }
+    .proof-dots span:first-child { margin-left: 0; }
+    .proof-text { font-size: 13px; color: rgba(255,255,255,0.4); }
+    .proof-text strong { color: rgba(255,255,255,0.8); }
+
+    /* HERO VISUAL */
+    .hero-visual { z-index: 1; display: flex; justify-content: center; align-items: center; gap: 20px; }
+
+    /* Notebook */
+    .notebook { background: var(--white); border-radius: 4px; width: 240px; box-shadow: 12px 12px 0 rgba(0,0,0,0.25), 0 20px 56px rgba(0,0,0,0.4); position: relative; transform: rotate(-4deg); flex-shrink: 0; }
+    .nb-spine { position: absolute; left: 0; top: 0; bottom: 0; width: 24px; background: #B91C1C; border-radius: 4px 0 0 4px; display: flex; flex-direction: column; justify-content: space-around; align-items: center; padding: 10px 0; }
+    .nb-ring { width: 13px; height: 13px; border-radius: 50%; background: #1a1a1a; border: 3px solid #bbb; }
+    .nb-margin { position: absolute; left: 24px; top: 0; bottom: 0; width: 1px; background: #FCA5A5; opacity: 0.5; }
+    .nb-body { margin-left: 24px; padding: 16px 12px; }
+    .nb-title { font-family: 'Caveat', cursive; font-size: 14px; color: #374151; margin-bottom: 12px; font-weight: 600; }
+    .nb-row { display: flex; align-items: center; gap: 6px; padding: 6px 0; border-bottom: 1px solid #BFDBFE; font-size: 12px; color: #374151; position: relative; font-family: Georgia, serif; }
+    .nb-row.x { color: #9CA3AF; }
+    .nb-row.x::after { content: ''; position: absolute; left: 0; top: 50%; right: 0; height: 1.5px; background: #EF4444; }
+    .nb-amt { margin-left: auto; font-weight: 600; }
+
+    /* Phone */
+    .phone { width: 168px; background: #111; border-radius: 34px; padding: 8px; box-shadow: 0 28px 72px rgba(0,0,0,0.55); transform: rotate(3deg) translateY(-18px); border: 2px solid #2a2a2a; flex-shrink: 0; }
+    .ph-screen { background: var(--navy); border-radius: 26px; overflow: hidden; }
+    .ph-notch-bar { height: 16px; background: #0a1a2e; display: flex; justify-content: center; align-items: flex-end; padding-bottom: 3px; }
+    .ph-notch { width: 52px; height: 6px; background: #111; border-radius: 99px; }
+    .ph-body { padding: 10px; }
+    .ph-hd { font-size: 7px; color: rgba(255,255,255,0.38); font-family: 'DM Sans', sans-serif; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 6px; }
+    .ph-card { background: rgba(232,146,10,0.14); border-radius: 8px; padding: 9px; margin-bottom: 7px; border: 1px solid rgba(232,146,10,0.2); }
+    .ph-card-lbl { font-size: 7px; color: rgba(255,255,255,0.42); font-family: 'DM Sans', sans-serif; letter-spacing: 0.5px; text-transform: uppercase; }
+    .ph-card-val { font-size: 20px; font-weight: 500; color: var(--amber); font-family: 'DM Mono', monospace; letter-spacing: -1px; }
+    .ph-row { display: flex; align-items: center; gap: 5px; padding: 5px; border-radius: 6px; background: rgba(255,255,255,0.05); margin-bottom: 3px; }
+    .ph-av { width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; flex-shrink: 0; }
+    .ph-name { font-size: 7px; color: rgba(255,255,255,0.72); font-family: 'DM Sans', sans-serif; flex: 1; }
+    .ph-val { font-size: 7px; color: var(--amber); font-family: 'DM Mono', monospace; }
+
+    /* SOCIAL PROOF STRIP */
+    .proof-strip { background: var(--amber); padding: 12px 0; overflow: hidden; }
+    .proof-ticker { display: flex; white-space: nowrap; animation: ticker 22s linear infinite; }
+    .tk { font-size: 12px; font-weight: 700; color: var(--white); letter-spacing: 1px; text-transform: uppercase; padding: 0 24px; }
+    .tk-sep { color: rgba(255,255,255,0.45); }
+    @keyframes ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+    /* SECTIONS */
+    .section { max-width: 1080px; margin: 0 auto; padding: 100px 32px; }
+    .s-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase; color: var(--amber); margin-bottom: 14px; }
+    .s-title { font-family: 'Syne', sans-serif; font-size: clamp(28px, 3.5vw, 42px); font-weight: 800; letter-spacing: -0.3px; color: var(--ink); line-height: 1.12; margin-bottom: 14px; }
+    .s-sub { font-size: 17px; color: var(--muted); line-height: 1.7; max-width: 520px; margin-bottom: 52px; }
+
+    /* PROBLEMA */
+    .prob-section { background: var(--white); }
+    .prob-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .prob-card { background: var(--amber-light); border-radius: 16px; padding: 28px; border: 1px solid var(--amber-border); }
+    .prob-ico { font-size: 28px; margin-bottom: 14px; display: block; }
+    .prob-title { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; color: #92400E; margin-bottom: 8px; }
+    .prob-desc { font-size: 14px; color: #B45309; line-height: 1.6; }
+
+    /* FEATURES */
+    .feat-section { background: var(--paper); }
+    .feat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+    .feat-card { background: var(--white); padding: 32px 24px; transition: background 0.18s; }
+    .feat-card:hover { background: #FFFBF5; }
+    .feat-ico { font-size: 26px; margin-bottom: 16px; display: block; }
+    .feat-title { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; color: var(--ink); margin-bottom: 8px; }
+    .feat-desc { font-size: 14px; color: var(--muted); line-height: 1.65; }
+
+    /* STATS */
+    .stats-section { background: var(--navy); padding: 72px 32px; }
+    .stats-inner { max-width: 1080px; margin: 0 auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 48px; text-align: center; }
+    .stat-val { font-family: 'Syne', sans-serif; font-size: 54px; font-weight: 800; color: var(--white); letter-spacing: -1px; line-height: 1; }
+    .stat-val em { color: var(--amber); font-style: normal; }
+    .stat-lbl { font-size: 14px; color: rgba(255,255,255,0.42); margin-top: 8px; }
+
+    /* HOW */
+    .how-section { background: var(--white); }
+    .steps-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 48px; position: relative; }
+    .steps-row::before { content: ''; position: absolute; top: 23px; left: calc(16.6% + 24px); right: calc(16.6% + 24px); height: 1px; background: var(--border); }
+    .step-n { width: 46px; height: 46px; border-radius: 12px; background: var(--navy); color: var(--white); font-family: 'DM Mono', monospace; font-size: 17px; font-weight: 500; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; }
+    .step-title { font-family: 'Syne', sans-serif; font-size: 17px; font-weight: 700; color: var(--ink); margin-bottom: 10px; }
+    .step-desc { font-size: 14px; color: var(--muted); line-height: 1.65; }
+
+    /* TESTIMONIALS */
+    .testi-section { background: var(--paper); }
+    .testi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    .testi-card { background: var(--white); border-radius: 16px; padding: 28px; border: 1px solid var(--border); }
+    .testi-stars { color: var(--amber); font-size: 14px; letter-spacing: 2px; margin-bottom: 14px; }
+    .testi-quote { font-size: 15px; color: #44403C; line-height: 1.65; margin-bottom: 20px; font-style: italic; }
+    .testi-author { display: flex; align-items: center; gap: 12px; }
+    .testi-av { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+    .testi-name { font-size: 14px; font-weight: 700; color: var(--ink); }
+    .testi-role { font-size: 12px; color: var(--muted); }
+
+    /* PRICING */
+    .price-section { background: var(--white); }
+    .price-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 680px; }
+    .plan { border-radius: 16px; padding: 32px; border: 1.5px solid var(--border); background: var(--paper); }
+    .plan.pro { background: var(--navy); border-color: var(--navy); }
+    .plan-badge { font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #B45309; margin-bottom: 6px; }
+    .plan.pro .plan-badge { color: rgba(232,146,10,0.65); }
+    .plan-name { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; color: var(--ink); margin-bottom: 16px; }
+    .plan.pro .plan-name { color: var(--white); }
+    .plan-price { font-family: 'DM Mono', monospace; font-size: 44px; font-weight: 500; color: var(--ink); letter-spacing: -1.5px; line-height: 1; }
+    .plan.pro .plan-price { color: var(--white); }
+    .plan-period { font-size: 13px; color: var(--muted); margin-bottom: 24px; margin-top: 4px; }
+    .plan.pro .plan-period { color: rgba(255,255,255,0.38); }
+    .plan-features { list-style: none; display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
+    .plan-features li { font-size: 14px; color: var(--muted); display: flex; align-items: flex-start; gap: 9px; line-height: 1.45; }
+    .plan.pro .plan-features li { color: rgba(255,255,255,0.7); }
+    .plan-features li::before { content: '✓'; color: var(--amber); font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+    .btn-plan-free { display: block; text-align: center; padding: 14px; border-radius: 10px; font-size: 15px; font-weight: 700; text-decoration: none; background: var(--navy); color: var(--white); transition: opacity 0.15s; }
+    .btn-plan-free:hover { opacity: 0.85; }
+    .btn-plan-pro { display: block; text-align: center; padding: 14px; border-radius: 10px; font-size: 15px; font-weight: 700; text-decoration: none; background: var(--amber); color: var(--white); transition: opacity 0.15s; }
+    .btn-plan-pro:hover { opacity: 0.88; }
+    .price-note { font-size: 13px; color: var(--muted); margin-top: 20px; }
+    .price-note strong { color: var(--ink); }
+
+    /* FAQ */
+    .faq-section { background: var(--paper); }
+    .faq-list { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+    .faq-item { border-bottom: 1px solid var(--border); background: var(--white); }
+    .faq-item:last-child { border-bottom: none; }
+    .faq-q { width: 100%; text-align: left; background: none; border: none; padding: 22px 24px; font-size: 16px; font-weight: 600; color: var(--ink); cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 16px; font-family: 'DM Sans', sans-serif; }
+    .faq-q:hover { background: var(--paper); }
+    .faq-icon { width: 24px; height: 24px; border-radius: 50%; background: var(--paper); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; transition: transform 0.25s; color: var(--muted); }
+    .faq-item.open .faq-icon { transform: rotate(45deg); }
+    .faq-a { font-size: 15px; color: var(--muted); line-height: 1.7; padding: 0 24px 22px; display: none; }
+    .faq-item.open .faq-a { display: block; }
+
+    /* FINAL CTA */
+    .cta-section { background: var(--navy); padding: 110px 32px; }
+    .cta-inner { max-width: 680px; margin: 0 auto; text-align: center; }
+    .cta-inner h2 { font-family: 'Syne', sans-serif; font-size: clamp(30px, 4vw, 52px); font-weight: 800; color: var(--white); letter-spacing: -0.5px; line-height: 1.1; margin-bottom: 18px; }
+    .cta-inner h2 span { color: var(--amber); }
+    .cta-inner p { font-size: 17px; color: rgba(255,255,255,0.52); margin-bottom: 40px; line-height: 1.7; }
+    .store-btns { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+    .btn-store { background: var(--white); color: var(--navy); padding: 14px 26px; border-radius: 12px; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 12px; transition: transform 0.15s, box-shadow 0.15s; }
+    .btn-store:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(0,0,0,0.28); }
+    .store-ico { font-size: 24px; }
+    .store-sub { font-size: 10px; color: var(--muted); display: block; font-weight: 500; }
+    .store-name { font-size: 14px; color: var(--navy); display: block; font-weight: 800; }
+    .cta-note { font-size: 13px; color: rgba(255,255,255,0.34); margin-top: 24px; }
+
+    /* FOOTER */
+    footer { border-top: 1px solid var(--border); padding: 40px 32px; background: var(--paper); }
+    .footer-inner { max-width: 1080px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
+    .footer-logo { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 800; color: var(--ink); text-decoration: none; }
+    .footer-logo em { color: var(--amber); font-style: normal; }
+    .footer-links { display: flex; gap: 24px; }
+    .footer-links a { font-size: 13px; color: var(--muted); text-decoration: none; }
+    .footer-links a:hover { color: var(--ink); }
+    .footer-copy { font-size: 12px; color: #A8A29E; }
+
+    /* FADE IN */
+    .fade { opacity: 0; transform: translateY(20px); transition: opacity 0.6s ease, transform 0.6s ease; }
+    .fade.in { opacity: 1; transform: none; }
+
+    /* RESPONSIVE */
+    @media (max-width: 960px) {
+      .hero { grid-template-columns: 1fr; padding: 100px 28px 64px; text-align: center; }
+      .hero-visual { display: none; }
+      .hero-sub { margin-left: auto; margin-right: auto; }
+      .hero-cta { justify-content: center; }
+      .hero-proof { justify-content: center; }
+      .prob-grid { grid-template-columns: 1fr; }
+      .feat-grid { grid-template-columns: 1fr 1fr; }
+      .stats-inner { grid-template-columns: 1fr; gap: 36px; }
+      .steps-row { grid-template-columns: 1fr; }
+      .steps-row::before { display: none; }
+      .testi-grid { grid-template-columns: 1fr; }
+      .price-grid { grid-template-columns: 1fr; max-width: 100%; }
+      .nav-links { display: none; }
+      .footer-inner { flex-direction: column; text-align: center; }
+      .s-sub { max-width: 100%; }
+    }
+    @media (max-width: 600px) {
+      .hero { padding: 88px 20px 56px; }
+      .hero h1 { font-size: 34px; }
+      .feat-grid { grid-template-columns: 1fr; }
+      .btn-primary, .btn-secondary { width: 100%; justify-content: center; }
+      .store-btns { flex-direction: column; align-items: center; }
+      .btn-store { width: 100%; max-width: 280px; justify-content: center; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .fade { opacity: 1; transform: none; }
+      .proof-ticker { animation: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="#" class="nav-logo">Fiado <em>Fácil</em></a>
+  <div class="nav-links">
+    <a href="#problema">O problema</a>
+    <a href="#como-funciona">Como funciona</a>
+    <a href="#precos">Preços</a>
+    <a href="#baixar" class="nav-cta">Baixar grátis</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-text">
+    <div class="hero-eyebrow">✦ Grátis para começar</div>
+    <h1>Chega de perder<br>dinheiro com <em>fiado.</em></h1>
+    <p class="hero-sub">Registre a venda, mande a cobrança no WhatsApp e receba pelo Pix. Em 3 toques. O caderninho que não esquece de cobrar.</p>
+    <div class="hero-cta">
+      <a href="#baixar" class="btn-primary">📱 Baixar grátis agora</a>
+      <a href="#como-funciona" class="btn-secondary">Ver como funciona</a>
+    </div>
+    <div class="hero-proof">
+      <div class="proof-dots">
+        <span>🧑</span><span>👩</span><span>👨</span><span>👩</span>
+      </div>
+      <p class="proof-text">Mais de <strong>500 lojistas</strong> já pararam de perder dinheiro</p>
+    </div>
+  </div>
+  <div class="hero-visual">
+    <div class="notebook">
+      <div class="nb-spine">
+        <div class="nb-ring"></div><div class="nb-ring"></div><div class="nb-ring"></div>
+        <div class="nb-ring"></div><div class="nb-ring"></div><div class="nb-ring"></div>
+        <div class="nb-ring"></div>
+      </div>
+      <div class="nb-margin"></div>
+      <div class="nb-body">
+        <div class="nb-title">📒 Fiado — Jun/26</div>
+        <div class="nb-row x"><span>João Silva</span><span class="nb-amt">R$45</span></div>
+        <div class="nb-row x"><span>Dona Maria</span><span class="nb-amt">R$120</span></div>
+        <div class="nb-row x"><span>Pedro C.</span><span class="nb-amt">R$30</span></div>
+        <div class="nb-row"><span>Ana Souza</span><span class="nb-amt">R$85</span></div>
+        <div class="nb-row"><span>Carlos R.</span><span class="nb-amt">R$200</span></div>
+        <div class="nb-row"><span>Sr. Antônio</span><span class="nb-amt">R$60</span></div>
+        <div class="nb-row"><span>Família Lima</span><span class="nb-amt">R$340</span></div>
+      </div>
+    </div>
+    <div class="phone">
+      <div class="ph-screen">
+        <div class="ph-notch-bar"><div class="ph-notch"></div></div>
+        <div class="ph-body">
+          <div class="ph-hd">Fiado Fácil · Dashboard</div>
+          <div class="ph-card">
+            <div class="ph-card-lbl">Total em aberto</div>
+            <div class="ph-card-val">R$1.247</div>
+          </div>
+          <div class="ph-hd">Clientes</div>
+          <div class="ph-row"><div class="ph-av" style="background:#162d52">🧑</div><div class="ph-name">Ana Souza</div><div class="ph-val">R$85</div></div>
+          <div class="ph-row"><div class="ph-av" style="background:#0d1f3f">👩</div><div class="ph-name">Carlos R.</div><div class="ph-val">R$200</div></div>
+          <div class="ph-row"><div class="ph-av" style="background:#1a2d4a">👨</div><div class="ph-name">Sr. Antônio</div><div class="ph-val">R$60</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SOCIAL PROOF STRIP -->
+<div class="proof-strip" aria-hidden="true">
+  <div class="proof-ticker">
+    <span class="tk">Padaria</span><span class="tk tk-sep">·</span>
+    <span class="tk">Mercadinho</span><span class="tk tk-sep">·</span>
+    <span class="tk">Açougue</span><span class="tk tk-sep">·</span>
+    <span class="tk">Bar</span><span class="tk tk-sep">·</span>
+    <span class="tk">Hortifruti</span><span class="tk tk-sep">·</span>
+    <span class="tk">Farmácia</span><span class="tk tk-sep">·</span>
+    <span class="tk">Quitanda</span><span class="tk tk-sep">·</span>
+    <span class="tk">Restaurante</span><span class="tk tk-sep">·</span>
+    <span class="tk">Distribuidora</span><span class="tk tk-sep">·</span>
+    <span class="tk">Padaria</span><span class="tk tk-sep">·</span>
+    <span class="tk">Mercadinho</span><span class="tk tk-sep">·</span>
+    <span class="tk">Açougue</span><span class="tk tk-sep">·</span>
+    <span class="tk">Bar</span><span class="tk tk-sep">·</span>
+    <span class="tk">Hortifruti</span><span class="tk tk-sep">·</span>
+    <span class="tk">Farmácia</span><span class="tk tk-sep">·</span>
+    <span class="tk">Quitanda</span><span class="tk tk-sep">·</span>
+    <span class="tk">Restaurante</span><span class="tk tk-sep">·</span>
+    <span class="tk">Distribuidora</span><span class="tk tk-sep">·</span>
+  </div>
+</div>
+
+<!-- PROBLEMA -->
+<div class="prob-section" id="problema">
+  <div class="section fade">
+    <div class="s-eyebrow">O problema</div>
+    <h2 class="s-title">O caderninho não te avisa<br>quando o cliente some.</h2>
+    <p class="s-sub">Todo lojista que vende fiado conhece essa sensação. O dinheiro saiu, mas a cobrança ficou pra depois — e o depois nunca chega.</p>
+    <div class="prob-grid">
+      <div class="prob-card">
+        <span class="prob-ico">📒</span>
+        <div class="prob-title">Caderninho destruído</div>
+        <p class="prob-desc">Uma chuva, um derramamento ou uma bagunça — e meses de fiado desaparecem sem volta.</p>
+      </div>
+      <div class="prob-card">
+        <span class="prob-ico">😬</span>
+        <div class="prob-title">Vergonha de cobrar</div>
+        <p class="prob-desc">Sem registro claro, cobrar vira discussão. Com extrato na mão, é só mostrar o número.</p>
+      </div>
+      <div class="prob-card">
+        <span class="prob-ico">🤯</span>
+        <div class="prob-title">Conta errada no balcão</div>
+        <p class="prob-desc">Soma de cabeça na correria sempre gera dúvida — de ambos os lados.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FEATURES -->
+<div class="feat-section">
+  <div class="section fade">
+    <div class="s-eyebrow">A solução</div>
+    <h2 class="s-title">Tudo que o caderninho fazia,<br>sem nenhum dos problemas.</h2>
+    <p class="s-sub">Feito para quem atende balcão — não para quem tem departamento de TI.</p>
+    <div class="feat-grid">
+      <div class="feat-card">
+        <span class="feat-ico">📋</span>
+        <div class="feat-title">Registro em 3 toques</div>
+        <p class="feat-desc">Nome, valor, produto. A venda já aparece na conta do cliente na hora — sem rasura.</p>
+      </div>
+      <div class="feat-card">
+        <span class="feat-ico">💬</span>
+        <div class="feat-title">Cobrança pelo WhatsApp</div>
+        <p class="feat-desc">Um toque envia a cobrança com o valor exato e o histórico completo. Sem constrangimento.</p>
+      </div>
+      <div class="feat-card">
+        <span class="feat-ico">⚡</span>
+        <div class="feat-title">Pix na hora</div>
+        <p class="feat-desc">QR Code gerado automaticamente. O cliente escaneia e você recebe sem sair do balcão.</p>
+      </div>
+      <div class="feat-card">
+        <span class="feat-ico">📊</span>
+        <div class="feat-title">Relatório do mês</div>
+        <p class="feat-desc">Quanto entrou, quanto está em aberto, quem está devendo. Sem planilha, sem dor de cabeça.</p>
+      </div>
+      <div class="feat-card">
+        <span class="feat-ico">👥</span>
+        <div class="feat-title">Histórico por cliente</div>
+        <p class="feat-desc">Cada compra, cada pagamento — registrado e consultável a qualquer hora do dia.</p>
+      </div>
+      <div class="feat-card">
+        <span class="feat-ico">☁️</span>
+        <div class="feat-title">Salvo na nuvem</div>
+        <p class="feat-desc">Celular quebrou? Trocou de aparelho? Os dados continuam lá. Nada se perde nunca mais.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- STATS -->
+<div class="stats-section">
+  <div class="stats-inner fade">
+    <div class="stat"><div class="stat-val">+<em>500</em></div><div class="stat-lbl">lojistas usando hoje</div></div>
+    <div class="stat"><div class="stat-val"><em>3</em>s</div><div class="stat-lbl">para registrar uma venda</div></div>
+    <div class="stat"><div class="stat-val"><em>R$0</em></div><div class="stat-lbl">para começar agora</div></div>
+  </div>
+</div>
+
+<!-- COMO FUNCIONA -->
+<div class="how-section" id="como-funciona">
+  <div class="section fade">
+    <div class="s-eyebrow">Como funciona</div>
+    <h2 class="s-title">Três passos.<br>Menos de um minuto.</h2>
+    <p class="s-sub">Se você sabe usar WhatsApp, você já sabe usar o Fiado Fácil.</p>
+    <div class="steps-row">
+      <div>
+        <div class="step-n">1</div>
+        <div class="step-title">Cadastre o cliente</div>
+        <p class="step-desc">Nome e telefone. O app cria o perfil e guarda o histórico completo — sem você precisar fazer nada.</p>
+      </div>
+      <div>
+        <div class="step-n">2</div>
+        <div class="step-title">Registre a venda</div>
+        <p class="step-desc">Valor e o que foi vendido. Aparece na conta do cliente na hora, com cálculo automático, sem margem de erro.</p>
+      </div>
+      <div>
+        <div class="step-n">3</div>
+        <div class="step-title">Cobre e receba</div>
+        <p class="step-desc">Toque em cobrar. A mensagem vai pro WhatsApp com o valor certo e o QR Pix pronto para pagar.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TESTIMONIALS -->
+<div class="testi-section">
+  <div class="section fade">
+    <div class="s-eyebrow">Depoimentos</div>
+    <h2 class="s-title">Quem já parou<br>de perder dinheiro.</h2>
+    <div class="testi-grid">
+      <div class="testi-card">
+        <div class="testi-stars">★★★★★</div>
+        <p class="testi-quote">"Antes eu perdia dinheiro toda semana porque esquecia de cobrar. Agora mando mensagem no WhatsApp e o cliente paga na hora."</p>
+        <div class="testi-author">
+          <div class="testi-av" style="background:#FEF3C7">🧑</div>
+          <div><div class="testi-name">Rodrigo M.</div><div class="testi-role">Mercadinho, São Paulo</div></div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <div class="testi-stars">★★★★★</div>
+        <p class="testi-quote">"Meu caderninho ficou todo molhado uma vez e perdi tudo. Com o app, mesmo trocando de celular, está tudo lá."</p>
+        <div class="testi-author">
+          <div class="testi-av" style="background:#E0F2FE">👩</div>
+          <div><div class="testi-name">Aparecida S.</div><div class="testi-role">Padaria, Minas Gerais</div></div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <div class="testi-stars">★★★★★</div>
+        <p class="testi-quote">"Em 5 minutos aprendi tudo. Simples demais. Agora minha mulher também usa no açougue dela."</p>
+        <div class="testi-author">
+          <div class="testi-av" style="background:#EDE9FE">👨</div>
+          <div><div class="testi-name">Cleiton A.</div><div class="testi-role">Bar e mercearia, Rio de Janeiro</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PRECOS -->
+<div class="price-section" id="precos">
+  <div class="section fade">
+    <div class="s-eyebrow">Preços</div>
+    <h2 class="s-title">Comece grátis.<br>Cresça quando quiser.</h2>
+    <p class="s-sub">Sem cartão de crédito, sem contrato, sem pegadinha. Cancele quando quiser.</p>
+    <div class="price-grid">
+      <div class="plan">
+        <div class="plan-badge">GRATUITO</div>
+        <div class="plan-name">Básico</div>
+        <div class="plan-price">R$0</div>
+        <div class="plan-period">para sempre</div>
+        <ul class="plan-features">
+          <li>Até 20 clientes</li>
+          <li>Registro de vendas ilimitado</li>
+          <li>Cobrança por WhatsApp</li>
+          <li>Histórico de pagamentos</li>
+          <li>QR Code Pix</li>
+        </ul>
+        <a href="#baixar" class="btn-plan-free">Começar grátis</a>
+      </div>
+      <div class="plan pro">
+        <div class="plan-badge">MAIS POPULAR</div>
+        <div class="plan-name">Pro</div>
+        <div class="plan-price">R$19</div>
+        <div class="plan-period">/mês · cancele quando quiser</div>
+        <ul class="plan-features">
+          <li>Clientes ilimitados</li>
+          <li>Pix integrado</li>
+          <li>Relatórios completos</li>
+          <li>Extrato PDF por cliente</li>
+          <li>Backup automático</li>
+          <li>Suporte prioritário</li>
+        </ul>
+        <a href="#baixar" class="btn-plan-pro">Assinar Pro</a>
+      </div>
+    </div>
+    <p class="price-note">Plano anual por <strong>R$149/ano</strong> — economize 35%</p>
+  </div>
+</div>
+
+<!-- FAQ -->
+<div class="faq-section">
+  <div class="section fade">
+    <div class="s-eyebrow">Dúvidas frequentes</div>
+    <h2 class="s-title">Antes de baixar,<br>tire suas dúvidas.</h2>
+    <div class="faq-list">
+      <div class="faq-item">
+        <button class="faq-q">Preciso de internet para usar?<span class="faq-icon">+</span></button>
+        <div class="faq-a">Você precisa de conexão para sincronizar os dados, mas pode registrar vendas offline. Tudo é sincronizado quando a internet voltar.</div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q">Se eu trocar de celular, perco os dados?<span class="faq-icon">+</span></button>
+        <div class="faq-a">Não. Tudo fica salvo na nuvem. É só entrar com a mesma conta no celular novo e tudo aparece exatamente como estava.</div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q">Como funciona o plano grátis? Tem limite?<span class="faq-icon">+</span></button>
+        <div class="faq-a">O plano gratuito permite até 20 clientes cadastrados, com vendas e cobranças ilimitadas para esses clientes. Para mais clientes, o plano Pro é R$19/mês.</div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q">O cliente precisa ter o app para eu cobrar?<span class="faq-icon">+</span></button>
+        <div class="faq-a">Não. A cobrança vai pelo WhatsApp normal, com uma mensagem e o QR Code do Pix. O cliente paga direto, sem precisar de nenhum app.</div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q">Posso cancelar quando quiser?<span class="faq-icon">+</span></button>
+        <div class="faq-a">Sim. Não tem contrato, não tem fidelidade. Cancele quando quiser pelo próprio app, sem burocracia.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CTA FINAL -->
+<div class="cta-section" id="baixar">
+  <div class="cta-inner fade">
+    <h2>Seu dinheiro tá no fiado.<br><span>Venha resgatar.</span></h2>
+    <p>Disponível para Android e iOS. Gratuito para começar.<br>Sem cartão de crédito, sem burocracia.</p>
+    <div class="store-btns">
+      <a href="https://apps.apple.com/app/fiado-facil" class="btn-store">
+        <span class="store-ico">🍎</span>
+        <span><span class="store-sub">Disponível na</span><span class="store-name">App Store</span></span>
+      </a>
+      <a href="https://play.google.com/store/apps/details?id=com.fiadofacil.app" class="btn-store">
+        <span class="store-ico">▶</span>
+        <span><span class="store-sub">Disponível no</span><span class="store-name">Google Play</span></span>
+      </a>
+    </div>
+    <p class="cta-note">Grátis para sempre no plano básico. Sem cartão.</p>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <a href="#" class="footer-logo">Fiado <em>Fácil</em></a>
+    <div class="footer-links">
+      <a href="./politica-de-privacidade.html">Privacidade</a>
+      <a href="mailto:contato@fiadofacil.app">Contato</a>
+    </div>
+    <p class="footer-copy">© 2026 Fiado Fácil. Todos os direitos reservados.</p>
+  </div>
+</footer>
+
+<script>
+  const io = new IntersectionObserver(
+    es => es.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); }),
+    { threshold: 0.08 }
+  );
+  document.querySelectorAll('.fade').forEach(el => io.observe(el));
+
+  document.querySelectorAll('.faq-q').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const item = btn.parentElement;
+      const isOpen = item.classList.contains('open');
+      document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+      if (!isOpen) item.classList.add('open');
+    });
+  });
+</script>
+
+</body>
+</html>
