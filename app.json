@@ -1,0 +1,78 @@
+{
+  "expo": {
+    "name": "Fiado Fácil: Controle de Vendas",
+    "slug": "fiado-facil",
+    "version": "1.0.0",
+    "runtimeVersion": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "scheme": "fiadofacil",
+    "description": "Controle suas vendas no fiado de forma simples e profissional. Cadastre clientes, registre vendas, cobre pelo WhatsApp e receba pelo Pix.",
+    "primaryColor": "#00A651",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F2F5F9"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.fiadofacil.app",
+      "buildNumber": "4",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Usamos a câmera para tirar foto do comprovante de venda.",
+        "NSPhotoLibraryUsageDescription": "Usamos a galeria para selecionar foto do comprovante de venda.",
+        "NSUserNotificationsUsageDescription": "Enviamos lembretes de vencimento de pagamentos.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.fiadofacil.app",
+      "versionCode": 4,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.INTERNET",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png",
+      "name": "Fiado Fácil",
+      "shortName": "Fiado Fácil",
+      "description": "Controle suas vendas no fiado de forma simples e profissional."
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-sharing",
+      "expo-file-system",
+      "expo-image-picker",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#00A651"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "d8d7d3b3-83de-4260-84a8-8da259550bfe"
+      }
+    },
+    "owner": "tiago-batista-organizacoes"
+  }
+}
