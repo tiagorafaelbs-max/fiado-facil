@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Fiado Fácil: Controle de Vendas",
+    "name": "FiadoApp",
     "slug": "fiado-facil",
     "version": "1.0.0",
     "runtimeVersion": "1.0.0",
@@ -47,7 +47,7 @@
     "web": {
       "bundler": "metro",
       "favicon": "./assets/favicon.png",
-      "name": "Fiado Fácil",
+      "name": "FiadoApp",
       "shortName": "Fiado Fácil",
       "description": "Controle suas vendas no fiado de forma simples e profissional."
     },
