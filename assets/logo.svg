@@ -1,0 +1,24 @@
+<svg width="600" height="180" viewBox="0 0 600 180" xmlns="http://www.w3.org/2000/svg">
+  <rect x="0" y="0" width="600" height="180" rx="24" fill="#ffffff"/>
+
+  <!-- Sombra do caderninho -->
+  <rect x="26" y="36" width="76" height="94" rx="10" fill="#C6E8D4"/>
+  <!-- Caderninho principal -->
+  <rect x="22" y="30" width="76" height="94" rx="10" fill="#00A651"/>
+  <!-- Lombada -->
+  <rect x="22" y="30" width="14" height="94" rx="7" fill="#007A3C"/>
+  <!-- Linhas do caderninho -->
+  <line x1="46" y1="54" x2="84" y2="54" stroke="rgba(255,255,255,0.4)" stroke-width="2" stroke-linecap="round"/>
+  <line x1="46" y1="66" x2="84" y2="66" stroke="rgba(255,255,255,0.4)" stroke-width="2" stroke-linecap="round"/>
+  <line x1="46" y1="78" x2="78" y2="78" stroke="rgba(255,255,255,0.4)" stroke-width="2" stroke-linecap="round"/>
+  <line x1="46" y1="90" x2="84" y2="90" stroke="rgba(255,255,255,0.4)" stroke-width="2" stroke-linecap="round"/>
+  <!-- Cifrão em destaque -->
+  <circle cx="60" cy="108" r="12" fill="#F59E0B"/>
+  <text x="60" y="113" text-anchor="middle" font-family="Helvetica Neue, Arial, sans-serif" font-weight="900" font-size="13" fill="#ffffff">$</text>
+
+  <!-- Tipografia -->
+  <text x="126" y="85" font-family="Helvetica Neue, Arial, sans-serif" font-weight="900" font-size="70" fill="#1A2332" letter-spacing="-3">Fiado</text>
+  <rect x="126" y="92" width="205" height="6" rx="3" fill="#00A651"/>
+  <text x="126" y="148" font-family="Helvetica Neue, Arial, sans-serif" font-weight="900" font-size="70" fill="#00A651" letter-spacing="-3">App</text>
+  <text x="126" y="170" font-family="Helvetica Neue, Arial, sans-serif" font-size="16" font-weight="500" fill="#6B7280">Para quem vende e quer receber</text>
+</svg>

@@ -1,0 +1,22 @@
+<svg width="1024" height="1024" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <rect width="200" height="200" rx="44" fill="#00A651"/>
+  <!-- sombra caderninho -->
+  <rect x="14" y="16" width="38" height="50" rx="7" fill="#007A3C" opacity="0.5"/>
+  <!-- caderninho -->
+  <rect x="10" y="12" width="38" height="50" rx="7" fill="white"/>
+  <!-- lombada -->
+  <rect x="10" y="12" width="8" height="50" rx="4" fill="#C6E8D4"/>
+  <!-- linhas -->
+  <line x1="22" y1="24" x2="40" y2="24" stroke="#C6E8D4" stroke-width="2" stroke-linecap="round"/>
+  <line x1="22" y1="33" x2="40" y2="33" stroke="#C6E8D4" stroke-width="2" stroke-linecap="round"/>
+  <line x1="22" y1="42" x2="36" y2="42" stroke="#C6E8D4" stroke-width="2" stroke-linecap="round"/>
+  <!-- cifrão amarelo -->
+  <circle cx="17" cy="57" r="9" fill="#F59E0B"/>
+  <text x="17" y="62" text-anchor="middle" font-family="Helvetica Neue, Arial, sans-serif" font-weight="900" font-size="10" fill="white">$</text>
+  <!-- Fiado grande -->
+  <text x="100" y="100" text-anchor="middle" font-family="Helvetica Neue, Arial, sans-serif" font-weight="900" font-size="58" fill="white" letter-spacing="-2">Fiado</text>
+  <!-- linha amarela -->
+  <rect x="22" y="108" width="156" height="5" rx="2.5" fill="#F59E0B"/>
+  <!-- App em amarelo grande -->
+  <text x="100" y="158" text-anchor="middle" font-family="Helvetica Neue, Arial, sans-serif" font-weight="900" font-size="58" fill="#F59E0B" letter-spacing="-2">App</text>
+</svg>
