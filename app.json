@@ -1,4 +1,4 @@
-{
+﻿{
   "expo": {
     "name": "FiadoApp",
     "slug": "fiado-facil",
@@ -48,7 +48,7 @@
       "bundler": "metro",
       "favicon": "./assets/favicon.png",
       "name": "FiadoApp",
-      "shortName": "Fiado Fácil",
+      "shortName": "FiadoApp",
       "description": "Controle suas vendas no fiado de forma simples e profissional."
     },
     "plugins": [

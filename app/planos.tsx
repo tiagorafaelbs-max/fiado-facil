@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Linking, Platform, ActivityIndicator } from 'react-native'
+﻿import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Linking, Platform, ActivityIndicator } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import { useState } from 'react'
@@ -58,7 +58,7 @@ export default function PlanosScreen() {
         window.open(data.init_point, '_blank')
       } else {
         Alert.alert(
-          'Assinar Fiado Fácil Pro',
+          'Assinar FiadoApp Pro',
           'Você será redirecionado para o pagamento seguro no Mercado Pago.',
           [
             { text: 'Cancelar', style: 'cancel' },

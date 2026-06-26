@@ -1,9 +1,9 @@
-# Fiado Fácil — Textos para Google Play e App Store
+﻿# FiadoApp — Textos para Google Play e App Store
 
 ---
 
 ## NOME DO APP
-**Fiado Fácil – Controle de Fiado**
+**FiadoApp – Controle de Fiado**
 _(máx. 30 caracteres no iOS / 50 no Android)_
 
 ---
@@ -20,7 +20,7 @@ Controle fiado, clientes e cobranças no celular. Simples e rápido.
 
 ## DESCRIÇÃO LONGA (Google Play e App Store — máx. 4000 caracteres)
 
-Chega de caderninho rasgado e anotações perdidas. O **Fiado Fácil** é o app que o pequeno comerciante brasileiro precisava para controlar quem deve, quanto deve e quando vence — tudo no celular, em segundos.
+Chega de caderninho rasgado e anotações perdidas. O **FiadoApp** é o app que o pequeno comerciante brasileiro precisava para controlar quem deve, quanto deve e quando vence — tudo no celular, em segundos.
 
 **📒 Controle de fiado simples e rápido**
 Registre uma venda no fiado em menos de 10 segundos. Anote o valor, o cliente e a data de vencimento. Pronto. O app calcula o saldo automaticamente.
@@ -66,7 +66,7 @@ Cancele quando quiser. Sem fidelidade.
 ---
 
 ## PALAVRAS-CHAVE — Google Play (sem limite, separar por vírgula)
-fiado, controle de fiado, caderninho de fiado, fiado digital, vendas a prazo, controle de clientes, cobrança whatsapp, contas a receber, crediário, controle de vendas, fiado fácil, app de fiado, mercadinho, comerciante, pequeno negócio, gestão de fiado, caderneta digital, controle financeiro, cobrança de clientes, prazo
+fiado, controle de fiado, caderninho de fiado, fiado digital, vendas a prazo, controle de clientes, cobrança whatsapp, contas a receber, crediário, controle de vendas, FiadoApp, app de fiado, mercadinho, comerciante, pequeno negócio, gestão de fiado, caderneta digital, controle financeiro, cobrança de clientes, prazo
 
 ## PALAVRAS-CHAVE — App Store (máx. 100 caracteres, separar por vírgula)
 fiado,crediario,vendas,cobranca,clientes,mercadinho,prazo,caderneta,financeiro,controle
@@ -85,9 +85,9 @@ fiado,crediario,vendas,cobranca,clientes,mercadinho,prazo,caderneta,financeiro,c
 ---
 
 ## O QUE HÁ DE NOVO — versão 1.0.0
-Lançamento oficial do Fiado Fácil! Controle completo de vendas no fiado com cadastro de clientes, registro de pagamentos, cobranças pelo WhatsApp, relatórios mensais e anuais com exportação em PDF. Disponível para Android, iPhone e web.
+Lançamento oficial do FiadoApp! Controle completo de vendas no fiado com cadastro de clientes, registro de pagamentos, cobranças pelo WhatsApp, relatórios mensais e anuais com exportação em PDF. Disponível para Android, iPhone e web.
 
 ---
 
 ## TEXTO PARA RESPOSTA DE AVALIAÇÕES (usar como base)
-Obrigado pela avaliação! Sua opinião é muito importante para continuarmos melhorando o Fiado Fácil. Qualquer dúvida ou sugestão, entre em contato pelo WhatsApp (31) 99551-5045. 🙏
+Obrigado pela avaliação! Sua opinião é muito importante para continuarmos melhorando o FiadoApp. Qualquer dúvida ou sugestão, entre em contato pelo WhatsApp (31) 99551-5045. 🙏
