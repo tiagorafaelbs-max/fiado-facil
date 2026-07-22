@@ -19,7 +19,6 @@ import { AppTour, type TourStep } from '../../components/ui/AppTour'
 import { formatarMoeda } from '../../lib/validacao'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
-import { Logo } from '../../components/ui/Logo'
 import { C } from '../../constants/colors'
 import type { Cliente } from '../../types'
 
@@ -149,7 +148,10 @@ export default function DashboardScreen() {
           <View>
             {/* Topo: logo + busca */}
             <View style={estilos.topBar}>
-              <Logo width={110} showTagline={false} />
+              <View style={estilos.logoTexto}>
+                <Text style={estilos.logoFiado}>Fiado</Text>
+                <Text style={estilos.logoApp}>App</Text>
+              </View>
               <TouchableOpacity ref={refBusca} style={estilos.buscaBtn} onPress={() => router.push('/busca')}>
                 <Ionicons name="search-outline" size={19} color={C.text2} />
               </TouchableOpacity>
@@ -303,6 +305,9 @@ const estilos = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingTop: 8, marginBottom: 14,
   },
+  logoTexto: { flexDirection: 'row', alignItems: 'baseline', gap: 0 },
+  logoFiado: { fontSize: 26, fontWeight: '900', color: C.text, letterSpacing: -1 },
+  logoApp: { fontSize: 26, fontWeight: '900', color: C.green, letterSpacing: -1 },
   buscaBtn: {
     width: 42, height: 42, borderRadius: 13,
     backgroundColor: C.card, borderWidth: 1, borderColor: C.border,
