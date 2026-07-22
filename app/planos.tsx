@@ -1,15 +1,22 @@
 ﻿import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Linking, Platform, ActivityIndicator } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { C } from '../constants/colors'
+import * as IAP from 'react-native-iap'
+
+const IAP_SKUS = {
+  monthly: 'com.fiadofacil.app.pro.monthly',
+  annual: 'com.fiadofacil.app.pro.annual',
+}
 
 const RECURSOS_GRATUITO = [
   { texto: 'Até 10 clientes', ok: true },
   { texto: 'Lançamentos ilimitados', ok: true },
-  { texto: 'Cobrança via WhatsApp', ok: true },
-  { texto: 'Histórico de pagamentos', ok: true },
+  { texto: '10 cobranças WhatsApp/mês', ok: true },
+  { texto: 'Histórico dos últimos 30 dias', ok: true },
+  { texto: 'Cobranças WhatsApp ilimitadas', ok: false },
   { texto: 'Relatórios por categoria', ok: false },
   { texto: 'Exportação de dados CSV', ok: false },
   { texto: 'Score do cliente', ok: false },
@@ -18,8 +25,8 @@ const RECURSOS_GRATUITO = [
 const RECURSOS_PRO = [
   { texto: 'Clientes ilimitados', destaque: true },
   { texto: 'Lançamentos ilimitados', destaque: false },
-  { texto: 'Cobrança via WhatsApp', destaque: false },
-  { texto: 'Histórico completo', destaque: false },
+  { texto: 'Cobranças WhatsApp ilimitadas', destaque: true },
+  { texto: 'Histórico completo (sem limite)', destaque: true },
   { texto: 'Relatórios por categoria', destaque: true },
   { texto: 'Exportação de dados CSV', destaque: true },
   { texto: 'Score de pagador', destaque: true },
@@ -30,7 +37,48 @@ export default function PlanosScreen() {
   const router = useRouter()
   const [loading, setLoading] = useState<'monthly' | 'annual' | null>(null)
 
-  async function handleAssinar(plan_type: 'monthly' | 'annual' = 'monthly') {
+  // Inicializa IAP no iOS
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return
+    IAP.initConnection().catch(() => {})
+    return () => { IAP.endConnection() }
+  }, [])
+
+  async function handleAssinarIOS(plan_type: 'monthly' | 'annual') {
+    setLoading(plan_type)
+    try {
+      await IAP.initConnection()
+      const sku = IAP_SKUS[plan_type]
+      const subscriptions = await IAP.getSubscriptions({ skus: [sku] })
+      if (!subscriptions || subscriptions.length === 0) {
+        Alert.alert(
+          'Assinatura em breve',
+          'Os planos estão sendo configurados na App Store e estarão disponíveis em breve.\n\nEntre em contato pelo WhatsApp para assinar antecipadamente.',
+          [
+            { text: 'OK', style: 'cancel' },
+            { text: 'WhatsApp', onPress: () => Linking.openURL('https://wa.me/5511999999999') },
+          ],
+        )
+        return
+      }
+      await IAP.requestSubscription({ sku })
+    } catch (err: any) {
+      if (err?.code !== IAP.ErrorCode.E_USER_CANCELLED) {
+        Alert.alert(
+          'Não foi possível iniciar',
+          'Verifique sua conexão e tente novamente. Se o problema persistir, entre em contato.',
+          [
+            { text: 'OK', style: 'cancel' },
+            { text: 'WhatsApp', onPress: () => Linking.openURL('https://wa.me/5511999999999') },
+          ],
+        )
+      }
+    } finally {
+      setLoading(null)
+    }
+  }
+
+  async function handleAssinarAndroid(plan_type: 'monthly' | 'annual') {
     setLoading(plan_type)
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -71,6 +119,13 @@ export default function PlanosScreen() {
     } finally {
       setLoading(null)
     }
+  }
+
+  function handleAssinar(plan_type: 'monthly' | 'annual' = 'monthly') {
+    if (Platform.OS === 'ios') {
+      return handleAssinarIOS(plan_type)
+    }
+    return handleAssinarAndroid(plan_type)
   }
 
   return (
@@ -183,6 +238,17 @@ export default function PlanosScreen() {
         </View>
       </View>
 
+      {/* Links legais exigidos pela Apple para assinaturas */}
+      <View style={estilos.legalBox}>
+        <TouchableOpacity onPress={() => Linking.openURL('https://fiadoapp.com.br/privacidade')}>
+          <Text style={estilos.legalLink}>Política de Privacidade</Text>
+        </TouchableOpacity>
+        <Text style={estilos.legalSep}> · </Text>
+        <TouchableOpacity onPress={() => Linking.openURL('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/')}>
+          <Text style={estilos.legalLink}>Termos de Uso (EULA)</Text>
+        </TouchableOpacity>
+      </View>
+
     </ScrollView>
   )
 }
@@ -282,4 +348,8 @@ const estilos = StyleSheet.create({
   },
   garantiaTitulo: { fontSize: 14, fontWeight: '700', color: C.text, marginBottom: 2 },
   garantiaSub: { fontSize: 13, color: C.text2, lineHeight: 18 },
+
+  legalBox: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 12, marginBottom: 4 },
+  legalLink: { fontSize: 12, color: C.text3, textDecorationLine: 'underline' },
+  legalSep: { fontSize: 12, color: C.text3 },
 })

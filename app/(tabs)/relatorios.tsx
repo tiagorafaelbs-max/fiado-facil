@@ -3,7 +3,7 @@ import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
   StyleSheet, RefreshControl, ActivityIndicator, Platform, Alert
 } from 'react-native'
-import { useFocusEffect } from 'expo-router'
+import { useFocusEffect, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
@@ -39,7 +39,7 @@ interface ResumoRelatorio {
   totalRecebido: number
   totalEmAberto: number
   quantidadeVendas: number
-  maioresDevedores: { nome: string; saldo: number; telefone?: string }[]
+  maioresDevedores: { id: string; nome: string; saldo: number; telefone?: string }[]
   melhoresClientes: { nome: string; total: number }[]
   porCategoria: { categoria: string; total: number; clientes: { nome: string; total: number }[] }[]
   evolucaoMensal?: MesResumo[]
@@ -67,6 +67,7 @@ function parseDDMMYYYY(val: string): string | null {
 }
 
 export default function RelatoriosScreen() {
+  const router = useRouter()
   const { usuario } = useAuth()
   const { modulos } = useModulos(usuario?.id)
   const [periodo, setPeriodo] = useState<Periodo>('hoje')
@@ -106,8 +107,10 @@ export default function RelatoriosScreen() {
         dataFim = dia
       }
 
-      let qVendas = supabase.from('vendas').select('id, valor, cliente_id, categoria, descricao, data_venda, clientes(nome)')
-      let qPagamentos = supabase.from('pagamentos').select('id, valor, cliente_id, data_pagamento, clientes(nome)')
+      const { data: { session: sess } } = await supabase.auth.getSession()
+      const uid = sess?.user?.id ?? ''
+      let qVendas = supabase.from('vendas').select('id, valor, cliente_id, categoria, descricao, data_venda, clientes(nome)').eq('usuario_id', uid)
+      let qPagamentos = supabase.from('pagamentos').select('id, valor, cliente_id, data_pagamento, clientes(nome)').eq('usuario_id', uid)
 
       if (dataInicio && dataFim) {
         qVendas = qVendas.gte('data_venda', dataInicio).lte('data_venda', dataFim)
@@ -119,7 +122,8 @@ export default function RelatoriosScreen() {
         qPagamentos.order('data_pagamento', { ascending: false }),
         supabase
           .from('clientes_com_saldo')
-          .select('nome, saldo_devedor, telefone')
+          .select('id, nome, saldo_devedor, telefone')
+          .eq('usuario_id', uid)
           .gt('saldo_devedor', 0)
           .order('saldo_devedor', { ascending: false })
           .limit(5),
@@ -194,7 +198,7 @@ export default function RelatoriosScreen() {
         totalRecebido,
         totalEmAberto: totalVendido - totalRecebido,
         quantidadeVendas: (vendas ?? []).length,
-        maioresDevedores: (devedores ?? []).map((c) => ({ nome: c.nome, saldo: c.saldo_devedor ?? 0, telefone: c.telefone })),
+        maioresDevedores: (devedores ?? []).map((c) => ({ id: c.id, nome: c.nome, saldo: c.saldo_devedor ?? 0, telefone: c.telefone })),
         melhoresClientes,
         porCategoria,
         evolucaoMensal,
@@ -538,7 +542,7 @@ export default function RelatoriosScreen() {
                           { height: `${Math.round((m.recebido / maxVal) * 100)}%`, backgroundColor: C.green },
                         ]} />
                       </View>
-                      <Text style={estilos.graficoLabel}>{m.label}</Text>
+                      <Text style={estilos.graficoLabel}>{m?.label ?? ''}</Text>
                     </View>
                   ))}
                 </View>
@@ -546,11 +550,12 @@ export default function RelatoriosScreen() {
                 {/* Tabela resumo mensal */}
                 <View style={{ marginTop: 16 }}>
                   {resumo.evolucaoMensal!.map((m, i) => {
-                    if (m.vendido === 0 && m.recebido === 0) return null
+                    if (!m || (m.vendido === 0 && m.recebido === 0)) return null
                     const saldo = m.recebido - m.vendido
+                    const labelTxt = m.label ?? ''
                     return (
                       <View key={m.mes} style={[estilos.mesRow, i === resumo.evolucaoMensal!.length - 1 && { borderBottomWidth: 0 }]}>
-                        <Text style={estilos.mesLabel}>{m.label.charAt(0).toUpperCase() + m.label.slice(1)}</Text>
+                        <Text style={estilos.mesLabel}>{labelTxt.charAt(0).toUpperCase() + labelTxt.slice(1)}</Text>
                         <View style={estilos.mesDados}>
                           <Text style={estilos.mesVendido}>{formatarMoeda(m.vendido)}</Text>
                           <Text style={estilos.mesRecebido}>{formatarMoeda(m.recebido)}</Text>
@@ -581,19 +586,24 @@ export default function RelatoriosScreen() {
             <View style={estilos.rankingCard}>
               <Text style={estilos.rankingTitulo}>🔴 Maiores devedores</Text>
               {resumo.maioresDevedores.map((c, i) => (
-                <View key={i} style={[estilos.rankRow, i === resumo.maioresDevedores.length - 1 && { borderBottomWidth: 0 }]}>
+                <TouchableOpacity
+                  key={i}
+                  style={[estilos.rankRow, i === resumo.maioresDevedores.length - 1 && { borderBottomWidth: 0 }]}
+                  onPress={() => router.push(`/cliente/${c.id}`)}
+                >
                   <Text style={estilos.posicao}>{medalha(i)}</Text>
                   <Avatar nome={c.nome} tamanho={34} />
                   <Text style={estilos.rankNome} numberOfLines={1}>{c.nome}</Text>
                   <View style={estilos.rankDireita}>
                     <Text style={estilos.rankValorDevendo}>{formatarMoeda(c.saldo)}</Text>
                     {c.telefone && (
-                      <TouchableOpacity style={estilos.rankWhats} onPress={() => cobrarWhatsApp(c)}>
+                      <TouchableOpacity style={estilos.rankWhats} onPress={(e) => { e.stopPropagation?.(); cobrarWhatsApp(c) }}>
                         <Ionicons name="logo-whatsapp" size={16} color="#25D366" />
                       </TouchableOpacity>
                     )}
+                    <Ionicons name="chevron-forward" size={13} color={C.text3} />
                   </View>
-                </View>
+                </TouchableOpacity>
               ))}
             </View>
           )}
