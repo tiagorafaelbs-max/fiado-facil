@@ -1,22 +1,25 @@
-﻿import { useState, useEffect } from 'react'
+﻿import { useState, useEffect, useRef } from 'react'
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, Alert, Platform, Switch
+  StyleSheet, Alert, Platform, Switch, Modal, TextInput
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import * as Sharing from 'expo-sharing'
-import * as FileSystem from 'expo-file-system'
+import * as FileSystem from 'expo-file-system/legacy'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { useOffline } from '../../hooks/useOffline'
 import { useModulos, INFO_MODULOS, type Modulos } from '../../hooks/useModulos'
 import { solicitarPermissaoNotificacoes, agendarNotificacoesVencimento } from '../../hooks/useNotificacoes'
+import { KeyboardToolbar } from '../../components/ui/KeyboardToolbar'
+import { getBeepAtivo, setBeepAtivo } from '../../hooks/useBeep'
 import { Campo } from '../../components/ui/Campo'
 import { Botao } from '../../components/ui/Botao'
 import { Avatar } from '../../components/ui/Avatar'
 import { sanitizarTexto, validarTelefone } from '../../lib/validacao'
 import { C } from '../../constants/colors'
+import { useCategorias, CATS_BASE } from '../../hooks/useCategorias'
 
 interface Perfil {
   nome_negocio: string
@@ -43,6 +46,10 @@ export default function ConfiguracoesScreen() {
   const { usuario, sair } = useAuth()
   const { online, pendentes } = useOffline()
   const { modulos, alternar } = useModulos(usuario?.id)
+  const { todas: todasCats, extras: catsExtras, adicionar: adicionarCat, remover: removerCat, renomear: renomearCat } = useCategorias(usuario?.id)
+  const [novaCatConf, setNovaCatConf] = useState('')
+  const [editandoCat, setEditandoCat] = useState<string | null>(null)
+  const [nomeEdicaoCat, setNomeEdicaoCat] = useState('')
   const [perfil, setPerfil] = useState<Perfil>({
     nome_negocio: '', telefone: '', plano: 'gratuito',
     chave_pix: '', dia_cobranca: '', notificacoes_ativas: true,
@@ -53,7 +60,10 @@ export default function ConfiguracoesScreen() {
   const [erros, setErros] = useState<Record<string, string>>({})
   const [erroGeral, setErroGeral] = useState('')
   const [sucesso, setSucesso] = useState(false)
+  const [beepAtivo, setBeepAtivoState] = useState(true)
   const ultimoSync = new Date().toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })
+
+  useEffect(() => { getBeepAtivo().then(setBeepAtivoState) }, [])
 
   useEffect(() => {
     if (!usuario) return
@@ -88,13 +98,14 @@ export default function ConfiguracoesScreen() {
     if (!validar()) return
     setSalvando(true); setErroGeral(''); setSucesso(false)
     try {
-      const { error } = await supabase.from('perfis').update({
+      const { error } = await supabase.from('perfis').upsert({
+        id: usuario!.id,
         nome_negocio: sanitizarTexto(perfil.nome_negocio),
         telefone: perfil.telefone || null,
         chave_pix: perfil.chave_pix || null,
         dia_cobranca: perfil.dia_cobranca ? parseInt(perfil.dia_cobranca) : null,
         notificacoes_ativas: perfil.notificacoes_ativas,
-      }).eq('id', usuario!.id)
+      })
       if (error) throw error
       setSucesso(true)
       setTimeout(() => setSucesso(false), 3000)
@@ -177,6 +188,11 @@ export default function ConfiguracoesScreen() {
     }
   }
 
+  async function toggleBeep(valor: boolean) {
+    setBeepAtivoState(valor)
+    await setBeepAtivo(valor)
+  }
+
   async function toggleNotificacoes(valor: boolean) {
     setPerfil(p => ({ ...p, notificacoes_ativas: valor }))
     if (valor && Platform.OS !== 'web') {
@@ -187,6 +203,8 @@ export default function ConfiguracoesScreen() {
   }
 
   return (
+    <>
+    <KeyboardToolbar />
     <ScrollView style={estilos.container} contentContainerStyle={estilos.content}>
 
       {/* Status online/offline */}
@@ -222,7 +240,7 @@ export default function ConfiguracoesScreen() {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={estilos.upgradeTitle}>Mude para o Plano Pro</Text>
-            <Text style={estilos.upgradeSub}>Desbloqueie tudo por R$ 19/mês</Text>
+            <Text style={estilos.upgradeSub}>Desbloqueie tudo por R$ 19,00/mês</Text>
             <View style={estilos.upgradeItens}>
               <View style={estilos.upgradeItem}>
                 <Ionicons name="logo-whatsapp" size={12} color={C.green} />
@@ -367,6 +385,18 @@ export default function ConfiguracoesScreen() {
             thumbColor={perfil.notificacoes_ativas ? C.green : C.text3}
           />
         </View>
+        <View style={[estilos.toggleRow, { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: C.border }]}>
+          <View style={{ flex: 1 }}>
+            <Text style={estilos.toggleLabel}>Som de confirmação</Text>
+            <Text style={estilos.toggleSub}>Beep ao registrar venda ou pagamento</Text>
+          </View>
+          <Switch
+            value={beepAtivo}
+            onValueChange={toggleBeep}
+            trackColor={{ false: C.border, true: C.greenMid }}
+            thumbColor={beepAtivo ? C.green : C.text3}
+          />
+        </View>
         {Platform.OS === 'web' && (
           <Text style={estilos.avisoWeb}>⚠ Notificações push funcionam apenas no app instalado.</Text>
         )}
@@ -380,31 +410,53 @@ export default function ConfiguracoesScreen() {
         </View>
         {(Object.keys(INFO_MODULOS) as (keyof Modulos)[]).map((key, i, arr) => {
           const info = INFO_MODULOS[key]
+          if (!info) return null
           const ativo = modulos[key]
           const ultimo = i === arr.length - 1
+          const bloqueado = info.pro && perfil.plano !== 'pro'
+
+          function handleToggle(novoValor: boolean) {
+            if (novoValor && bloqueado) {
+              router.push('/planos')
+              return
+            }
+            alternar(key, novoValor)
+          }
+
           return (
-            <View key={key} style={[estilos.moduloRow, ultimo && { borderBottomWidth: 0 }]}>
+            <TouchableOpacity
+              key={key}
+              activeOpacity={0.7}
+              onPress={() => handleToggle(!ativo)}
+              style={[estilos.moduloRow, ultimo && { borderBottomWidth: 0, marginBottom: 0 }, ativo ? estilos.moduloRowAtivo : estilos.moduloRowOff]}
+            >
               <View style={[estilos.moduloIcone, ativo ? estilos.moduloIconeAtivo : estilos.moduloIconeOff]}>
-                <Ionicons name={info.icone as any} size={16} color={ativo ? C.green : C.text3} />
+                <Ionicons name={bloqueado ? 'lock-closed-outline' : info.icone as any} size={18} color={ativo ? C.green : C.red} />
               </View>
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={estilos.moduloLabel}>{info.label}</Text>
+                  <Text style={[estilos.moduloLabel, !ativo && { color: C.text2 }]}>{info.label}</Text>
                   {info.pro && (
                     <View style={estilos.proBadge}>
                       <Text style={estilos.proTexto}>PRO</Text>
                     </View>
                   )}
+                  <View style={[estilos.statusChip, ativo ? estilos.statusChipAtivo : estilos.statusChipOff]}>
+                    <Text style={[estilos.statusChipTexto, ativo ? { color: C.green } : { color: C.red }]}>
+                      {ativo ? 'ATIVO' : 'INATIVO'}
+                    </Text>
+                  </View>
                 </View>
                 <Text style={estilos.moduloDesc}>{info.descricao}</Text>
               </View>
               <Switch
                 value={ativo}
-                onValueChange={(v) => alternar(key, v)}
-                trackColor={{ false: C.border, true: C.greenMid }}
-                thumbColor={ativo ? C.green : C.text3}
+                onValueChange={handleToggle}
+                disabled={bloqueado && !ativo}
+                trackColor={{ false: C.redBorder, true: C.greenMid }}
+                thumbColor={ativo ? C.green : C.red}
               />
-            </View>
+            </TouchableOpacity>
           )
         })}
       </View>
@@ -436,6 +488,97 @@ export default function ConfiguracoesScreen() {
         <AcaoRow icone="document-text-outline" label="Termos de Uso" onPress={() => router.push('/termos')} ultimo />
       </View>
 
+      {/* Categorias */}
+      {modulos.categorias && (
+        <View style={estilos.card}>
+          <View style={{ marginBottom: 14 }}>
+            <Text style={estilos.cardTitulo}>🏷️ Categorias de produto</Text>
+            <Text style={estilos.secaoInfo}>Gerencie as categorias usadas na Nova Venda.</Text>
+          </View>
+
+          {/* Modal editar */}
+          <Modal visible={!!editandoCat} transparent animationType="fade">
+            <View style={estilos.editOverlay}>
+              <View style={estilos.editModal}>
+                <Text style={estilos.editTitulo}>Renomear categoria</Text>
+                <TextInput
+                  style={estilos.editInput}
+                  value={nomeEdicaoCat}
+                  onChangeText={setNomeEdicaoCat}
+                  autoFocus
+                  returnKeyType="done"
+                  onSubmitEditing={async () => {
+                    if (editandoCat) await renomearCat(editandoCat, nomeEdicaoCat)
+                    setEditandoCat(null); setNomeEdicaoCat('')
+                  }}
+                />
+                <View style={estilos.editBtns}>
+                  <TouchableOpacity style={estilos.editBtnCancelar} onPress={() => { setEditandoCat(null); setNomeEdicaoCat('') }}>
+                    <Text style={{ color: C.text2, fontWeight: '600' }}>Cancelar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={estilos.editBtnSalvar} onPress={async () => {
+                    if (editandoCat) await renomearCat(editandoCat, nomeEdicaoCat)
+                    setEditandoCat(null); setNomeEdicaoCat('')
+                  }}>
+                    <Text style={{ color: C.white, fontWeight: '700' }}>Salvar</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+
+          {/* Lista de categorias */}
+          {todasCats.map((cat, i) => {
+            const isBase = CATS_BASE.includes(cat)
+            const ultimo = i === todasCats.length - 1
+            return (
+              <View key={cat} style={[estilos.catRow, !ultimo && estilos.catRowBorder]}>
+                <View style={estilos.catIcone}>
+                  <Ionicons name={isBase ? 'pricetag' : 'pricetag-outline'} size={16} color={isBase ? C.text3 : C.green} />
+                </View>
+                <Text style={[estilos.catNome, isBase && { color: C.text2 }]}>{cat}</Text>
+                {isBase
+                  ? <Text style={estilos.catBase}>padrão</Text>
+                  : (
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <TouchableOpacity style={estilos.catBtn} onPress={() => { setEditandoCat(cat); setNomeEdicaoCat(cat) }}>
+                        <Ionicons name="pencil-outline" size={16} color={C.green} />
+                      </TouchableOpacity>
+                      <TouchableOpacity style={[estilos.catBtn, { borderColor: C.redBorder, backgroundColor: C.redLight }]}
+                        onPress={() => confirmar('Excluir categoria', `Deseja excluir a categoria "${cat}"?`, () => removerCat(cat))}>
+                        <Ionicons name="trash-outline" size={16} color={C.red} />
+                      </TouchableOpacity>
+                    </View>
+                  )
+                }
+              </View>
+            )
+          })}
+
+          {/* Adicionar nova */}
+          <View style={estilos.novaCatRow}>
+            <TextInput
+              style={estilos.novaCatInput}
+              value={novaCatConf}
+              onChangeText={setNovaCatConf}
+              placeholder="Nova categoria..."
+              placeholderTextColor={C.text3}
+              returnKeyType="done"
+              onSubmitEditing={async () => {
+                if (novaCatConf.trim().length >= 2) { await adicionarCat(novaCatConf.trim()); setNovaCatConf('') }
+              }}
+            />
+            <TouchableOpacity
+              style={[estilos.novaCatBtn, novaCatConf.trim().length < 2 && { backgroundColor: C.border }]}
+              disabled={novaCatConf.trim().length < 2}
+              onPress={async () => { await adicionarCat(novaCatConf.trim()); setNovaCatConf('') }}
+            >
+              <Ionicons name="add" size={20} color={novaCatConf.trim().length >= 2 ? C.white : C.text3} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
       {/* Conta */}
       <View style={estilos.card}>
         <Text style={[estilos.cardTitulo, { marginBottom: 8 }]}>Conta</Text>
@@ -448,6 +591,7 @@ export default function ConfiguracoesScreen() {
 
       <Text style={estilos.versao}>FiadoApp v1.0.0</Text>
     </ScrollView>
+    </>
   )
 }
 
@@ -486,8 +630,9 @@ const estilos = StyleSheet.create({
   statusTexto: { fontSize: 12, fontWeight: '500', flex: 1 },
   perfilCard: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
-    backgroundColor: C.card, borderRadius: 18, padding: 18, marginBottom: 12,
+    backgroundColor: C.card, borderRadius: 20, padding: 20, marginBottom: 12,
     borderWidth: 1, borderColor: C.border,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 10, elevation: 3,
   },
   nomeNegocio: { fontSize: 16, fontWeight: '700', color: C.text },
   email: { fontSize: 12, color: C.text2, marginBottom: 6 },
@@ -514,12 +659,30 @@ const estilos = StyleSheet.create({
   proBannerTitle: { fontSize: 15, fontWeight: '800', color: C.white },
   proBannerSub: { fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 2, marginBottom: 8 },
   card: {
-    backgroundColor: C.card, borderRadius: 16, padding: 18, marginBottom: 12,
+    backgroundColor: C.card, borderRadius: 18, padding: 18, marginBottom: 12,
     borderWidth: 1, borderColor: C.border,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1,
   },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   cardTitulo: { fontSize: 14, fontWeight: '700', color: C.text },
   secaoInfo: { fontSize: 12, color: C.text2, marginBottom: 14, lineHeight: 18 },
+
+  catRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11 },
+  catRowBorder: { borderBottomWidth: 1, borderBottomColor: C.border },
+  catIcone: { width: 30, height: 30, borderRadius: 8, backgroundColor: C.bg, borderWidth: 1, borderColor: C.border, alignItems: 'center', justifyContent: 'center' },
+  catNome: { flex: 1, fontSize: 14, fontWeight: '600', color: C.text },
+  catBase: { fontSize: 11, color: C.text3, fontStyle: 'italic' },
+  catBtn: { width: 32, height: 32, borderRadius: 8, borderWidth: 1, borderColor: C.greenMid, backgroundColor: C.greenLight, alignItems: 'center', justifyContent: 'center' },
+  novaCatRow: { flexDirection: 'row', gap: 8, marginTop: 14, alignItems: 'center' },
+  novaCatInput: { flex: 1, height: 44, borderWidth: 1.5, borderColor: C.border, borderRadius: 12, paddingHorizontal: 12, fontSize: 14, color: C.text, backgroundColor: C.bg },
+  novaCatBtn: { width: 44, height: 44, borderRadius: 12, backgroundColor: C.green, alignItems: 'center', justifyContent: 'center' },
+  editOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center', padding: 32 },
+  editModal: { width: '100%', backgroundColor: C.card, borderRadius: 18, padding: 24, gap: 16 },
+  editTitulo: { fontSize: 16, fontWeight: '800', color: C.text },
+  editInput: { borderWidth: 1.5, borderColor: C.green, borderRadius: 12, paddingHorizontal: 14, height: 48, fontSize: 15, color: C.text, backgroundColor: C.greenLight },
+  editBtns: { flexDirection: 'row', gap: 10 },
+  editBtnCancelar: { flex: 1, height: 44, borderRadius: 12, borderWidth: 1.5, borderColor: C.border, alignItems: 'center', justifyContent: 'center' },
+  editBtnSalvar: { flex: 1, height: 44, borderRadius: 12, backgroundColor: C.green, alignItems: 'center', justifyContent: 'center' },
   editarBtn: { backgroundColor: C.greenLight, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 5 },
   cancelarBtn: { backgroundColor: C.bg },
   editarTexto: { fontSize: 13, color: C.green, fontWeight: '600' },
@@ -543,13 +706,20 @@ const estilos = StyleSheet.create({
   avisoWeb: { fontSize: 12, color: C.yellow, marginTop: 10, fontWeight: '500' },
   moduloRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.border,
+    paddingVertical: 14, paddingHorizontal: 12, marginBottom: 8,
+    borderRadius: 12, borderWidth: 1.5,
   },
-  moduloIcone: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  moduloIconeAtivo: { backgroundColor: C.greenLight },
-  moduloIconeOff: { backgroundColor: C.bg },
-  moduloLabel: { fontSize: 14, fontWeight: '600', color: C.text },
-  moduloDesc: { fontSize: 12, color: C.text2, marginTop: 1 },
+  moduloRowAtivo: { backgroundColor: C.greenLight, borderColor: C.greenMid },
+  moduloRowOff: { backgroundColor: C.redLight, borderColor: C.redBorder },
+  moduloIcone: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  moduloIconeAtivo: { backgroundColor: C.white },
+  moduloIconeOff: { backgroundColor: C.white },
+  moduloLabel: { fontSize: 14, fontWeight: '700', color: C.text },
+  moduloDesc: { fontSize: 12, color: C.text2, marginTop: 2 },
+  statusChip: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  statusChipAtivo: { backgroundColor: C.greenLight, borderWidth: 1, borderColor: C.greenMid },
+  statusChipOff: { backgroundColor: C.redLight, borderWidth: 1, borderColor: C.redBorder },
+  statusChipTexto: { fontSize: 9, fontWeight: '800', letterSpacing: 0.5 },
   proBadge: { backgroundColor: C.green, borderRadius: 4, paddingHorizontal: 5, paddingVertical: 1 },
   proTexto: { fontSize: 9, fontWeight: '800', color: C.white, letterSpacing: 0.5 },
   versao: { textAlign: 'center', fontSize: 12, color: C.text3, marginTop: 4 },

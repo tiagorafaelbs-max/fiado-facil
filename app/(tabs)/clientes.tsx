@@ -1,9 +1,10 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import {
   View, Text, FlatList, SectionList, TouchableOpacity, TextInput,
   StyleSheet, RefreshControl, ActivityIndicator, Modal, ScrollView, Platform,
   KeyboardAvoidingView,
 } from 'react-native'
+import * as Contacts from 'expo-contacts'
 import { useRouter, useFocusEffect } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '../../lib/supabase'
@@ -13,7 +14,8 @@ import { useAuth } from '../../hooks/useAuth'
 import { Avatar } from '../../components/ui/Avatar'
 import { Campo } from '../../components/ui/Campo'
 import { Botao } from '../../components/ui/Botao'
-import { formatarMoeda, validarTelefone, sanitizarTexto } from '../../lib/validacao'
+import { KeyboardToolbar } from '../../components/ui/KeyboardToolbar'
+import { formatarMoeda, validarTelefone, sanitizarTexto, formatarInputMoeda } from '../../lib/validacao'
 import { C } from '../../constants/colors'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -98,6 +100,39 @@ export default function ClientesScreen() {
   const [salvando, setSalvando] = useState(false)
   const [erroGeral, setErroGeral] = useState('')
 
+  // busca de contatos da agenda
+  const [sugestoes, setSugestoes] = useState<Contacts.ExistingContact[]>([])
+  const todosContatos = useRef<Contacts.ExistingContact[]>([])
+  const permissaoContatos = useRef<boolean | null>(null)
+  async function abrirAgenda() {
+    try {
+      const { status } = await Contacts.requestPermissionsAsync()
+      if (status !== 'granted') return
+      const { data } = await Contacts.getContactsAsync({
+        fields: [Contacts.Fields.Name, Contacts.Fields.PhoneNumbers],
+      })
+      todosContatos.current = data.filter(c => c.name).sort((a, b) =>
+        (a.name ?? '').localeCompare(b.name ?? '', 'pt-BR')
+      )
+      setSugestoes(todosContatos.current.slice(0, 100))
+    } catch {}
+  }
+
+  function filtrarSugestoes(texto: string) {
+    if (!texto || texto.length < 1) { setSugestoes([]); return }
+    const termo = texto.toLowerCase()
+    setSugestoes(
+      todosContatos.current.filter(c => c.name?.toLowerCase().includes(termo)).slice(0, 5)
+    )
+  }
+
+  function selecionarContato(contato: Contacts.ExistingContact) {
+    setNome(contato.name ?? '')
+    const tel = contato.phoneNumbers?.[0]?.number ?? ''
+    setTelefone(tel.replace(/\D/g, ''))
+    setSugestoes([])
+  }
+
   // ranking
   const [abaRanking, setAbaRanking] = useState<AbaRanking>('melhores')
   const [ranking, setRanking] = useState<ClienteRanking[]>([])
@@ -146,10 +181,15 @@ export default function ClientesScreen() {
     setErros(e); return Object.keys(e).length === 0
   }
 
+  function abrirModal() {
+    setModalAberto(true)
+  }
+
   function fecharModal() {
     setModalAberto(false)
     setNome(''); setTelefone(''); setEmpresa(''); setEndereco('')
     setObservacao(''); setLimiteCredito(''); setErros({}); setErroGeral('')
+    setSugestoes([])
   }
 
   async function handleCriar() {
@@ -229,12 +269,23 @@ export default function ClientesScreen() {
   function renderCliente({ item }: { item: Cliente }) {
     const temSaldo = (item.saldo_devedor ?? 0) > 0
     const cor = corStatusCliente(item)
+    const isVencido = item.status_pagamento === 'vencido'
     return (
-      <TouchableOpacity style={estilos.row} onPress={() => router.push(`/cliente/${item.id}`)}>
+      <TouchableOpacity
+        style={[estilos.row, isVencido && estilos.rowVencido]}
+        onPress={() => router.push(`/cliente/${item.id}`)}
+      >
         <View style={[estilos.statusBar, { backgroundColor: cor }]} />
         <Avatar nome={item.nome} tamanho={44} />
         <View style={estilos.info}>
-          <Text style={estilos.nomeCliente}>{item.nome}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={estilos.nomeCliente}>{item.nome}</Text>
+            {isVencido && (
+              <View style={estilos.chipVencido}>
+                <Text style={estilos.chipVencidoTexto}>VENCIDO</Text>
+              </View>
+            )}
+          </View>
           {item.empresa ? (
             <View style={estilos.empresaRow}>
               <Ionicons name="business-outline" size={11} color={C.text3} />
@@ -243,7 +294,9 @@ export default function ClientesScreen() {
           ) : null}
           <View style={estilos.rowMeta}>
             {temSaldo
-              ? <Text style={[estilos.metaDevendo, { color: cor }]}>{formatarMoeda(item.saldo_devedor!)} em aberto</Text>
+              ? <Text style={[estilos.metaDevendo, { color: cor }]}>
+                  {formatarMoeda(item.saldo_devedor!)} em aberto
+                </Text>
               : <Text style={estilos.metaOk}>Em dia</Text>
             }
           </View>
@@ -267,6 +320,8 @@ export default function ClientesScreen() {
   // ── render ──────────────────────────────────────────────────────────────────
 
   return (
+    <>
+    <KeyboardToolbar />
     <View style={estilos.container}>
 
       {/* Abas topo */}
@@ -304,7 +359,7 @@ export default function ClientesScreen() {
               </TouchableOpacity>
             )}
           </View>
-          <TouchableOpacity style={estilos.btnAdicionar} onPress={() => setModalAberto(true)}>
+          <TouchableOpacity style={estilos.btnAdicionar} onPress={abrirModal}>
             <Ionicons name="add" size={18} color={C.white} />
             <Text style={estilos.btnAdicionarTexto}>Novo</Text>
           </TouchableOpacity>
@@ -314,6 +369,25 @@ export default function ClientesScreen() {
       {/* ── ABA LISTA ── */}
       {abaTop === 'lista' && (
         <>
+          {/* Banner vencidos */}
+          {(() => {
+            const vencidos = clientes.filter(c => c.status_pagamento === 'vencido')
+            if (vencidos.length === 0) return null
+            return (
+              <TouchableOpacity
+                style={estilos.bannerVencido}
+                onPress={() => router.push('/cobrancas')}
+              >
+                <Ionicons name="alert-circle" size={18} color={C.red} />
+                <Text style={estilos.bannerVencidoTexto}>
+                  {vencidos.length === 1
+                    ? `${vencidos[0].nome} tem pagamento vencido`
+                    : `${vencidos.length} clientes com pagamento vencido`}
+                </Text>
+                <Text style={estilos.bannerVencidoLink}>Ver →</Text>
+              </TouchableOpacity>
+            )
+          })()}
           {clientes.length > 0 && (
             <Text style={estilos.contagem}>
               {clientesFiltrados.length} {clientesFiltrados.length === 1 ? 'cliente' : 'clientes'}
@@ -444,13 +518,65 @@ export default function ClientesScreen() {
                 </TouchableOpacity>
               </View>
 
-              <Campo label="Nome *" value={nome} onChangeText={setNome} erro={erros.nome} placeholder="Nome completo" autoCapitalize="words" />
-              <Campo label="Telefone / WhatsApp" value={telefone} onChangeText={setTelefone} erro={erros.telefone} placeholder="(00) 00000-0000" keyboardType="phone-pad" />
+              <Campo
+                label="Nome *"
+                value={nome}
+                onChangeText={setNome}
+                erro={erros.nome}
+                placeholder="Nome do cliente"
+                autoCapitalize="words"
+              />
+
+              {/* Campo telefone com botão de agenda */}
+              <View style={estilos.nomeWrapper}>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
+                  <View style={{ flex: 1 }}>
+                    <Campo
+                      label="Telefone / WhatsApp"
+                      value={telefone}
+                      onChangeText={(v) => { setTelefone(v); filtrarSugestoes(v) }}
+                      erro={erros.telefone}
+                      placeholder="(00) 00000-0000"
+                      keyboardType="phone-pad"
+                    />
+                  </View>
+                  <TouchableOpacity
+                    style={estilos.agendaBtn}
+                    onPress={abrirAgenda}
+                  >
+                    <Ionicons name="people-outline" size={22} color={C.white} />
+                  </TouchableOpacity>
+                </View>
+                {sugestoes.length > 0 && (
+                  <View style={estilos.sugestoesList}>
+                    {sugestoes.map((c, i) => (
+                      <TouchableOpacity
+                        key={c.id ?? i}
+                        style={[estilos.sugestaoItem, i < sugestoes.length - 1 && estilos.sugestaoItemBorder]}
+                        onPress={() => selecionarContato(c)}
+                      >
+                        <View style={estilos.sugestaoAvatar}>
+                          <Text style={estilos.sugestaoAvatarTexto}>
+                            {(c.name ?? '?')[0].toUpperCase()}
+                          </Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={estilos.sugestaoNome}>{c.name}</Text>
+                          {c.phoneNumbers?.[0]?.number ? (
+                            <Text style={estilos.sugestaoTel}>{c.phoneNumbers[0].number}</Text>
+                          ) : null}
+                        </View>
+                        <Ionicons name="person-add-outline" size={16} color={C.green} />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
               <Campo label="Empresa (opcional)" value={empresa} onChangeText={setEmpresa} placeholder="Ex: Mercado do João" autoCapitalize="words" />
               <Campo label="Endereço (opcional)" value={endereco} onChangeText={setEndereco} placeholder="Ex: Rua das Flores, 123" autoCapitalize="words" />
               <Campo label="Observação" value={observacao} onChangeText={setObservacao} placeholder="Opcional" multiline numberOfLines={3} />
               {modulos.limite_credito && (
-                <Campo label="Limite de crédito (R$)" value={limiteCredito} onChangeText={setLimiteCredito} keyboardType="decimal-pad" placeholder="Ex: 200,00 (opcional)" />
+                <Campo label="Limite de crédito (R$)" value={limiteCredito} onChangeText={v => setLimiteCredito(formatarInputMoeda(v))} keyboardType="decimal-pad" placeholder="Ex: 200,00 (opcional)" />
               )}
 
               {erroGeral ? (
@@ -465,7 +591,9 @@ export default function ClientesScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
     </View>
+    </>
   )
 }
 
@@ -633,6 +761,9 @@ const estilos = StyleSheet.create({
   contagem: { fontSize: 12, color: C.text2, fontWeight: '500', paddingHorizontal: 16, marginBottom: 4 },
 
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.card, borderRadius: 18, marginBottom: 8, borderWidth: 1, borderColor: C.border, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
+  rowVencido: { backgroundColor: '#FFF5F5', borderColor: '#FFCDD2' },
+  chipVencido: { backgroundColor: C.red, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+  chipVencidoTexto: { color: '#fff', fontSize: 9, fontWeight: '800', letterSpacing: 0.5 },
   statusBar: { width: 4, alignSelf: 'stretch' },
   info: { flex: 1, gap: 3, paddingVertical: 14 },
   nomeCliente: { fontSize: 15, fontWeight: '700', color: C.text },
@@ -665,6 +796,38 @@ const estilos = StyleSheet.create({
   fecharBtn: { width: 32, height: 32, borderRadius: 10, backgroundColor: C.border, alignItems: 'center', justifyContent: 'center' },
   erroBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.redLight, borderRadius: 10, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: C.redBorder },
   erroTexto: { color: C.red, fontSize: 13, fontWeight: '500', flex: 1 },
+
+  nomeWrapper: { position: 'relative', zIndex: 10 },
+  agendaBtn: {
+    width: 48, height: 48, borderRadius: 12,
+    backgroundColor: C.green, alignItems: 'center', justifyContent: 'center',
+    marginBottom: 2,
+  },
+  sugestoesList: {
+    position: 'absolute', top: '100%', left: 0, right: 0,
+    backgroundColor: C.card, borderRadius: 14, borderWidth: 1, borderColor: C.border,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.12, shadowRadius: 16, elevation: 20,
+    zIndex: 999, overflow: 'hidden',
+  },
+  sugestaoItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12 },
+  sugestaoItemBorder: { borderBottomWidth: 1, borderBottomColor: C.border },
+  sugestaoAvatar: {
+    width: 36, height: 36, borderRadius: 12,
+    backgroundColor: C.greenLight, borderWidth: 1, borderColor: C.greenMid,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  sugestaoAvatarTexto: { fontSize: 15, fontWeight: '800', color: C.green },
+  sugestaoNome: { fontSize: 14, fontWeight: '700', color: C.text },
+  sugestaoTel: { fontSize: 12, color: C.text2, marginTop: 1 },
+
+  bannerVencido: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: C.redLight, borderWidth: 1, borderColor: C.redBorder,
+    borderRadius: 12, marginHorizontal: 16, marginBottom: 8,
+    paddingHorizontal: 14, paddingVertical: 10,
+  },
+  bannerVencidoTexto: { flex: 1, fontSize: 13, fontWeight: '600', color: C.red },
+  bannerVencidoLink: { fontSize: 13, fontWeight: '800', color: C.red },
 })
 
 const r = StyleSheet.create({

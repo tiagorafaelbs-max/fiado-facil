@@ -15,11 +15,12 @@ import { Avatar } from '../../components/ui/Avatar'
 import { BadgeStatus } from '../../components/ui/BadgeStatus'
 import { Campo } from '../../components/ui/Campo'
 import { Botao } from '../../components/ui/Botao'
+import { KeyboardToolbar, KEYBOARD_TOOLBAR_ID } from '../../components/ui/KeyboardToolbar'
 import { cobrarViaWhatsApp, montarExtratoWhatsApp } from '../../lib/whatsapp'
 import { gerarExtratoCliente } from '../../lib/pdf'
 import { gerarPayloadPix } from '../../lib/pix'
 import { useModulos } from '../../hooks/useModulos'
-import { formatarMoeda } from '../../lib/validacao'
+import { formatarMoeda, formatarInputMoeda } from '../../lib/validacao'
 import { C } from '../../constants/colors'
 import { useBeep } from '../../hooks/useBeep'
 import { format } from 'date-fns'
@@ -61,7 +62,7 @@ export default function DetalheClienteScreen() {
   const isTablet = width >= 768
   const { modulos } = useModulos(usuario?.id)
   const { tocar } = useBeep()
-  const { excluir: excluirCliente } = useClientes()
+  const { excluir: excluirCliente, atualizar: atualizarCliente } = useClientes()
 
   const [cliente, setCliente] = useState<Cliente | null>(null)
   const [pagamentos, setPagamentos] = useState<Pagamento[]>([])
@@ -70,6 +71,8 @@ export default function DetalheClienteScreen() {
   const [valorPagamento, setValorPagamento] = useState('')
   const [observacaoPagamento, setObservacaoPagamento] = useState('')
   const [erroPagamento, setErroPagamento] = useState('')
+  const [tipoPagamento, setTipoPagamento] = useState<'total' | 'parcelado'>('total')
+  const [numParcelas, setNumParcelas] = useState(2)
   const [salvando, setSalvando] = useState(false)
   const [perfil, setPerfil] = useState<{ nome_negocio: string; chave_pix?: string } | null>(null)
   const [gerandoPDF, setGerandoPDF] = useState(false)
@@ -83,6 +86,40 @@ export default function DetalheClienteScreen() {
   const [dividaData, setDividaData] = useState('')
   const [dividaErro, setDividaErro] = useState('')
   const [salvandoDivida, setSalvandoDivida] = useState(false)
+  const [modalEditarCliente, setModalEditarCliente] = useState(false)
+  const [editNome, setEditNome] = useState('')
+  const [editTelefone, setEditTelefone] = useState('')
+  const [editEmpresa, setEditEmpresa] = useState('')
+  const [editEndereco, setEditEndereco] = useState('')
+  const [salvandoCliente, setSalvandoCliente] = useState(false)
+
+  function abrirEditarCliente() {
+    if (!cliente) return
+    setEditNome(cliente.nome)
+    setEditTelefone(cliente.telefone ?? '')
+    setEditEmpresa(cliente.empresa ?? '')
+    setEditEndereco(cliente.endereco ?? '')
+    setModalEditarCliente(true)
+  }
+
+  async function handleSalvarCliente() {
+    if (!editNome.trim()) return
+    setSalvandoCliente(true)
+    try {
+      await atualizarCliente(id, {
+        nome: editNome.trim(),
+        telefone: editTelefone.trim() || undefined,
+        empresa: editEmpresa.trim() || undefined,
+        endereco: editEndereco.trim() || undefined,
+      })
+      await carregarCliente()
+      setModalEditarCliente(false)
+    } catch (e: any) {
+      Alert.alert('Erro', e.message ?? 'Não foi possível salvar.')
+    } finally {
+      setSalvandoCliente(false)
+    }
+  }
 
   const carregarCliente = useCallback(async () => {
     const { data } = await supabase.from('clientes_com_saldo').select('*').eq('id', id).single()
@@ -100,12 +137,15 @@ export default function DetalheClienteScreen() {
   }, [id])
 
   useEffect(() => {
+    setCliente(null)
     carregarCliente(); buscar(); carregarPagamentos()
-    if (usuario?.id) {
-      supabase.from('perfis').select('nome_negocio, chave_pix').eq('id', usuario.id).single()
-        .then(({ data }) => { if (data) setPerfil(data) })
-    }
-  }, [])
+  }, [id])
+
+  useEffect(() => {
+    if (!usuario?.id) return
+    supabase.from('perfis').select('nome_negocio, chave_pix').eq('id', usuario.id).single()
+      .then(({ data }) => { if (data) setPerfil(data) })
+  }, [usuario?.id])
 
   async function handlePagamento() {
     const valor = parseFloat(valorPagamento.replace(',', '.'))
@@ -114,9 +154,21 @@ export default function DetalheClienteScreen() {
     if (cliente && valor > (cliente.saldo_devedor ?? 0)) { setErroPagamento('Valor maior que o saldo devedor.'); return }
     setSalvando(true)
     try {
-      await registrarPagamento({ cliente_id: id, valor, observacao: observacaoPagamento || undefined })
+      if (tipoPagamento === 'parcelado') {
+        const valorParcela = Math.round((valor / numParcelas) * 100) / 100
+        const hoje = new Date()
+        for (let i = 0; i < numParcelas; i++) {
+          const d = new Date(hoje)
+          d.setMonth(d.getMonth() + i)
+          const dataISO = d.toISOString().split('T')[0]
+          const obs = `Parcela ${i + 1}/${numParcelas}${observacaoPagamento ? ' · ' + observacaoPagamento : ''}`
+          await registrarPagamento({ cliente_id: id, valor: valorParcela, observacao: obs, data_pagamento: dataISO })
+        }
+      } else {
+        await registrarPagamento({ cliente_id: id, valor, observacao: observacaoPagamento || undefined })
+      }
       await Promise.all([carregarCliente(), carregarPagamentos()])
-      setModalPagamento(false); setValorPagamento(''); setObservacaoPagamento('')
+      setModalPagamento(false); setValorPagamento(''); setObservacaoPagamento(''); setTipoPagamento('total'); setNumParcelas(2)
       tocar()
     } catch (e: any) {
       setErroPagamento(e.message)
@@ -127,9 +179,13 @@ export default function DetalheClienteScreen() {
 
   async function handleCobrar() {
     if (!cliente) return
+    if (!cliente.telefone) {
+      Alert.alert('Telefone não cadastrado', 'Edite o cliente e adicione o número de WhatsApp para enviar a cobrança.')
+      return
+    }
     const nomeNeg = perfil?.nome_negocio || 'nosso estabelecimento'
     try {
-      await cobrarViaWhatsApp(cliente, cliente.saldo_devedor ?? 0, nomeNeg)
+      await cobrarViaWhatsApp(cliente, cliente.saldo_devedor ?? 0, nomeNeg, perfil?.chave_pix)
     } catch (e: any) {
       if (Platform.OS === 'web') window.alert(e.message)
       else Alert.alert('Erro', e.message)
@@ -138,8 +194,12 @@ export default function DetalheClienteScreen() {
 
   async function handleEnviarExtrato() {
     if (!cliente) return
+    if (!cliente.telefone) {
+      Alert.alert('Telefone não cadastrado', 'Edite o cliente e adicione o número de WhatsApp para enviar o extrato.')
+      return
+    }
     const nomeNeg = perfil?.nome_negocio || 'nosso estabelecimento'
-    const urlOuTexto = montarExtratoWhatsApp(cliente, vendas, nomeNeg)
+    const urlOuTexto = montarExtratoWhatsApp(cliente, vendas, nomeNeg, perfil?.chave_pix)
     if (urlOuTexto.startsWith('https://')) {
       if (Platform.OS === 'web') window.open(urlOuTexto, '_blank')
       else await Linking.openURL(urlOuTexto)
@@ -327,7 +387,7 @@ export default function DetalheClienteScreen() {
 
   if (!cliente) return <ActivityIndicator color={C.green} style={{ flex: 1 }} />
 
-  const temSaldo = (cliente.saldo_devedor ?? 0) > 0
+  const temSaldo = parseFloat(String(cliente.saldo_devedor ?? 0)) > 0
   const temLimite = modulos.limite_credito && (cliente.limite_credito ?? 0) > 0
   const percentualLimite = temLimite ? Math.min(((cliente.saldo_devedor ?? 0) / cliente.limite_credito!) * 100, 100) : 0
   const score = modulos.score_cliente ? calcularScore(vendas, pagamentos) : null
@@ -339,49 +399,71 @@ export default function DetalheClienteScreen() {
   ].sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
 
   return (
+    <>
+    <KeyboardToolbar />
     <ScrollView style={estilos.container} contentContainerStyle={[estilos.content, isTablet && estilos.contentTablet]}>
 
       {/* Header cliente */}
       <View style={estilos.clienteCard}>
-        {/* linha topo: avatar + info + lixeira */}
-        <View style={estilos.clienteCardTop}>
-          <Avatar nome={cliente.nome} tamanho={60} />
-          <View style={{ flex: 1 }}>
+        {/* Faixa colorida de status no topo */}
+        <View style={[estilos.clienteCardAccent, {
+          backgroundColor: cliente.status_pagamento === 'vencido' ? C.red
+            : cliente.status_pagamento === 'em_dia' ? C.green
+            : C.yellow,
+        }]} />
+
+        <View style={estilos.clienteCardInner}>
+          {/* Avatar grande */}
+          <Avatar nome={cliente.nome} tamanho={80} />
+
+          {/* Dados principais */}
+          <View style={{ flex: 1, gap: 5 }}>
             <Text style={estilos.nome} numberOfLines={2}>{cliente.nome}</Text>
+
             {cliente.empresa && (
               <View style={estilos.telefoneRow}>
-                <Ionicons name="business-outline" size={12} color={C.green} />
-                <Text style={[estilos.telefone, { color: C.green, fontWeight: '600' }]}>{cliente.empresa}</Text>
+                <Ionicons name="business-outline" size={13} color={C.green} />
+                <Text style={[estilos.telefone, { color: C.green, fontWeight: '700' }]}>{cliente.empresa}</Text>
               </View>
             )}
             {cliente.telefone && (
               <View style={estilos.telefoneRow}>
-                <Ionicons name="call-outline" size={12} color={C.text3} />
+                <Ionicons name="call-outline" size={13} color={C.text3} />
                 <Text style={estilos.telefone}>{cliente.telefone}</Text>
               </View>
             )}
             {cliente.endereco && (
               <View style={estilos.telefoneRow}>
-                <Ionicons name="location-outline" size={12} color={C.text3} />
-                <Text style={estilos.telefone}>{cliente.endereco}</Text>
+                <Ionicons name="location-outline" size={13} color={C.text3} />
+                <Text style={estilos.telefone} numberOfLines={1}>{cliente.endereco}</Text>
               </View>
             )}
-            <View style={{ marginTop: 6 }}>
+
+            {/* Badge de status */}
+            <View style={{ marginTop: 4 }}>
               <BadgeStatus status={cliente.status_pagamento} />
             </View>
           </View>
-          <TouchableOpacity style={estilos.btnExcluirCliente} onPress={handleExcluirCliente} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Ionicons name="trash-outline" size={18} color={C.red} />
-          </TouchableOpacity>
+
+          {/* Botões editar / excluir */}
+          <View style={{ gap: 8, alignItems: 'center' }}>
+            <TouchableOpacity style={estilos.btnEditarCliente} onPress={abrirEditarCliente}>
+              <Ionicons name="pencil" size={15} color={C.green} />
+            </TouchableOpacity>
+            <TouchableOpacity style={estilos.btnExcluirCliente} onPress={handleExcluirCliente}>
+              <Ionicons name="trash-outline" size={15} color={C.red} />
+            </TouchableOpacity>
+          </View>
         </View>
-        {/* Score badge abaixo da linha de info */}
+
+        {/* Score separador */}
         {score && (
-          <View style={[estilos.scoreBadge, { backgroundColor: score.cor + '20', borderColor: score.cor + '40' }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={{ fontSize: 14 }}>{'⭐'.repeat(score.estrelas)}</Text>
+          <View style={[estilos.scoreBadge, { backgroundColor: score.cor + '14', borderColor: score.cor + '30' }]}>
+            <Text style={{ fontSize: 15 }}>{'⭐'.repeat(score.estrelas)}</Text>
+            <View style={{ flex: 1 }}>
               <Text style={[estilos.scoreLabel, { color: score.cor }]}>{score.label}</Text>
+              <Text style={estilos.scoreDetalhes}>{score.detalhes}</Text>
             </View>
-            <Text style={estilos.scoreDetalhes}>{score.detalhes}</Text>
           </View>
         )}
       </View>
@@ -414,37 +496,50 @@ export default function DetalheClienteScreen() {
         )}
       </View>
 
-      {/* Ações */}
-      <View style={[estilos.acoes, isTablet && estilos.acoesTablet]}>
+      {/* Ações — hierarquia clara */}
+      <View style={estilos.acoesContainer}>
+        {/* Tier 1: ação primária — só quando há saldo */}
         {temSaldo && (
           <TouchableOpacity style={estilos.btnPagar} onPress={() => setModalPagamento(true)}>
-            <Ionicons name="cash-outline" size={18} color={C.white} />
+            <Ionicons name="cash-outline" size={20} color={C.white} />
             <Text style={estilos.btnPagarTexto}>Registrar pagamento</Text>
           </TouchableOpacity>
         )}
-        {temSaldo && cliente.telefone && (
-          <TouchableOpacity style={estilos.btnWhats} onPress={handleCobrar}>
-            <Ionicons name="logo-whatsapp" size={20} color="#25D366" />
-            <Text style={estilos.btnWhatsTexto}>Cobrar</Text>
+
+        {/* Tier 2: cobrar + QR Pix */}
+        {(temSaldo && cliente.telefone) || (pixPayload && temSaldo) ? (
+          <View style={estilos.acoesTier}>
+            {temSaldo && cliente.telefone && (
+              <TouchableOpacity style={[estilos.btnAcao, estilos.btnCobrar]} onPress={handleCobrar}>
+                <Ionicons name="logo-whatsapp" size={20} color="#fff" />
+                <Text style={estilos.btnCobrarTexto}>Cobrar</Text>
+              </TouchableOpacity>
+            )}
+            {pixPayload && temSaldo && (
+              <TouchableOpacity style={[estilos.btnAcao, estilos.btnPix]} onPress={() => setModalPix(true)}>
+                <Ionicons name="qr-code-outline" size={20} color={C.green} />
+                <Text style={estilos.btnPixTexto}>QR Pix</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : null}
+
+        {/* Tier 3: extrato — secundário neutro */}
+        <View style={estilos.acoesTier}>
+          <TouchableOpacity style={[estilos.btnAcao, estilos.btnPDF]} onPress={handleGerarPDF} disabled={gerandoPDF}>
+            <Ionicons name="document-text-outline" size={17} color={C.text2} />
+            <Text style={estilos.btnPDFTexto}>{gerandoPDF ? 'Gerando...' : 'Extrato PDF'}</Text>
           </TouchableOpacity>
-        )}
-        {pixPayload && temSaldo && (
-          <TouchableOpacity style={estilos.btnPix} onPress={() => setModalPix(true)}>
-            <Ionicons name="qr-code-outline" size={20} color={C.green} />
-            <Text style={estilos.btnPixTexto}>QR Pix</Text>
+          <TouchableOpacity style={[estilos.btnAcao, estilos.btnWhats]} onPress={handleEnviarExtrato}>
+            <Ionicons name="logo-whatsapp" size={17} color="#25D366" />
+            <Text style={estilos.btnWhatsTexto}>Extrato WhatsApp</Text>
           </TouchableOpacity>
-        )}
-        <TouchableOpacity style={estilos.btnPDF} onPress={handleGerarPDF} disabled={gerandoPDF}>
-          <Ionicons name="document-text-outline" size={18} color={C.text2} />
-          <Text style={estilos.btnPDFTexto}>{gerandoPDF ? 'Gerando...' : 'Extrato PDF'}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={estilos.btnWhats} onPress={handleEnviarExtrato}>
-          <Ionicons name="logo-whatsapp" size={20} color="#25D366" />
-          <Text style={estilos.btnWhatsTexto}>Extrato WhatsApp</Text>
-        </TouchableOpacity>
+        </View>
+
+        {/* Tier 4: ação rara */}
         <TouchableOpacity style={estilos.btnDividaAnterior} onPress={() => setModalDividaAnterior(true)}>
-          <Ionicons name="time-outline" size={18} color={C.yellow} />
-          <Text style={estilos.btnDividaAnteriorTexto}>Dívida anterior</Text>
+          <Ionicons name="time-outline" size={16} color={C.yellow} />
+          <Text style={estilos.btnDividaAnteriorTexto}>Registrar dívida anterior</Text>
         </TouchableOpacity>
       </View>
 
@@ -531,19 +626,72 @@ export default function DetalheClienteScreen() {
                 <Text style={estilos.modalTitulo}>Registrar pagamento</Text>
                 <Text style={estilos.modalSub}>Saldo devedor: {formatarMoeda(cliente.saldo_devedor ?? 0)}</Text>
               </View>
-              <TouchableOpacity style={estilos.fecharBtn} onPress={() => { setModalPagamento(false); setValorPagamento(''); setObservacaoPagamento(''); setErroPagamento('') }}>
+              <TouchableOpacity style={estilos.fecharBtn} onPress={() => { setModalPagamento(false); setValorPagamento(''); setObservacaoPagamento(''); setErroPagamento(''); setTipoPagamento('total'); setNumParcelas(2) }}>
                 <Ionicons name="close" size={20} color={C.text2} />
               </TouchableOpacity>
             </View>
-            <Campo label="Valor recebido (R$)" value={valorPagamento} onChangeText={setValorPagamento} keyboardType="decimal-pad" placeholder="0,00" erro={erroPagamento} />
+
+            {/* Seletor à vista / parcelado */}
+            <View style={estilos.tipoPagRow}>
+              <TouchableOpacity
+                style={[estilos.tipoPagBtn, tipoPagamento === 'total' && estilos.tipoPagBtnAtivo]}
+                onPress={() => setTipoPagamento('total')}
+              >
+                <Ionicons name="checkmark-circle-outline" size={16} color={tipoPagamento === 'total' ? C.white : C.text2} />
+                <Text style={[estilos.tipoPagTexto, tipoPagamento === 'total' && estilos.tipoPagTextoAtivo]}>À vista</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[estilos.tipoPagBtn, tipoPagamento === 'parcelado' && estilos.tipoPagBtnAtivo]}
+                onPress={() => setTipoPagamento('parcelado')}
+              >
+                <Ionicons name="calendar-outline" size={16} color={tipoPagamento === 'parcelado' ? C.white : C.text2} />
+                <Text style={[estilos.tipoPagTexto, tipoPagamento === 'parcelado' && estilos.tipoPagTextoAtivo]}>Parcelado</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Campo label="Valor total (R$)" value={valorPagamento} onChangeText={v => setValorPagamento(formatarInputMoeda(v))} keyboardType="decimal-pad" placeholder="0,00" erro={erroPagamento} />
+
+            {tipoPagamento === 'parcelado' && (
+              <View style={{ marginBottom: 16 }}>
+                <Text style={estilos.parcelasLabel}>Número de parcelas</Text>
+                <View style={estilos.parcelasRow}>
+                  {[2, 3, 4, 6, 10, 12].map(n => (
+                    <TouchableOpacity
+                      key={n}
+                      style={[estilos.parcelaChip, numParcelas === n && estilos.parcelaChipAtivo]}
+                      onPress={() => setNumParcelas(n)}
+                    >
+                      <Text style={[estilos.parcelaChipTexto, numParcelas === n && estilos.parcelaChipTextoAtivo]}>{n}x</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                {valorPagamento.length > 0 && !isNaN(parseFloat(valorPagamento.replace(',', '.'))) && (
+                  <View style={estilos.parcelaResumoBox}>
+                    <Text style={estilos.parcelaResumoTexto}>
+                      {numParcelas}x de{' '}
+                      <Text style={{ fontWeight: '800', color: C.green }}>
+                        {(Math.round((parseFloat(valorPagamento.replace(',', '.')) / numParcelas) * 100) / 100)
+                          .toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      </Text>
+                    </Text>
+                    <Text style={estilos.parcelaResumoSub}>1ª parcela hoje, demais mensalmente</Text>
+                  </View>
+                )}
+              </View>
+            )}
+
             <Campo label="Observação (opcional)" value={observacaoPagamento} onChangeText={setObservacaoPagamento} placeholder="Ex: Pix, dinheiro, parte da dívida..." />
-            {pixPayload && (
+            {pixPayload && tipoPagamento === 'total' && (
               <TouchableOpacity style={estilos.btnVerPix} onPress={() => { setModalPagamento(false); setModalPix(true) }}>
                 <Ionicons name="qr-code-outline" size={16} color={C.green} />
                 <Text style={estilos.btnVerPixTexto}>Ver QR Code Pix</Text>
               </TouchableOpacity>
             )}
-            <Botao titulo="Confirmar pagamento" onPress={handlePagamento} carregando={salvando} />
+            <Botao
+              titulo={tipoPagamento === 'parcelado' ? `Confirmar ${numParcelas}x parcelas` : 'Confirmar pagamento'}
+              onPress={handlePagamento}
+              carregando={salvando}
+            />
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -567,7 +715,7 @@ export default function DetalheClienteScreen() {
             <Campo
               label="Valor (R$)"
               value={modalEditarVenda?.valor ?? ''}
-              onChangeText={(v) => setModalEditarVenda(prev => prev ? { ...prev, valor: v } : null)}
+              onChangeText={(v) => setModalEditarVenda(prev => prev ? { ...prev, valor: formatarInputMoeda(v) } : null)}
               keyboardType="decimal-pad"
             />
             <Campo
@@ -606,7 +754,7 @@ export default function DetalheClienteScreen() {
             <Campo
               label="Valor da dívida (R$) *"
               value={dividaValor}
-              onChangeText={setDividaValor}
+              onChangeText={v => setDividaValor(formatarInputMoeda(v))}
               keyboardType="decimal-pad"
               placeholder="0,00"
             />
@@ -655,7 +803,7 @@ export default function DetalheClienteScreen() {
             <Campo
               label="Valor recebido (R$)"
               value={modalEditarPagamento?.valor ?? ''}
-              onChangeText={(v) => setModalEditarPagamento(prev => prev ? { ...prev, valor: v } : null)}
+              onChangeText={(v) => setModalEditarPagamento(prev => prev ? { ...prev, valor: formatarInputMoeda(v) } : null)}
               keyboardType="decimal-pad"
               placeholder="0,00"
             />
@@ -711,6 +859,30 @@ export default function DetalheClienteScreen() {
       </Modal>
 
     </ScrollView>
+
+    {/* Modal editar cliente */}
+    <Modal visible={modalEditarCliente} animationType="slide" presentationStyle="formSheet">
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <View style={estilos.modal}>
+          <View style={estilos.modalHandle} />
+          <View style={estilos.modalHeader}>
+            <View>
+              <Text style={estilos.modalTitulo}>Editar cliente</Text>
+              <Text style={estilos.modalSub}>Atualize os dados do cliente</Text>
+            </View>
+            <TouchableOpacity style={estilos.fecharBtn} onPress={() => setModalEditarCliente(false)}>
+              <Ionicons name="close" size={20} color={C.text2} />
+            </TouchableOpacity>
+          </View>
+          <Campo label="Nome *" value={editNome} onChangeText={setEditNome} placeholder="Nome do cliente" autoCapitalize="words" />
+          <Campo label="Telefone / WhatsApp" value={editTelefone} onChangeText={setEditTelefone} placeholder="(00) 00000-0000" keyboardType="phone-pad" />
+          <Campo label="Empresa (opcional)" value={editEmpresa} onChangeText={setEditEmpresa} placeholder="Nome da empresa" />
+          <Campo label="Endereço (opcional)" value={editEndereco} onChangeText={setEditEndereco} placeholder="Rua, número, bairro..." />
+          <Botao titulo="Salvar alterações" onPress={handleSalvarCliente} carregando={salvandoCliente} />
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+    </>
   )
 }
 
@@ -719,22 +891,38 @@ const estilos = StyleSheet.create({
   content: { padding: 16, paddingBottom: 40 },
   contentTablet: { maxWidth: 720, alignSelf: 'center', width: '100%' },
   clienteCard: {
-    backgroundColor: C.card, borderRadius: 18, padding: 18, marginBottom: 12,
-    borderWidth: 1, borderColor: C.border, gap: 12,
+    backgroundColor: C.card, borderRadius: 22, marginBottom: 12,
+    borderWidth: 1, borderColor: C.border,
+    overflow: 'hidden',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.09, shadowRadius: 12, elevation: 4,
   },
-  clienteCardTop: {
-    flexDirection: 'row', gap: 14, alignItems: 'flex-start',
+  clienteCardAccent: {
+    height: 7,
   },
-  nome: { fontSize: 18, fontWeight: '800', color: C.text },
-  telefoneRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 3 },
+  clienteCardInner: {
+    flexDirection: 'row', gap: 16, alignItems: 'center',
+    paddingHorizontal: 18, paddingTop: 20, paddingBottom: 18,
+  },
+  nome: { fontSize: 22, fontWeight: '800', color: C.text, letterSpacing: -0.4, lineHeight: 28 },
+  telefoneRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   telefone: { fontSize: 13, color: C.text2 },
   scoreBadge: {
-    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10,
-    borderWidth: 1, alignItems: 'flex-start', gap: 2,
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    borderTopWidth: 1, borderTopColor: C.border,
+    paddingHorizontal: 18, paddingVertical: 12,
   },
-  btnExcluirCliente: { width: 36, height: 36, borderRadius: 10, backgroundColor: C.redLight, borderWidth: 1, borderColor: C.redBorder, alignItems: 'center', justifyContent: 'center' },
-  scoreLabel: { fontSize: 12, fontWeight: '700' },
-  scoreDetalhes: { fontSize: 11, color: C.text2 },
+  btnExcluirCliente: {
+    width: 34, height: 34, borderRadius: 10,
+    backgroundColor: C.redLight, borderWidth: 1, borderColor: C.redBorder,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  btnEditarCliente: {
+    width: 34, height: 34, borderRadius: 10,
+    backgroundColor: C.greenLight, borderWidth: 1, borderColor: C.greenMid,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  scoreLabel: { fontSize: 13, fontWeight: '700' },
+  scoreDetalhes: { fontSize: 12, color: C.text2, marginTop: 1 },
   saldoBox: { borderRadius: 18, padding: 20, alignItems: 'center', marginBottom: 12, borderWidth: 1 },
   saldoBoxDevendo: { backgroundColor: C.redLight, borderColor: C.redBorder },
   saldoBoxOk: { backgroundColor: C.greenLight, borderColor: C.greenMid },
@@ -750,35 +938,39 @@ const estilos = StyleSheet.create({
   limiteBarra: { height: 6, backgroundColor: 'rgba(0,0,0,0.08)', borderRadius: 99, overflow: 'hidden' },
   limitePreenchido: { height: 6, borderRadius: 99 },
   limiteAviso: { fontSize: 11, color: C.red, fontWeight: '600', marginTop: 6, textAlign: 'center' },
-  acoes: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
-  acoesTablet: { flexWrap: 'nowrap' },
+  acoesContainer: { gap: 8, marginBottom: 12 },
+  acoesTier: { flexDirection: 'row', gap: 8 },
   btnPagar: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: C.green, borderRadius: 14, paddingVertical: 14, minWidth: 140,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+    backgroundColor: C.green, borderRadius: 16, paddingVertical: 16,
+    shadowColor: C.green, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 10, elevation: 6,
   },
-  btnPagarTexto: { color: C.white, fontWeight: '700', fontSize: 14 },
+  btnPagarTexto: { color: C.white, fontWeight: '800', fontSize: 16 },
+  btnAcao: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
+    borderRadius: 14, paddingVertical: 13,
+  },
+  btnCobrar: {
+    backgroundColor: '#DC2626',
+    shadowColor: '#DC2626', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
+  },
+  btnCobrarTexto: { color: '#fff', fontWeight: '700', fontSize: 14 },
   btnWhats: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: '#E7FBF0', borderWidth: 1, borderColor: '#B7F0CC',
-    borderRadius: 14, paddingHorizontal: 14, paddingVertical: 14,
   },
-  btnWhatsTexto: { color: C.green, fontWeight: '700', fontSize: 14 },
+  btnWhatsTexto: { color: '#15803D', fontWeight: '600', fontSize: 13 },
   btnPix: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: C.greenLight, borderWidth: 1, borderColor: C.greenMid,
-    borderRadius: 14, paddingHorizontal: 14, paddingVertical: 14,
   },
   btnPixTexto: { color: C.green, fontWeight: '700', fontSize: 14 },
   btnPDF: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: C.bg, borderWidth: 1, borderColor: C.border,
-    borderRadius: 14, paddingHorizontal: 14, paddingVertical: 14,
+    backgroundColor: C.card, borderWidth: 1, borderColor: C.border,
   },
   btnPDFTexto: { color: C.text2, fontWeight: '600', fontSize: 13 },
   btnDividaAnterior: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: '#FFFBEB', borderWidth: 1, borderColor: '#FDE68A',
-    borderRadius: 14, paddingHorizontal: 14, paddingVertical: 14,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
+    backgroundColor: C.yellowLight, borderWidth: 1, borderColor: C.yellowBorder,
+    borderRadius: 12, paddingVertical: 11,
   },
   btnDividaAnteriorTexto: { color: '#92400E', fontWeight: '600', fontSize: 13 },
   historicoCard: {
@@ -806,6 +998,20 @@ const estilos = StyleSheet.create({
   modalTitulo: { fontSize: 20, fontWeight: '800', color: C.text },
   modalSub: { fontSize: 13, color: C.text2, marginTop: 3 },
   fecharBtn: { width: 32, height: 32, borderRadius: 10, backgroundColor: C.border, alignItems: 'center', justifyContent: 'center' },
+  tipoPagRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+  tipoPagBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10, borderWidth: 1.5, borderColor: C.border, backgroundColor: C.bg },
+  tipoPagBtnAtivo: { backgroundColor: C.green, borderColor: C.green },
+  tipoPagTexto: { fontSize: 14, fontWeight: '600', color: C.text2 },
+  tipoPagTextoAtivo: { color: C.white },
+  parcelasLabel: { fontSize: 13, fontWeight: '600', color: C.text2, marginBottom: 10 },
+  parcelasRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  parcelaChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 8, borderWidth: 1.5, borderColor: C.border, backgroundColor: C.bg },
+  parcelaChipAtivo: { backgroundColor: C.green, borderColor: C.green },
+  parcelaChipTexto: { fontSize: 14, fontWeight: '700', color: C.text2 },
+  parcelaChipTextoAtivo: { color: C.white },
+  parcelaResumoBox: { marginTop: 12, padding: 12, backgroundColor: C.greenLight, borderRadius: 10, borderWidth: 1, borderColor: C.greenMid },
+  parcelaResumoTexto: { fontSize: 15, color: C.text, textAlign: 'center' },
+  parcelaResumoSub: { fontSize: 12, color: C.text2, textAlign: 'center', marginTop: 2 },
   btnVerPix: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: C.greenLight, borderRadius: 10, padding: 12, marginBottom: 14,

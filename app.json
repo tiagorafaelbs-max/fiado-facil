@@ -17,18 +17,24 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.fiadofacil.app",
-      "buildNumber": "31",
+      "buildNumber": "52",
       "deploymentTarget": "16.4",
       "infoPlist": {
         "NSCameraUsageDescription": "Usamos a câmera para tirar foto do comprovante de venda.",
         "NSPhotoLibraryUsageDescription": "Usamos a galeria para selecionar foto do comprovante de venda.",
         "NSUserNotificationsUsageDescription": "Enviamos lembretes de vencimento de pagamentos.",
+        "NSContactsUsageDescription": "Acessamos seus contatos para preencher automaticamente o nome e telefone ao cadastrar um cliente.",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
       "package": "com.fiadofacil.app",
-      "versionCode": 13,
+      "versionCode": 25,
+      "splash": {
+        "image": "./assets/splash-icon.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#00A651"
+      },
       "adaptiveIcon": {
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
@@ -36,6 +42,7 @@
       },
       "permissions": [
         "android.permission.CAMERA",
+        "android.permission.READ_CONTACTS",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.RECEIVE_BOOT_COMPLETED",
@@ -82,9 +89,7 @@
       }
     },
     "owner": "tiago-batista-organizacoes",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "1.0.0",
     "updates": {
       "url": "https://u.expo.dev/d8d7d3b3-83de-4260-84a8-8da259550bfe"
     }
