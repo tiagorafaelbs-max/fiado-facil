@@ -719,7 +719,7 @@ export default function DetalheClienteScreen() {
                 ))}
               </View>
               {formaPagamento === 'Outro' && (
-                <Campo value={observacaoPagamento} onChangeText={setObservacaoPagamento} placeholder="Descreva a forma de pagamento..." />
+                <Campo label="Forma de pagamento" value={observacaoPagamento} onChangeText={setObservacaoPagamento} placeholder="Descreva a forma de pagamento..." />
               )}
             </View>
             {pixPayload && tipoPagamento === 'total' && (

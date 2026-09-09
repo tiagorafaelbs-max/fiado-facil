@@ -234,8 +234,10 @@ export default function ClientesScreen() {
       const [{ data: vendas }, { data: pagamentos }, { data: base }] = await Promise.all([
         supabase.from('vendas').select('id, cliente_id, valor, data_venda, data_vencimento, pago').eq('usuario_id', cUid),
         supabase.from('pagamentos').select('id, cliente_id, valor').eq('usuario_id', cUid),
-        supabase.from('clientes_com_saldo').select('id, nome, telefone, saldo_devedor').eq('usuario_id', cUid).eq('ativo', true),
+        supabase.from('clientes_com_saldo').select('id, nome, telefone, saldo_devedor, status_pagamento').eq('usuario_id', cUid).eq('ativo', true),
       ])
+      // Atraso só conta para quem a view (FIFO) marca como 'vencido'.
+      const clienteVencido = new Set((base ?? []).filter(c => c.status_pagamento === 'vencido').map(c => c.id))
       const map: Record<string, ClienteRanking> = {}
       for (const c of (base ?? [])) {
         map[c.id] = { id: c.id, nome: c.nome, telefone: c.telefone ?? undefined, totalComprado: 0, totalPago: 0, saldoDevedor: c.saldo_devedor ?? 0, qtdCompras: 0, taxaPagamento: 0, diasAtraso: 0, comprasVencidas: 0 }
@@ -245,7 +247,7 @@ export default function ClientesScreen() {
         const cl = map[v.cliente_id]
         cl.totalComprado += v.valor; cl.qtdCompras++
         if (!cl.ultimaCompra || v.data_venda > cl.ultimaCompra) cl.ultimaCompra = v.data_venda
-        if (v.data_vencimento && !v.pago && v.data_vencimento < hojeISO) {
+        if (v.data_vencimento && !v.pago && v.data_vencimento < hojeISO && clienteVencido.has(v.cliente_id)) {
           cl.comprasVencidas++
           const dias = Math.floor((hoje.getTime() - new Date(v.data_vencimento + 'T12:00:00').getTime()) / 86400000)
           if (dias > cl.diasAtraso) cl.diasAtraso = dias

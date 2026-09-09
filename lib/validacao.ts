@@ -58,7 +58,9 @@ export function validarDataBR(display: string): { valida: boolean; mensagem?: st
   const mes = parseInt(m[2], 10)
   const ano = parseInt(m[3], 10)
   const anoAtual = new Date().getFullYear()
-  if (ano < anoAtual - 5 || ano > anoAtual + 10) {
+  // Janela larga no passado para permitir lançar dívidas antigas; ainda pega
+  // erros grosseiros de digitação (ex.: "1026" no lugar de "2026").
+  if (ano < anoAtual - 20 || ano > anoAtual + 10) {
     return { valida: false, mensagem: `O ano ${ano} parece incorreto. Confira a data.` }
   }
   const d = new Date(ano, mes - 1, dia)

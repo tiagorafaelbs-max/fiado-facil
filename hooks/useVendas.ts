@@ -3,6 +3,14 @@ import { supabase } from '../lib/supabase'
 import { enfileirarOperacao, verificarConectividade } from './useOffline'
 import type { Venda, Pagamento } from '../types'
 
+// Traduz erros crus do Postgres para mensagens em português.
+function traduzErroBanco(msg: string): string {
+  if (/vendas_datas_plausiveis/.test(msg)) {
+    return 'A data informada tem um ano inválido. Confira a data de venda e de vencimento.'
+  }
+  return msg
+}
+
 export function useVendas(clienteId?: string) {
   const [vendas, setVendas] = useState<Venda[]>([])
   const [carregando, setCarregando] = useState(false)
@@ -73,7 +81,7 @@ export function useVendas(clienteId?: string) {
       .select()
       .single()
 
-    if (error) throw new Error(error.message)
+    if (error) throw new Error(traduzErroBanco(error.message))
     await buscar()
     return data
   }, [buscar])
@@ -170,7 +178,7 @@ export function useVendas(clienteId?: string) {
     const uid = session?.user?.id
     if (!uid) throw new Error('Sessão expirada. Faça login novamente.')
     const { error } = await supabase.from('vendas').update(dados).eq('id', id).eq('usuario_id', uid)
-    if (error) throw error
+    if (error) throw new Error(traduzErroBanco(error.message))
     await buscar()
   }, [buscar])
 

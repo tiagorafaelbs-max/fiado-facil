@@ -32,7 +32,6 @@ export async function agendarNotificacoesVencimento() {
     const amanha = new Date(hoje)
     amanha.setDate(amanha.getDate() + 1)
     const dataAmanha = amanha.toISOString().split('T')[0]
-    const dataHoje = hoje.toISOString().split('T')[0]
 
     const { data: vendasAmanha } = await supabase
       .from('vendas')
@@ -40,12 +39,13 @@ export async function agendarNotificacoesVencimento() {
       .eq('pago', false)
       .eq('data_vencimento', dataAmanha)
 
-    const { data: vendasVencidas } = await supabase
-      .from('vendas')
-      .select('id, cliente_id')
-      .eq('pago', false)
-      .lt('data_vencimento', dataHoje)
-      .not('data_vencimento', 'is', null)
+    // Vencidos pela view (alocação FIFO) — mesma fonte do dashboard/cobranças
+    const { data: clientesVencidos } = await supabase
+      .from('clientes_com_saldo')
+      .select('id, saldo_devedor')
+      .eq('ativo', true)
+      .eq('status_pagamento', 'vencido')
+      .gt('saldo_devedor', 0)
 
     // Notificação das 9h — vencimentos de amanhã
     if (vendasAmanha && vendasAmanha.length > 0) {
@@ -71,31 +71,22 @@ export async function agendarNotificacoesVencimento() {
     }
 
     // Notificação das 18h — cobranças vencidas (lembrete fim de expediente)
-    if (vendasVencidas && vendasVencidas.length > 0) {
-      const clienteIdsVencidos = [...new Set((vendasVencidas as any[]).map(v => v.cliente_id))]
-      const { data: clientesComSaldo } = await supabase
-        .from('clientes_com_saldo')
-        .select('id, saldo_devedor')
-        .in('id', clienteIdsVencidos)
-        .gt('saldo_devedor', 0)
+    if (clientesVencidos && clientesVencidos.length > 0) {
+      const totalVencido = (clientesVencidos as any[]).reduce((acc, c) => acc + (c.saldo_devedor ?? 0), 0)
 
-      if (clientesComSaldo && clientesComSaldo.length > 0) {
-        const totalVencido = (clientesComSaldo as any[]).reduce((acc, c) => acc + (c.saldo_devedor ?? 0), 0)
-
-        await Notifications.scheduleNotificationAsync({
-          content: {
-            title: '🔴 Cobranças em atraso',
-            body: `${clientesComSaldo.length} cliente${clientesComSaldo.length > 1 ? 's' : ''} em atraso · ${formatarMoeda(totalVencido)} a receber`,
-            sound: true,
-            data: { tela: 'clientes' },
-          },
-          trigger: {
-            type: Notifications.SchedulableTriggerInputTypes.DAILY,
-            hour: 18,
-            minute: 0,
-          },
-        })
-      }
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: '🔴 Cobranças em atraso',
+          body: `${clientesVencidos.length} cliente${clientesVencidos.length > 1 ? 's' : ''} em atraso · ${formatarMoeda(totalVencido)} a receber`,
+          sound: true,
+          data: { tela: 'clientes' },
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DAILY,
+          hour: 18,
+          minute: 0,
+        },
+      })
     }
 
     // Notificação das 10h (sábado) — clientes sem compra há 5+ dias (reengajamento)

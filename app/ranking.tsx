@@ -88,8 +88,12 @@ export default function RankingScreen() {
       const [{ data: vendas }, { data: pagamentos }, { data: clientesBase }] = await Promise.all([
         supabase.from('vendas').select('id, cliente_id, valor, data_venda, data_vencimento, pago').eq('usuario_id', rUid),
         supabase.from('pagamentos').select('id, cliente_id, valor').eq('usuario_id', rUid),
-        supabase.from('clientes_com_saldo').select('id, nome, telefone, saldo_devedor').eq('usuario_id', rUid).eq('ativo', true),
+        supabase.from('clientes_com_saldo').select('id, nome, telefone, saldo_devedor, status_pagamento').eq('usuario_id', rUid).eq('ativo', true),
       ])
+
+      // Só contam vendas em atraso para clientes que a view (FIFO) marca como
+      // 'vencido' — evita atraso fantasma por flag `pago` desatualizada.
+      const clienteVencido = new Set((clientesBase ?? []).filter(c => c.status_pagamento === 'vencido').map(c => c.id))
 
       const map: Record<string, ClienteRanking> = {}
 
@@ -116,7 +120,7 @@ export default function RankingScreen() {
         cl.totalComprado += v.valor
         cl.qtdCompras++
         if (!cl.ultimaCompra || v.data_venda > cl.ultimaCompra) cl.ultimaCompra = v.data_venda
-        if (v.data_vencimento && !v.pago && v.data_vencimento < hojeISO) {
+        if (v.data_vencimento && !v.pago && v.data_vencimento < hojeISO && clienteVencido.has(v.cliente_id)) {
           cl.comprasVencidas++
           const diffMs = hoje.getTime() - new Date(v.data_vencimento + 'T12:00:00').getTime()
           const dias = Math.floor(diffMs / (1000 * 60 * 60 * 24))

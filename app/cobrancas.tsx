@@ -56,46 +56,51 @@ export default function CobrancasScreen() {
     setCarregando(true)
     try {
       const hoje = new Date().toISOString().split('T')[0]
+      // Fonte de verdade: a view clientes_com_saldo (alocação FIFO), a mesma
+      // usada pelo dashboard e pela aba. Evita divergência do tipo "contador diz
+      // vencido mas a lista aparece vazia".
+      const { data: clientesVencidos } = await supabase
+        .from('clientes_com_saldo')
+        .select('id, nome, telefone, saldo_devedor')
+        .eq('usuario_id', usuario.id)
+        .eq('ativo', true)
+        .eq('status_pagamento', 'vencido')
+
+      const alvos = (clientesVencidos ?? []).filter(c => (c.saldo_devedor ?? 0) > 0)
+      if (alvos.length === 0) { setVencidos([]); return }
+
+      const clienteIds = alvos.map(c => c.id)
+      // Datas só para calcular "dias de atraso" exibido
       const { data: vendasVencidas } = await supabase
         .from('vendas')
-        .select('cliente_id, data_vencimento, clientes(id, nome, telefone)')
+        .select('cliente_id, data_vencimento')
+        .in('cliente_id', clienteIds)
         .eq('usuario_id', usuario.id)
         .eq('pago', false)
         .lt('data_vencimento', hoje)
         .not('data_vencimento', 'is', null)
         .order('data_vencimento', { ascending: true })
 
-      if (!vendasVencidas) { setVencidos([]); return }
-
-      const clienteIds = [...new Set(vendasVencidas.map(v => v.cliente_id))]
-      if (clienteIds.length === 0) { setVencidos([]); return }
-
-      const { data: saldos } = await supabase
-        .from('clientes_com_saldo')
-        .select('id, nome, telefone, saldo_devedor')
-        .in('id', clienteIds)
-        .eq('usuario_id', usuario.id)
-        .eq('ativo', true)
-
-      const porCliente = new Map<string, ClienteVencido>()
-      for (const venda of vendasVencidas) {
-        const clienteInfo = saldos?.find(s => s.id === venda.cliente_id)
-        if (!clienteInfo) continue
-        const diasAtraso = differenceInDays(new Date(), new Date(venda.data_vencimento + 'T12:00:00'))
-        if (!porCliente.has(venda.cliente_id) || diasAtraso > (porCliente.get(venda.cliente_id)!.dias_atraso)) {
-          porCliente.set(venda.cliente_id, {
-            id: clienteInfo.id,
-            nome: clienteInfo.nome,
-            telefone: clienteInfo.telefone,
-            saldo_devedor: clienteInfo.saldo_devedor ?? 0,
-            data_vencimento: venda.data_vencimento,
-            dias_atraso: diasAtraso,
-          })
-        }
+      const atrasoPorCliente = new Map<string, { venc: string; dias: number }>()
+      for (const venda of vendasVencidas ?? []) {
+        const dias = differenceInDays(new Date(), new Date(venda.data_vencimento + 'T12:00:00'))
+        const atual = atrasoPorCliente.get(venda.cliente_id)
+        if (!atual || dias > atual.dias) atrasoPorCliente.set(venda.cliente_id, { venc: venda.data_vencimento, dias })
       }
+
       setVencidos(
-        Array.from(porCliente.values())
-          .filter(c => c.saldo_devedor > 0)
+        alvos
+          .map(c => {
+            const a = atrasoPorCliente.get(c.id)
+            return {
+              id: c.id,
+              nome: c.nome,
+              telefone: c.telefone,
+              saldo_devedor: c.saldo_devedor ?? 0,
+              data_vencimento: a?.venc ?? hoje,
+              dias_atraso: a?.dias ?? 0,
+            }
+          })
           .sort((a, b) => b.dias_atraso - a.dias_atraso)
       )
     } finally {
