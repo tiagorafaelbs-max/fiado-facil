@@ -11,6 +11,44 @@ function traduzErroBanco(msg: string): string {
   return msg
 }
 
+// Reconcilia a flag `vendas.pago` de um cliente por alocação FIFO dos pagamentos
+// (mesma ordem da view clientes_com_saldo: vencimento, depois data da venda).
+// Fecha vendas cobertas pelo crédito e REABRE vendas que deixaram de estar
+// cobertas (ex.: após excluir um pagamento ou editar valor). Mantém a flag
+// coerente com o status calculado pela view.
+async function reconciliarPagoCliente(clienteId: string, uid: string) {
+  const [{ data: vendas }, { data: pagamentos }] = await Promise.all([
+    supabase
+      .from('vendas')
+      .select('id, valor, pago')
+      .eq('cliente_id', clienteId)
+      .eq('usuario_id', uid)
+      .order('data_vencimento', { ascending: true, nullsFirst: false })
+      .order('data_venda', { ascending: true })
+      .order('id', { ascending: true }),
+    supabase
+      .from('pagamentos')
+      .select('valor')
+      .eq('cliente_id', clienteId)
+      .eq('usuario_id', uid),
+  ])
+  if (!vendas) return
+
+  let credito = (pagamentos ?? []).reduce((s: number, p: { valor: number }) => s + p.valor, 0)
+  const fechar: string[] = []
+  const reabrir: string[] = []
+  for (const v of vendas as Array<{ id: string; valor: number; pago: boolean }>) {
+    if (credito >= v.valor) {
+      credito -= v.valor
+      if (!v.pago) fechar.push(v.id)
+    } else if (v.pago) {
+      reabrir.push(v.id)
+    }
+  }
+  if (fechar.length) await supabase.from('vendas').update({ pago: true }).in('id', fechar)
+  if (reabrir.length) await supabase.from('vendas').update({ pago: false }).in('id', reabrir)
+}
+
 export function useVendas(clienteId?: string) {
   const [vendas, setVendas] = useState<Venda[]>([])
   const [carregando, setCarregando] = useState(false)
@@ -111,55 +149,8 @@ export function useVendas(clienteId?: string) {
 
     if (error) throw error
 
-    // Alocação FIFO: marca vendas como pagas das mais antigas para as mais novas
-    // até o valor do pagamento ser esgotado — evita que vendas vencidas antigas
-    // fiquem com pago=false mesmo depois de o cliente ter quitado a dívida
-    const { data: vendasAbertas } = await supabase
-      .from('vendas')
-      .select('id, valor')
-      .eq('cliente_id', params.cliente_id)
-      .eq('usuario_id', user.id)
-      .eq('pago', false)
-      .order('data_vencimento', { ascending: true, nullsFirst: false })
-      .order('data_venda', { ascending: true })
-
-    if (vendasAbertas && vendasAbertas.length > 0) {
-      // Crédito disponível = total de pagamentos do cliente (já inclui o novo)
-      // menos o total das vendas já fechadas (pago=true).
-      // Isso cobre pagamentos parciais acumulados: ex. 3x R$40 para uma venda de R$100.
-      const [{ data: todosPagementos }, { data: vendasFechadas }] = await Promise.all([
-        supabase
-          .from('pagamentos')
-          .select('valor')
-          .eq('cliente_id', params.cliente_id)
-          .eq('usuario_id', user.id),
-        supabase
-          .from('vendas')
-          .select('valor')
-          .eq('cliente_id', params.cliente_id)
-          .eq('usuario_id', user.id)
-          .eq('pago', true),
-      ])
-
-      const totalPagamentos = (todosPagementos ?? []).reduce((s: number, p: { valor: number }) => s + p.valor, 0)
-      const totalJaFechado = (vendasFechadas ?? []).reduce((s: number, v: { valor: number }) => s + v.valor, 0)
-      let creditoDisponivel = totalPagamentos - totalJaFechado
-
-      if (creditoDisponivel > 0) {
-        const idsParaFechar: string[] = []
-        for (const v of vendasAbertas as Array<{ id: string; valor: number }>) {
-          if (creditoDisponivel >= v.valor) {
-            idsParaFechar.push(v.id)
-            creditoDisponivel -= v.valor
-          } else {
-            break
-          }
-        }
-        if (idsParaFechar.length > 0) {
-          await supabase.from('vendas').update({ pago: true }).in('id', idsParaFechar)
-        }
-      }
-    }
+    // Reconcilia a flag `pago` das vendas do cliente por alocação FIFO.
+    await reconciliarPagoCliente(params.cliente_id, user.id)
 
     await buscar()
   }, [buscar])
@@ -168,8 +159,10 @@ export function useVendas(clienteId?: string) {
     const { data: { session } } = await supabase.auth.getSession()
     const uid = session?.user?.id
     if (!uid) throw new Error('Sessão expirada. Faça login novamente.')
+    const { data: alvo } = await supabase.from('vendas').select('cliente_id').eq('id', id).eq('usuario_id', uid).single()
     const { error } = await supabase.from('vendas').delete().eq('id', id).eq('usuario_id', uid)
     if (error) throw error
+    if (alvo?.cliente_id) await reconciliarPagoCliente(alvo.cliente_id, uid)
     await buscar()
   }, [buscar])
 
@@ -179,6 +172,8 @@ export function useVendas(clienteId?: string) {
     if (!uid) throw new Error('Sessão expirada. Faça login novamente.')
     const { error } = await supabase.from('vendas').update(dados).eq('id', id).eq('usuario_id', uid)
     if (error) throw new Error(traduzErroBanco(error.message))
+    const { data: alvo } = await supabase.from('vendas').select('cliente_id').eq('id', id).eq('usuario_id', uid).single()
+    if (alvo?.cliente_id) await reconciliarPagoCliente(alvo.cliente_id, uid)
     await buscar()
   }, [buscar])
 
@@ -186,8 +181,10 @@ export function useVendas(clienteId?: string) {
     const { data: { session } } = await supabase.auth.getSession()
     const uid = session?.user?.id
     if (!uid) throw new Error('Sessão expirada. Faça login novamente.')
+    const { data: alvo } = await supabase.from('pagamentos').select('cliente_id').eq('id', id).eq('usuario_id', uid).single()
     const { error } = await supabase.from('pagamentos').delete().eq('id', id).eq('usuario_id', uid)
     if (error) throw error
+    if (alvo?.cliente_id) await reconciliarPagoCliente(alvo.cliente_id, uid)
     await buscar()
   }, [buscar])
 

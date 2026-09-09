@@ -44,10 +44,18 @@ function calcularScore(vendas: Venda[], pagamentos: Pagamento[]): { label: strin
   const taxaPagamento = totalVendas > 0 ? totalPagamentos / totalVendas : 1
 
   const hoje = new Date()
-  const atrasadas = comVencimento.filter(v => {
+  // Alocação FIFO (mesma lógica da view clientes_com_saldo): uma venda vencida
+  // só conta como "em atraso" se os pagamentos ainda não a cobriram.
+  const ordenadas = [...comVencimento].sort((a, b) =>
+    (a.data_vencimento! < b.data_vencimento! ? -1 : a.data_vencimento! > b.data_vencimento! ? 1 : 0)
+  )
+  let acumulado = 0
+  let atrasadas = 0
+  for (const v of ordenadas) {
+    acumulado += v.valor
     const venc = new Date(v.data_vencimento! + 'T12:00:00')
-    return !v.pago && venc < hoje
-  }).length
+    if (venc < hoje && acumulado > totalPagamentos) atrasadas++
+  }
 
   if (atrasadas === 0 && taxaPagamento >= 0.8) return { label: 'Ótimo pagador', cor: C.green, estrelas: 3, detalhes: 'Sempre paga em dia' }
   if (atrasadas <= 1 && taxaPagamento >= 0.5) return { label: 'Bom pagador', cor: C.yellow, estrelas: 2, detalhes: `${atrasadas} venc. em atraso` }
