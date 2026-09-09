@@ -42,7 +42,7 @@ export default function PrivacidadeScreen() {
       />
       <Secao
         titulo="7. Contato"
-        texto="Dúvidas sobre privacidade? Entre em contato: privacidade@fiadofacil.com.br"
+        texto="Dúvidas sobre privacidade? Entre em contato: contato.fiadoapp@gmail.com"
       />
     </ScrollView>
   )

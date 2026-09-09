@@ -188,7 +188,7 @@ export default function ConfiguracoesScreen() {
       await supabase.from('perfis').delete().eq('id', uid)
       await supabase.auth.signOut()
     } catch (e: any) {
-      Alert.alert('Erro', 'Não foi possível excluir a conta. Tente novamente ou contate suporte@fiadofacil.com.br')
+      Alert.alert('Erro', 'Não foi possível excluir a conta. Tente novamente ou contate contato.fiadoapp@gmail.com')
     }
   }
 
@@ -644,7 +644,7 @@ export default function ConfiguracoesScreen() {
         <Text style={[estilos.cardTitulo, { marginBottom: 8 }]}>⭐ Suporte</Text>
         <AcaoRow icone="star-outline" label="Avaliar o FiadoApp" onPress={abrirAvaliacaoManual} />
         <AcaoRow icone="mail-outline" label="Enviar sugestão"
-          onPress={() => Linking.openURL(`mailto:suporte@fiadofacil.com.br?subject=${encodeURIComponent('Sugestão - FiadoApp')}`).catch(() => {})}
+          onPress={() => Linking.openURL(`mailto:contato.fiadoapp@gmail.com?subject=${encodeURIComponent('Sugestão - FiadoApp')}`).catch(() => {})}
           ultimo />
       </View>
 
