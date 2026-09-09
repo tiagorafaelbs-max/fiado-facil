@@ -2,38 +2,43 @@
   "expo": {
     "name": "FiadoApp",
     "slug": "fiado-facil",
-    "version": "1.0.0",
+    "version": "1.0.9",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "scheme": "fiadofacil",
     "description": "Controle suas vendas no fiado de forma simples e profissional. Cadastre clientes, registre vendas, cobre pelo WhatsApp e receba pelo Pix.",
-    "primaryColor": "#00A651",
+    "primaryColor": "#14352A",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/icon-512.png",
       "resizeMode": "contain",
-      "backgroundColor": "#00A651"
+      "backgroundColor": "#14352A"
     },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.fiadofacil.app",
-      "buildNumber": "52",
+      "buildNumber": "75",
       "deploymentTarget": "16.4",
       "infoPlist": {
         "NSCameraUsageDescription": "Usamos a câmera para tirar foto do comprovante de venda.",
         "NSPhotoLibraryUsageDescription": "Usamos a galeria para selecionar foto do comprovante de venda.",
         "NSUserNotificationsUsageDescription": "Enviamos lembretes de vencimento de pagamentos.",
         "NSContactsUsageDescription": "Acessamos seus contatos para preencher automaticamente o nome e telefone ao cadastrar um cliente.",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleDevelopmentRegion": "pt_BR",
+        "CFBundleLocalizations": [
+          "pt-BR",
+          "pt"
+        ]
       }
     },
     "android": {
       "package": "com.fiadofacil.app",
-      "versionCode": 25,
+      "versionCode": 37,
       "splash": {
-        "image": "./assets/splash-icon.png",
+        "image": "./assets/icon-512.png",
         "resizeMode": "contain",
-        "backgroundColor": "#00A651"
+        "backgroundColor": "#14352A"
       },
       "adaptiveIcon": {
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -47,15 +52,7 @@
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE",
-        "android.permission.INTERNET",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.CAMERA",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.RECEIVE_BOOT_COMPLETED",
-        "android.permission.VIBRATE",
-        "android.permission.INTERNET",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.INTERNET"
       ]
     },
     "web": {
@@ -75,7 +72,7 @@
         "expo-notifications",
         {
           "icon": "./assets/icon.png",
-          "color": "#00A651"
+          "color": "#14352A"
         }
       ]
     ],

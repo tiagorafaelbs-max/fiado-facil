@@ -1,0 +1,52 @@
+{
+  "cli": {
+    "version": ">= 12.0.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "simulator": true
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://eyipcpwmwtajrywouxub.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV5aXBjcHdtd3RhanJ5d291eHViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzNTI3MDYsImV4cCI6MjA5NjkyODcwNn0.B89iZ3FZW59vj4gkJXMsTU5Cbb-PTrkWP8FWA-Zpu84"
+      },
+      "ios": {
+        "simulator": false
+      },
+      "android": {
+        "buildType": "apk",
+        "image": "latest"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "ios": {
+        "buildConfiguration": "Release",
+        "image": "latest"
+      },
+      "android": {
+        "buildType": "app-bundle"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "appleId": "tiagorafael.bs@gmail.com",
+        "ascAppId": "6783416254",
+        "appleTeamId": "UX6J4695K4"
+      },
+      "android": {
+        "serviceAccountKeyPath": "./google-service-account.json",
+        "track": "internal"
+      }
+    }
+  }
+}

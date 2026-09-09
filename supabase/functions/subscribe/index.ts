@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const MP_TOKEN = Deno.env.get('MP_ACCESS_TOKEN')!
+const MP_TOKEN = Deno.env.get('MP_ACCESS_TOKEN')
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
@@ -21,7 +21,17 @@ serve(async (req) => {
   }
 
   try {
-    // Verifica autenticação do usuário via Supabase
+    // Diagnóstico: verifica se token MP está configurado
+    if (!MP_TOKEN) {
+      console.error('[subscribe] ERRO: MP_ACCESS_TOKEN não configurado nas env vars da edge function')
+      return new Response(JSON.stringify({
+        error: 'MP_ACCESS_TOKEN não configurado',
+        diagnostico: 'Variável de ambiente MP_ACCESS_TOKEN está ausente no Supabase Edge Functions'
+      }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
       return new Response(JSON.stringify({ error: 'Não autorizado' }), {
@@ -41,16 +51,10 @@ serve(async (req) => {
     const { plan_type = 'monthly' } = await req.json()
     const plan_id = PLAN_IDS[plan_type as keyof typeof PLAN_IDS] ?? PLAN_IDS.monthly
 
-    // Busca email do perfil
-    const { data: perfil } = await supabase
-      .from('perfis')
-      .select('email')
-      .eq('id', user.id)
-      .single()
+    const payer_email = user.email ?? ''
 
-    const payer_email = perfil?.email ?? user.email ?? ''
+    console.log(`[subscribe] Criando assinatura MP: plan_type=${plan_type}, plan_id=${plan_id}, email=${payer_email}`)
 
-    // Cria preapproval (assinatura individual) no MercadoPago
     const mpResp = await fetch('https://api.mercadopago.com/preapproval', {
       method: 'POST',
       headers: {
@@ -61,18 +65,29 @@ serve(async (req) => {
         preapproval_plan_id: plan_id,
         payer_email,
         external_reference: user.id,
-        back_url: 'https://tiagorafaelbs-max.github.io/fiado-facil/',
-        auto_recurring: plan_type === 'annual'
-          ? { frequency: 12, frequency_type: 'months', transaction_amount: 149, currency_id: 'BRL' }
-          : { frequency: 1, frequency_type: 'months', transaction_amount: 19, currency_id: 'BRL' },
+        back_url: 'https://fiadoapp.app.br',
       }),
     })
 
     const mpData = await mpResp.json()
 
+    console.log(`[subscribe] MP status=${mpResp.status}`, JSON.stringify(mpData))
+
     if (!mpResp.ok) {
-      console.error('MP error:', mpData)
-      return new Response(JSON.stringify({ error: 'Erro ao criar assinatura', detail: mpData }), {
+      // Retorna o erro completo do MP para diagnóstico
+      const mpErrorMsg = mpData?.message ?? mpData?.error ?? JSON.stringify(mpData)
+      return new Response(JSON.stringify({
+        error: `MercadoPago: ${mpErrorMsg}`,
+        mp_status: mpResp.status,
+        mp_detail: mpData,
+      }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (!mpData.init_point) {
+      console.error('[subscribe] MP retornou OK mas sem init_point:', mpData)
+      return new Response(JSON.stringify({ error: 'MP não retornou init_point', mp_detail: mpData }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
@@ -80,9 +95,9 @@ serve(async (req) => {
     return new Response(JSON.stringify({ init_point: mpData.init_point }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
-  } catch (err) {
-    console.error(err)
-    return new Response(JSON.stringify({ error: 'Erro interno' }), {
+  } catch (err: any) {
+    console.error('[subscribe] Exceção:', err?.message ?? err)
+    return new Response(JSON.stringify({ error: `Erro interno: ${err?.message ?? 'desconhecido'}` }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }

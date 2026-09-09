@@ -34,8 +34,14 @@ export default function CadastroScreen() {
     if (!validar()) return
     setErroGeral(''); setCarregando(true)
     try {
-      await cadastrar(email.trim().toLowerCase(), senha, sanitizarTexto(nomeNegocio))
-      setSucesso(true)
+      const resultado = await cadastrar(email.trim().toLowerCase(), senha, sanitizarTexto(nomeNegocio))
+      if (resultado?.session) {
+        // Supabase fez login automático (confirmação de e-mail desativada)
+        router.replace('/(tabs)')
+      } else {
+        // Confirmação de e-mail ativada — usuário precisa confirmar antes de entrar
+        setSucesso(true)
+      }
     } catch (e: any) {
       setErroGeral(e.message ?? 'Erro ao criar conta. Tente novamente.')
     } finally {
@@ -47,12 +53,12 @@ export default function CadastroScreen() {
     return (
       <View style={estilos.sucessoContainer}>
         <View style={estilos.sucessoIconeBox}>
-          <Text style={{ fontSize: 40 }}>🎉</Text>
+          <Text style={{ fontSize: 40 }}>📧</Text>
         </View>
-        <Text style={estilos.sucessoTitulo}>Conta criada!</Text>
-        <Text style={estilos.sucessoTexto}>Bem-vindo ao FiadoApp! Sua conta foi criada com sucesso.</Text>
+        <Text style={estilos.sucessoTitulo}>Confirme seu e-mail</Text>
+        <Text style={estilos.sucessoTexto}>Enviamos um link de confirmação para {email.trim().toLowerCase()}. Clique no link e depois entre no app.</Text>
         <TouchableOpacity style={estilos.btnLogin} onPress={() => router.replace('/(auth)/login')}>
-          <Text style={estilos.btnLoginTexto}>Entrar agora →</Text>
+          <Text style={estilos.btnLoginTexto}>Ir para o login →</Text>
         </TouchableOpacity>
       </View>
     )

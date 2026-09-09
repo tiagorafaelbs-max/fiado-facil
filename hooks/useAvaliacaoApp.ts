@@ -41,7 +41,7 @@ export function useAvaliacaoApp() {
                 onPress: () => {
                   const url = Platform.OS === 'android'
                     ? 'market://details?id=com.fiadofacil.app'
-                    : 'itms-apps://itunes.apple.com/app/id6477870794?action=write-review'
+                    : 'itms-apps://itunes.apple.com/app/id6783416254?action=write-review'
                   require('react-native').Linking.openURL(url).catch(() => {})
                 },
               },

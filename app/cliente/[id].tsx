@@ -17,10 +17,12 @@ import { Campo } from '../../components/ui/Campo'
 import { Botao } from '../../components/ui/Botao'
 import { KeyboardToolbar, KEYBOARD_TOOLBAR_ID } from '../../components/ui/KeyboardToolbar'
 import { cobrarViaWhatsApp, montarExtratoWhatsApp } from '../../lib/whatsapp'
+import { agendarNotificacoesVencimento } from '../../hooks/useNotificacoes'
 import { gerarExtratoCliente } from '../../lib/pdf'
 import { gerarPayloadPix } from '../../lib/pix'
 import { useModulos } from '../../hooks/useModulos'
-import { formatarMoeda, formatarInputMoeda } from '../../lib/validacao'
+import { useOffline } from '../../hooks/useOffline'
+import { formatarMoeda, formatarInputMoeda, validarDataBR } from '../../lib/validacao'
 import { C } from '../../constants/colors'
 import { useBeep } from '../../hooks/useBeep'
 import { format } from 'date-fns'
@@ -43,7 +45,7 @@ function calcularScore(vendas: Venda[], pagamentos: Pagamento[]): { label: strin
 
   const hoje = new Date()
   const atrasadas = comVencimento.filter(v => {
-    const venc = new Date(v.data_vencimento!)
+    const venc = new Date(v.data_vencimento! + 'T12:00:00')
     return !v.pago && venc < hoje
   }).length
 
@@ -61,6 +63,7 @@ export default function DetalheClienteScreen() {
   const { width } = useWindowDimensions()
   const isTablet = width >= 768
   const { modulos } = useModulos(usuario?.id)
+  const { online } = useOffline()
   const { tocar } = useBeep()
   const { excluir: excluirCliente, atualizar: atualizarCliente } = useClientes()
 
@@ -70,13 +73,14 @@ export default function DetalheClienteScreen() {
   const [modalPix, setModalPix] = useState(false)
   const [valorPagamento, setValorPagamento] = useState('')
   const [observacaoPagamento, setObservacaoPagamento] = useState('')
+  const [formaPagamento, setFormaPagamento] = useState('')
   const [erroPagamento, setErroPagamento] = useState('')
   const [tipoPagamento, setTipoPagamento] = useState<'total' | 'parcelado'>('total')
   const [numParcelas, setNumParcelas] = useState(2)
   const [salvando, setSalvando] = useState(false)
   const [perfil, setPerfil] = useState<{ nome_negocio: string; chave_pix?: string } | null>(null)
   const [gerandoPDF, setGerandoPDF] = useState(false)
-  const [modalEditarVenda, setModalEditarVenda] = useState<{ id: string; descricao: string; valor: string; data_vencimento: string; categoria: string } | null>(null)
+  const [modalEditarVenda, setModalEditarVenda] = useState<{ id: string; descricao: string; valor: string; data_venda: string; data_vencimento: string; categoria: string } | null>(null)
   const [editandoVenda, setEditandoVenda] = useState(false)
   const [modalEditarPagamento, setModalEditarPagamento] = useState<{ id: string; valor: string; data: string; observacao: string } | null>(null)
   const [editandoPagamento, setEditandoPagamento] = useState(false)
@@ -167,8 +171,9 @@ export default function DetalheClienteScreen() {
       } else {
         await registrarPagamento({ cliente_id: id, valor, observacao: observacaoPagamento || undefined })
       }
+      agendarNotificacoesVencimento() // reagenda notificações refletindo o novo estado de dívidas
       await Promise.all([carregarCliente(), carregarPagamentos()])
-      setModalPagamento(false); setValorPagamento(''); setObservacaoPagamento(''); setTipoPagamento('total'); setNumParcelas(2)
+      setModalPagamento(false); setValorPagamento(''); setObservacaoPagamento(''); setFormaPagamento(''); setTipoPagamento('total'); setNumParcelas(2)
       tocar()
     } catch (e: any) {
       setErroPagamento(e.message)
@@ -199,15 +204,15 @@ export default function DetalheClienteScreen() {
       return
     }
     const nomeNeg = perfil?.nome_negocio || 'nosso estabelecimento'
-    const urlOuTexto = montarExtratoWhatsApp(cliente, vendas, nomeNeg, perfil?.chave_pix)
-    if (urlOuTexto.startsWith('https://')) {
-      if (Platform.OS === 'web') window.open(urlOuTexto, '_blank')
-      else await Linking.openURL(urlOuTexto)
+    const url = montarExtratoWhatsApp(cliente, vendas, nomeNeg, perfil?.chave_pix)
+    if (!url) return
+    if (Platform.OS === 'web') {
+      window.open(url, '_blank')
     } else {
-      if (Platform.OS === 'web') {
-        window.alert('Cliente sem telefone. Copie o extrato:\n\n' + urlOuTexto)
-      } else {
-        Alert.alert('Extrato', urlOuTexto, [{ text: 'OK' }])
+      try {
+        await Linking.openURL(url)
+      } catch {
+        Alert.alert('Erro', 'Não foi possível abrir o WhatsApp. Verifique se está instalado.')
       }
     }
   }
@@ -270,12 +275,17 @@ export default function DetalheClienteScreen() {
     if (!modalEditarVenda) return
     const valor = parseFloat(modalEditarVenda.valor.replace(',', '.'))
     if (isNaN(valor) || valor <= 0) return
+    const cV = validarDataBR(modalEditarVenda.data_venda)
+    if (!cV.valida) { Alert.alert('Data da venda', cV.mensagem!); return }
+    const cVenc = validarDataBR(modalEditarVenda.data_vencimento)
+    if (!cVenc.valida) { Alert.alert('Data de vencimento', cVenc.mensagem!); return }
     setEditandoVenda(true)
     try {
       await editarVenda(modalEditarVenda.id, {
         descricao: modalEditarVenda.descricao,
         valor,
         categoria: modalEditarVenda.categoria || undefined,
+        data_venda: displayParaIso(modalEditarVenda.data_venda) || undefined,
         data_vencimento: displayParaIso(modalEditarVenda.data_vencimento),
       })
       await carregarCliente()
@@ -327,6 +337,8 @@ export default function DetalheClienteScreen() {
     const valor = parseFloat(dividaValor.replace(',', '.'))
     setDividaErro('')
     if (isNaN(valor) || valor <= 0) { setDividaErro('Informe um valor válido.'); return }
+    const cData = validarDataBR(dividaData)
+    if (!cData.valida) { setDividaErro(cData.mensagem!); return }
     setSalvandoDivida(true)
     try {
       const { data: { session } } = await (await import('../../lib/supabase')).supabase.auth.getSession()
@@ -577,7 +589,7 @@ export default function DetalheClienteScreen() {
                   <View style={estilos.lancAcoes}>
                     <Text style={[estilos.lancValor, { color: C.red }]}>- {formatarMoeda(v.valor)}</Text>
                     <View style={estilos.lancBotoes}>
-                      <TouchableOpacity onPress={() => setModalEditarVenda({ id: v.id, descricao: v.descricao, valor: String(v.valor), data_vencimento: isoParaDisplay(v.data_vencimento ?? ''), categoria: v.categoria ?? '' })} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      <TouchableOpacity onPress={() => setModalEditarVenda({ id: v.id, descricao: v.descricao, valor: String(v.valor), data_venda: isoParaDisplay(v.data_venda ?? ''), data_vencimento: isoParaDisplay(v.data_vencimento ?? ''), categoria: v.categoria ?? '' })} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                         <Ionicons name="pencil-outline" size={14} color={C.text2} />
                       </TouchableOpacity>
                       <TouchableOpacity onPress={() => handleExcluirVenda(v.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -626,10 +638,17 @@ export default function DetalheClienteScreen() {
                 <Text style={estilos.modalTitulo}>Registrar pagamento</Text>
                 <Text style={estilos.modalSub}>Saldo devedor: {formatarMoeda(cliente.saldo_devedor ?? 0)}</Text>
               </View>
-              <TouchableOpacity style={estilos.fecharBtn} onPress={() => { setModalPagamento(false); setValorPagamento(''); setObservacaoPagamento(''); setErroPagamento(''); setTipoPagamento('total'); setNumParcelas(2) }}>
+              <TouchableOpacity style={estilos.fecharBtn} onPress={() => { setModalPagamento(false); setValorPagamento(''); setObservacaoPagamento(''); setFormaPagamento(''); setErroPagamento(''); setTipoPagamento('total'); setNumParcelas(2) }}>
                 <Ionicons name="close" size={20} color={C.text2} />
               </TouchableOpacity>
             </View>
+
+            {!online && (
+              <View style={estilos.offlineBanner}>
+                <Ionicons name="cloud-offline-outline" size={15} color="#7a5c00" />
+                <Text style={estilos.offlineBannerTexto}>Sem conexão — conecte-se para registrar pagamentos</Text>
+              </View>
+            )}
 
             {/* Seletor à vista / parcelado */}
             <View style={estilos.tipoPagRow}>
@@ -680,7 +699,29 @@ export default function DetalheClienteScreen() {
               </View>
             )}
 
-            <Campo label="Observação (opcional)" value={observacaoPagamento} onChangeText={setObservacaoPagamento} placeholder="Ex: Pix, dinheiro, parte da dívida..." />
+            <View style={estilos.formaBox}>
+              <Text style={estilos.formaLabel}>Forma de pagamento</Text>
+              <View style={estilos.formaChips}>
+                {['Dinheiro', 'Cartão', 'Pix', 'Outro'].map(f => (
+                  <TouchableOpacity
+                    key={f}
+                    style={[estilos.formaChip, formaPagamento === f && estilos.formaChipAtivo]}
+                    onPress={() => {
+                      setFormaPagamento(f)
+                      if (f !== 'Outro') setObservacaoPagamento(f)
+                      else setObservacaoPagamento('')
+                    }}
+                  >
+                    <Text style={[estilos.formaChipTexto, formaPagamento === f && estilos.formaChipTextoAtivo]}>
+                      {f === 'Dinheiro' ? '💵 Dinheiro' : f === 'Cartão' ? '💳 Cartão' : f === 'Pix' ? '📲 Pix' : '✏️ Outro'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              {formaPagamento === 'Outro' && (
+                <Campo value={observacaoPagamento} onChangeText={setObservacaoPagamento} placeholder="Descreva a forma de pagamento..." />
+              )}
+            </View>
             {pixPayload && tipoPagamento === 'total' && (
               <TouchableOpacity style={estilos.btnVerPix} onPress={() => { setModalPagamento(false); setModalPix(true) }}>
                 <Ionicons name="qr-code-outline" size={16} color={C.green} />
@@ -691,6 +732,7 @@ export default function DetalheClienteScreen() {
               titulo={tipoPagamento === 'parcelado' ? `Confirmar ${numParcelas}x parcelas` : 'Confirmar pagamento'}
               onPress={handlePagamento}
               carregando={salvando}
+              desabilitado={!online}
             />
           </View>
         </KeyboardAvoidingView>
@@ -723,6 +765,14 @@ export default function DetalheClienteScreen() {
               value={modalEditarVenda?.categoria ?? ''}
               onChangeText={(v) => setModalEditarVenda(prev => prev ? { ...prev, categoria: v } : null)}
               placeholder="Ex: Alimentação, Serviços..."
+            />
+            <Campo
+              label="Data da venda"
+              value={modalEditarVenda?.data_venda ?? ''}
+              onChangeText={(v) => setModalEditarVenda(prev => prev ? { ...prev, data_venda: formatarData(v) } : null)}
+              placeholder="DD/MM/AAAA"
+              keyboardType="numeric"
+              maxLength={10}
             />
             <Campo
               label="Data de vencimento"
@@ -768,7 +818,7 @@ export default function DetalheClienteScreen() {
               label="Data da dívida (opcional)"
               value={dividaData}
               onChangeText={(v) => {
-                const nums = v.replace(/D/g, '').slice(0, 8)
+                const nums = v.replace(/\D/g, '').slice(0, 8)
                 let fmt = nums
                 if (nums.length > 2) fmt = nums.slice(0, 2) + '/' + nums.slice(2)
                 if (nums.length > 4) fmt = nums.slice(0, 2) + '/' + nums.slice(2, 4) + '/' + nums.slice(4)
@@ -811,7 +861,7 @@ export default function DetalheClienteScreen() {
               label="Data do pagamento"
               value={modalEditarPagamento?.data ?? ''}
               onChangeText={(v) => {
-                const nums = v.replace(/D/g, '').slice(0, 8)
+                const nums = v.replace(/\D/g, '').slice(0, 8)
                 let fmt = nums
                 if (nums.length > 2) fmt = nums.slice(0, 2) + '/' + nums.slice(2)
                 if (nums.length > 4) fmt = nums.slice(0, 2) + '/' + nums.slice(2, 4) + '/' + nums.slice(4)
@@ -993,7 +1043,20 @@ const estilos = StyleSheet.create({
   vazio: { alignItems: 'center', gap: 8, paddingVertical: 24 },
   vazioTexto: { fontSize: 14, color: C.text2 },
   modal: { flex: 1, padding: 24, paddingTop: 12, backgroundColor: C.bg },
+  offlineBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#FFF8E1', borderWidth: 1, borderColor: '#FFE082',
+    borderRadius: 12, padding: 12, marginBottom: 16,
+  },
+  offlineBannerTexto: { color: '#7a5c00', fontSize: 13, fontWeight: '500', flex: 1 },
   modalHandle: { width: 40, height: 4, borderRadius: 99, backgroundColor: C.border, alignSelf: 'center', marginBottom: 20 },
+  formaBox: { marginBottom: 12 },
+  formaLabel: { fontSize: 13, fontWeight: '600', color: C.text2, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
+  formaChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  formaChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1.5, borderColor: C.border, backgroundColor: C.bg },
+  formaChipAtivo: { borderColor: C.green, backgroundColor: C.greenLight },
+  formaChipTexto: { fontSize: 14, color: C.text2, fontWeight: '500' },
+  formaChipTextoAtivo: { color: C.green, fontWeight: '700' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 },
   modalTitulo: { fontSize: 20, fontWeight: '800', color: C.text },
   modalSub: { fontSize: 13, color: C.text2, marginTop: 3 },

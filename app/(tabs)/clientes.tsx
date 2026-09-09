@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import {
   View, Text, FlatList, SectionList, TouchableOpacity, TextInput,
   StyleSheet, RefreshControl, ActivityIndicator, Modal, ScrollView, Platform,
-  KeyboardAvoidingView,
+  KeyboardAvoidingView, Alert,
 } from 'react-native'
 import * as Contacts from 'expo-contacts'
 import { useRouter, useFocusEffect } from 'expo-router'
@@ -101,36 +101,46 @@ export default function ClientesScreen() {
   const [erroGeral, setErroGeral] = useState('')
 
   // busca de contatos da agenda
-  const [sugestoes, setSugestoes] = useState<Contacts.ExistingContact[]>([])
+  const [modalContatosAberto, setModalContatosAberto] = useState(false)
+  const [buscaContato, setBuscaContato] = useState('')
   const todosContatos = useRef<Contacts.ExistingContact[]>([])
-  const permissaoContatos = useRef<boolean | null>(null)
+
+  const contatosFiltrados = buscaContato.length > 0
+    ? todosContatos.current.filter(c =>
+        c.name?.toLowerCase().includes(buscaContato.toLowerCase()) ||
+        c.phoneNumbers?.[0]?.number?.includes(buscaContato)
+      ).slice(0, 50)
+    : todosContatos.current.slice(0, 100)
+
   async function abrirAgenda() {
     try {
       const { status } = await Contacts.requestPermissionsAsync()
-      if (status !== 'granted') return
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permissão necessária',
+          'Permita o acesso aos contatos nas configurações do dispositivo para usar esta função.',
+          [{ text: 'OK' }]
+        )
+        return
+      }
       const { data } = await Contacts.getContactsAsync({
         fields: [Contacts.Fields.Name, Contacts.Fields.PhoneNumbers],
       })
-      todosContatos.current = data.filter(c => c.name).sort((a, b) =>
+      todosContatos.current = data.filter(c => c.name && c.phoneNumbers?.length).sort((a, b) =>
         (a.name ?? '').localeCompare(b.name ?? '', 'pt-BR')
       )
-      setSugestoes(todosContatos.current.slice(0, 100))
-    } catch {}
-  }
-
-  function filtrarSugestoes(texto: string) {
-    if (!texto || texto.length < 1) { setSugestoes([]); return }
-    const termo = texto.toLowerCase()
-    setSugestoes(
-      todosContatos.current.filter(c => c.name?.toLowerCase().includes(termo)).slice(0, 5)
-    )
+      setBuscaContato('')
+      setModalContatosAberto(true)
+    } catch {
+      Alert.alert('Erro', 'Não foi possível acessar os contatos.')
+    }
   }
 
   function selecionarContato(contato: Contacts.ExistingContact) {
     setNome(contato.name ?? '')
     const tel = contato.phoneNumbers?.[0]?.number ?? ''
     setTelefone(tel.replace(/\D/g, ''))
-    setSugestoes([])
+    setModalContatosAberto(false)
   }
 
   // ranking
@@ -189,7 +199,7 @@ export default function ClientesScreen() {
     setModalAberto(false)
     setNome(''); setTelefone(''); setEmpresa(''); setEndereco('')
     setObservacao(''); setLimiteCredito(''); setErros({}); setErroGeral('')
-    setSugestoes([])
+    setBuscaContato('')
   }
 
   async function handleCriar() {
@@ -502,6 +512,63 @@ export default function ClientesScreen() {
         )
       )}
 
+      {/* Modal seleção de contatos da agenda */}
+      <Modal visible={modalContatosAberto} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setModalContatosAberto(false)}>
+        <View style={{ flex: 1, backgroundColor: C.bg }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, gap: 12, borderBottomWidth: 1, borderBottomColor: C.border }}>
+            <TouchableOpacity onPress={() => setModalContatosAberto(false)}>
+              <Ionicons name="close" size={24} color={C.text} />
+            </TouchableOpacity>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: C.text, flex: 1 }}>Selecionar contato</Text>
+          </View>
+          <View style={{ paddingHorizontal: 16, paddingVertical: 10 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: C.card, borderRadius: 12, paddingHorizontal: 12, gap: 8, borderWidth: 1, borderColor: C.border }}>
+              <Ionicons name="search" size={18} color={C.text2} />
+              <TextInput
+                style={{ flex: 1, height: 44, color: C.text, fontSize: 15 }}
+                placeholder="Buscar contato..."
+                placeholderTextColor={C.text2}
+                value={buscaContato}
+                onChangeText={setBuscaContato}
+                autoFocus
+              />
+              {buscaContato.length > 0 && (
+                <TouchableOpacity onPress={() => setBuscaContato('')}>
+                  <Ionicons name="close-circle" size={18} color={C.text2} />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+          <FlatList
+            data={contatosFiltrados}
+            keyExtractor={(c, i) => c.id ?? String(i)}
+            keyboardShouldPersistTaps="handled"
+            renderItem={({ item: c }) => (
+              <TouchableOpacity
+                style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12, borderBottomWidth: 1, borderBottomColor: C.border }}
+                onPress={() => selecionarContato(c)}
+              >
+                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: C.greenLight, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontSize: 16, fontWeight: '700', color: C.green }}>{(c.name ?? '?')[0].toUpperCase()}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 15, fontWeight: '600', color: C.text }}>{c.name}</Text>
+                  {c.phoneNumbers?.[0]?.number ? (
+                    <Text style={{ fontSize: 13, color: C.text2 }}>{c.phoneNumbers[0].number}</Text>
+                  ) : null}
+                </View>
+                <Ionicons name="person-add-outline" size={18} color={C.green} />
+              </TouchableOpacity>
+            )}
+            ListEmptyComponent={
+              <View style={{ padding: 32, alignItems: 'center' }}>
+                <Text style={{ color: C.text2, fontSize: 15 }}>Nenhum contato encontrado</Text>
+              </View>
+            }
+          />
+        </View>
+      </Modal>
+
       {/* Modal novo cliente */}
       <Modal visible={modalAberto} animationType="slide" presentationStyle="pageSheet">
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -528,49 +595,23 @@ export default function ClientesScreen() {
               />
 
               {/* Campo telefone com botão de agenda */}
-              <View style={estilos.nomeWrapper}>
-                <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
-                  <View style={{ flex: 1 }}>
-                    <Campo
-                      label="Telefone / WhatsApp"
-                      value={telefone}
-                      onChangeText={(v) => { setTelefone(v); filtrarSugestoes(v) }}
-                      erro={erros.telefone}
-                      placeholder="(00) 00000-0000"
-                      keyboardType="phone-pad"
-                    />
-                  </View>
-                  <TouchableOpacity
-                    style={estilos.agendaBtn}
-                    onPress={abrirAgenda}
-                  >
-                    <Ionicons name="people-outline" size={22} color={C.white} />
-                  </TouchableOpacity>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
+                <View style={{ flex: 1 }}>
+                  <Campo
+                    label="Telefone / WhatsApp"
+                    value={telefone}
+                    onChangeText={setTelefone}
+                    erro={erros.telefone}
+                    placeholder="(00) 00000-0000"
+                    keyboardType="phone-pad"
+                  />
                 </View>
-                {sugestoes.length > 0 && (
-                  <View style={estilos.sugestoesList}>
-                    {sugestoes.map((c, i) => (
-                      <TouchableOpacity
-                        key={c.id ?? i}
-                        style={[estilos.sugestaoItem, i < sugestoes.length - 1 && estilos.sugestaoItemBorder]}
-                        onPress={() => selecionarContato(c)}
-                      >
-                        <View style={estilos.sugestaoAvatar}>
-                          <Text style={estilos.sugestaoAvatarTexto}>
-                            {(c.name ?? '?')[0].toUpperCase()}
-                          </Text>
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={estilos.sugestaoNome}>{c.name}</Text>
-                          {c.phoneNumbers?.[0]?.number ? (
-                            <Text style={estilos.sugestaoTel}>{c.phoneNumbers[0].number}</Text>
-                          ) : null}
-                        </View>
-                        <Ionicons name="person-add-outline" size={16} color={C.green} />
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
+                <TouchableOpacity
+                  style={estilos.agendaBtn}
+                  onPress={abrirAgenda}
+                >
+                  <Ionicons name="people-outline" size={22} color={C.white} />
+                </TouchableOpacity>
               </View>
               <Campo label="Empresa (opcional)" value={empresa} onChangeText={setEmpresa} placeholder="Ex: Mercado do João" autoCapitalize="words" />
               <Campo label="Endereço (opcional)" value={endereco} onChangeText={setEndereco} placeholder="Ex: Rua das Flores, 123" autoCapitalize="words" />
@@ -797,28 +838,11 @@ const estilos = StyleSheet.create({
   erroBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.redLight, borderRadius: 10, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: C.redBorder },
   erroTexto: { color: C.red, fontSize: 13, fontWeight: '500', flex: 1 },
 
-  nomeWrapper: { position: 'relative', zIndex: 10 },
   agendaBtn: {
     width: 48, height: 48, borderRadius: 12,
     backgroundColor: C.green, alignItems: 'center', justifyContent: 'center',
     marginBottom: 2,
   },
-  sugestoesList: {
-    position: 'absolute', top: '100%', left: 0, right: 0,
-    backgroundColor: C.card, borderRadius: 14, borderWidth: 1, borderColor: C.border,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.12, shadowRadius: 16, elevation: 20,
-    zIndex: 999, overflow: 'hidden',
-  },
-  sugestaoItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12 },
-  sugestaoItemBorder: { borderBottomWidth: 1, borderBottomColor: C.border },
-  sugestaoAvatar: {
-    width: 36, height: 36, borderRadius: 12,
-    backgroundColor: C.greenLight, borderWidth: 1, borderColor: C.greenMid,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  sugestaoAvatarTexto: { fontSize: 15, fontWeight: '800', color: C.green },
-  sugestaoNome: { fontSize: 14, fontWeight: '700', color: C.text },
-  sugestaoTel: { fontSize: 12, color: C.text2, marginTop: 1 },
 
   bannerVencido: {
     flexDirection: 'row', alignItems: 'center', gap: 8,

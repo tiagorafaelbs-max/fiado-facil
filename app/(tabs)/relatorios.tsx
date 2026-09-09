@@ -1,7 +1,7 @@
 ﻿import { useState, useCallback } from 'react'
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
-  StyleSheet, RefreshControl, ActivityIndicator, Platform, Alert
+  StyleSheet, RefreshControl, ActivityIndicator, Platform, Alert, Modal, FlatList
 } from 'react-native'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
@@ -10,11 +10,13 @@ import { useAuth } from '../../hooks/useAuth'
 import { useModulos } from '../../hooks/useModulos'
 import { Avatar } from '../../components/ui/Avatar'
 import { formatarMoeda } from '../../lib/validacao'
+import { KeyboardToolbar, KEYBOARD_TOOLBAR_ID } from '../../components/ui/KeyboardToolbar'
 import { C } from '../../constants/colors'
 import { format, startOfMonth, endOfMonth, subMonths, startOfYear, endOfYear, subYears, parse, isValid, getMonth, getYear } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import * as Print from 'expo-print'
 import * as Sharing from 'expo-sharing'
+import * as FileSystem from 'expo-file-system/legacy'
 
 type Periodo = 'hoje' | 'mes_atual' | 'mes_anterior' | 'ano_atual' | 'ano_anterior' | 'total' | 'personalizado'
 
@@ -70,11 +72,13 @@ export default function RelatoriosScreen() {
   const router = useRouter()
   const { usuario } = useAuth()
   const { modulos } = useModulos(usuario?.id)
+  const [plano, setPlano] = useState<'gratuito' | 'pro'>('gratuito')
   const [periodo, setPeriodo] = useState<Periodo>('hoje')
   const [dataCustom, setDataCustom] = useState('')
   const [resumo, setResumo] = useState<ResumoRelatorio | null>(null)
   const [transacoes, setTransacoes] = useState<TransacaoDetalhada[]>([])
   const [carregando, setCarregando] = useState(false)
+  const [modalDetalhe, setModalDetalhe] = useState<'vendido' | 'recebido' | 'saldo' | 'vendas' | null>(null)
 
   async function buscar() {
     setCarregando(true)
@@ -228,7 +232,11 @@ export default function RelatoriosScreen() {
 
   useFocusEffect(useCallback(() => {
     if (periodo !== 'personalizado') buscar()
-  }, [periodo]))
+    if (usuario?.id) {
+      supabase.from('perfis').select('plano').eq('id', usuario.id).single()
+        .then(({ data }) => { if (data?.plano) setPlano(data.plano) })
+    }
+  }, [periodo, usuario?.id]))
 
   const PERIODOS: { key: Periodo; label: string }[] = [
     { key: 'hoje', label: 'Hoje' },
@@ -379,11 +387,13 @@ export default function RelatoriosScreen() {
         link.download = nomeArquivo
         link.click()
       } else {
+        const destino = `${FileSystem.cacheDirectory}${nomeArquivo}`
+        await FileSystem.copyAsync({ from: uri, to: destino })
         const podeCompartilhar = await Sharing.isAvailableAsync()
         if (podeCompartilhar) {
-          await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Exportar relatório', UTI: 'com.adobe.pdf' })
+          await Sharing.shareAsync(destino, { mimeType: 'application/pdf', dialogTitle: 'Exportar relatório', UTI: 'com.adobe.pdf' })
         } else {
-          Alert.alert('PDF gerado', `Arquivo salvo em:\n${uri}`)
+          Alert.alert('PDF gerado', `Arquivo salvo em:\n${destino}`)
         }
       }
     } catch (e) {
@@ -406,6 +416,8 @@ export default function RelatoriosScreen() {
   }
 
   return (
+    <>
+    <KeyboardToolbar />
     <ScrollView
       style={estilos.container}
       contentContainerStyle={estilos.content}
@@ -437,6 +449,9 @@ export default function RelatoriosScreen() {
               placeholderTextColor={C.text3}
               keyboardType="numeric"
               maxLength={10}
+              returnKeyType="done"
+              blurOnSubmit
+              inputAccessoryViewID={Platform.OS === 'ios' ? KEYBOARD_TOOLBAR_ID : undefined}
             />
             <TouchableOpacity
               style={[estilos.customBtnBuscar, !parseDDMMYYYY(dataCustom) && { opacity: 0.4 }]}
@@ -456,34 +471,42 @@ export default function RelatoriosScreen() {
         <>
           {/* Cards métricas */}
           <View style={estilos.grade}>
-            <View style={[estilos.cardMetrica, { backgroundColor: '#EBF9F3' }]}>
+            <TouchableOpacity style={[estilos.cardMetrica, { backgroundColor: '#EBF9F3' }]} onPress={() => setModalDetalhe('vendido')} activeOpacity={0.75}>
               <Text style={estilos.metricaIcone}>🛒</Text>
               <Text style={[estilos.metricaValor, { color: C.green }]}>{formatarMoeda(resumo.totalVendido)}</Text>
               <Text style={estilos.metricaLabel}>Vendido</Text>
-            </View>
-            <View style={[estilos.cardMetrica, { backgroundColor: '#EBF9F3' }]}>
+              <Text style={estilos.metricaVer}>Ver detalhes →</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[estilos.cardMetrica, { backgroundColor: '#EBF9F3' }]} onPress={() => setModalDetalhe('recebido')} activeOpacity={0.75}>
               <Text style={estilos.metricaIcone}>✅</Text>
               <Text style={[estilos.metricaValor, { color: C.greenDark }]}>{formatarMoeda(resumo.totalRecebido)}</Text>
               <Text style={estilos.metricaLabel}>Recebido</Text>
-            </View>
+              <Text style={estilos.metricaVer}>Ver detalhes →</Text>
+            </TouchableOpacity>
           </View>
           <View style={[estilos.grade, { marginTop: 10 }]}>
-            <View style={[estilos.cardMetrica, { backgroundColor: resumo.totalEmAberto > 0 ? C.redLight : '#EBF9F3' }]}>
+            <TouchableOpacity style={[estilos.cardMetrica, { backgroundColor: resumo.totalEmAberto > 0 ? C.redLight : '#EBF9F3' }]} onPress={() => setModalDetalhe('saldo')} activeOpacity={0.75}>
               <Text style={estilos.metricaIcone}>⏳</Text>
               <Text style={[estilos.metricaValor, { color: resumo.totalEmAberto > 0 ? C.red : C.green }]}>{formatarMoeda(Math.max(0, resumo.totalEmAberto))}</Text>
               <Text style={estilos.metricaLabel}>Saldo período</Text>
-            </View>
-            <View style={[estilos.cardMetrica, { backgroundColor: C.yellowLight }]}>
+              <Text style={[estilos.metricaVer, { color: resumo.totalEmAberto > 0 ? C.red : C.green }]}>Ver detalhes →</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[estilos.cardMetrica, { backgroundColor: C.yellowLight }]} onPress={() => setModalDetalhe('vendas')} activeOpacity={0.75}>
               <Text style={estilos.metricaIcone}>🧾</Text>
               <Text style={[estilos.metricaValor, { color: C.yellow }]}>{resumo.quantidadeVendas}</Text>
               <Text style={estilos.metricaLabel}>Vendas</Text>
-            </View>
+              <Text style={[estilos.metricaVer, { color: C.yellow }]}>Ver detalhes →</Text>
+            </TouchableOpacity>
           </View>
 
           {/* Botão exportar PDF */}
-          <TouchableOpacity style={estilos.btnExportar} onPress={exportarPDF} activeOpacity={0.8}>
-            <Ionicons name="download-outline" size={16} color={C.green} />
-            <Text style={estilos.btnExportarTexto}>Exportar PDF</Text>
+          <TouchableOpacity
+            style={estilos.btnExportar}
+            onPress={() => { if (plano !== 'pro') { router.push('/planos'); return }; exportarPDF() }}
+            activeOpacity={0.8}
+          >
+            <Ionicons name={plano !== 'pro' ? 'lock-closed-outline' : 'download-outline'} size={16} color={C.green} />
+            <Text style={estilos.btnExportarTexto}>{plano !== 'pro' ? 'Exportar PDF · Pro' : 'Exportar PDF'}</Text>
           </TouchableOpacity>
 
           {/* Taxa de recebimento */}
@@ -580,6 +603,20 @@ export default function RelatoriosScreen() {
               </View>
             )
           })()}
+
+          {/* Banner Pro para gratuito — antes das seções avançadas */}
+          {plano === 'gratuito' && (
+            <TouchableOpacity style={estilos.lockBanner} onPress={() => router.push('/planos')}>
+              <View style={estilos.lockIconeBox}>
+                <Ionicons name="lock-closed" size={20} color={C.white} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={estilos.lockTitulo}>Relatórios avançados · Pro</Text>
+                <Text style={estilos.lockSub}>Desbloqueie exportação PDF, ranking completo e evolução mensal com gráfico por R$ 19,00/mês</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={C.white} />
+            </TouchableOpacity>
+          )}
 
           {/* Maiores devedores */}
           {resumo.maioresDevedores.length > 0 && (
@@ -690,6 +727,75 @@ export default function RelatoriosScreen() {
         </>
       )}
     </ScrollView>
+
+    {/* Modal de detalhes dos cards */}
+    <Modal visible={modalDetalhe !== null} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setModalDetalhe(null)}>
+      <View style={estilos.detalheContainer}>
+        <View style={estilos.detalheCabecalho}>
+          <Text style={estilos.detalheTitulo}>
+            {modalDetalhe === 'vendido' && '🛒 Vendas do período'}
+            {modalDetalhe === 'recebido' && '✅ Pagamentos recebidos'}
+            {modalDetalhe === 'saldo' && '⏳ Saldo em aberto'}
+            {modalDetalhe === 'vendas' && '🧾 Todas as vendas'}
+          </Text>
+          <TouchableOpacity onPress={() => setModalDetalhe(null)} style={estilos.detalheFechar}>
+            <Ionicons name="close" size={20} color={C.text2} />
+          </TouchableOpacity>
+        </View>
+
+        {resumo && (
+          <View style={estilos.detalheSaldoBox}>
+            <Text style={estilos.detalheSaldoLabel}>Total</Text>
+            <Text style={[estilos.detalheSaldoValor, {
+              color: modalDetalhe === 'saldo' && resumo.totalEmAberto > 0 ? C.red
+                : modalDetalhe === 'vendas' ? C.yellow
+                : C.green
+            }]}>
+              {modalDetalhe === 'vendido' && formatarMoeda(resumo.totalVendido)}
+              {modalDetalhe === 'recebido' && formatarMoeda(resumo.totalRecebido)}
+              {modalDetalhe === 'saldo' && formatarMoeda(Math.max(0, resumo.totalEmAberto))}
+              {modalDetalhe === 'vendas' && `${resumo.quantidadeVendas} vendas`}
+            </Text>
+          </View>
+        )}
+
+        <FlatList
+          data={transacoes.filter(t => {
+            if (modalDetalhe === 'vendido' || modalDetalhe === 'vendas') return t.tipo === 'venda'
+            if (modalDetalhe === 'recebido') return t.tipo === 'pagamento'
+            if (modalDetalhe === 'saldo') return t.tipo === 'venda'
+            return true
+          })}
+          keyExtractor={(_, i) => String(i)}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}
+          ListEmptyComponent={
+            <View style={{ alignItems: 'center', paddingTop: 48 }}>
+              <Text style={{ fontSize: 32 }}>📭</Text>
+              <Text style={{ color: C.text2, marginTop: 8 }}>Nenhum registro neste período</Text>
+            </View>
+          }
+          renderItem={({ item: t }) => (
+            <View style={estilos.detalheItem}>
+              <View style={[estilos.detalheItemIcone, { backgroundColor: t.tipo === 'venda' ? C.redLight : C.greenLight }]}>
+                <Ionicons name={t.tipo === 'venda' ? 'cart-outline' : 'cash-outline'} size={16} color={t.tipo === 'venda' ? C.red : C.greenDark} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={estilos.detalheItemCliente} numberOfLines={1}>{t.clienteNome}</Text>
+                <Text style={estilos.detalheItemData}>
+                  {new Date(t.data + 'T12:00:00').toLocaleDateString('pt-BR')}
+                  {t.descricao ? ` · ${t.descricao}` : ''}
+                  {t.categoria ? ` · ${t.categoria}` : ''}
+                </Text>
+              </View>
+              <Text style={[estilos.detalheItemValor, { color: t.tipo === 'venda' ? C.red : C.greenDark }]}>
+                {t.tipo === 'venda' ? '-' : '+'}{formatarMoeda(t.valor)}
+              </Text>
+            </View>
+          )}
+        />
+      </View>
+    </Modal>
+    </>
   )
 }
 
@@ -709,6 +815,19 @@ const estilos = StyleSheet.create({
   metricaIcone: { fontSize: 20, marginBottom: 6 },
   metricaValor: { fontSize: 18, fontWeight: '800', marginBottom: 2 },
   metricaLabel: { fontSize: 11, color: C.text2, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  metricaVer: { fontSize: 10, color: C.green, fontWeight: '600', marginTop: 6 },
+  detalheContainer: { flex: 1, backgroundColor: C.bg },
+  detalheCabecalho: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, borderBottomColor: C.border },
+  detalheTitulo: { fontSize: 17, fontWeight: '800', color: C.text },
+  detalheFechar: { width: 32, height: 32, borderRadius: 16, backgroundColor: C.border, alignItems: 'center', justifyContent: 'center' },
+  detalheSaldoBox: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, marginHorizontal: 16, marginVertical: 12, backgroundColor: C.card, borderRadius: 14, borderWidth: 1, borderColor: C.border },
+  detalheSaldoLabel: { fontSize: 13, color: C.text2, fontWeight: '600' },
+  detalheSaldoValor: { fontSize: 20, fontWeight: '800' },
+  detalheItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.border },
+  detalheItemIcone: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  detalheItemCliente: { fontSize: 14, fontWeight: '700', color: C.text },
+  detalheItemData: { fontSize: 12, color: C.text2, marginTop: 2 },
+  detalheItemValor: { fontSize: 14, fontWeight: '800' },
   btnExportar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     backgroundColor: C.card, borderRadius: 12, paddingVertical: 11, marginTop: 10,
@@ -724,6 +843,17 @@ const estilos = StyleSheet.create({
   taxaLabel: { fontSize: 14, fontWeight: '700', color: C.text },
   taxaSubLabel: { fontSize: 12, color: C.text2, marginTop: 2 },
   taxaValor: { fontSize: 32, fontWeight: '800' },
+  lockBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: C.green, borderRadius: 16, padding: 16, marginTop: 10,
+    shadowColor: C.green, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 5,
+  },
+  lockIconeBox: {
+    width: 44, height: 44, borderRadius: 13,
+    backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center',
+  },
+  lockTitulo: { fontSize: 14, fontWeight: '800', color: C.white, marginBottom: 2 },
+  lockSub: { fontSize: 12, color: 'rgba(255,255,255,0.8)', lineHeight: 16 },
   rankingCard: {
     backgroundColor: C.card, borderRadius: 16, padding: 18, marginTop: 10,
     borderWidth: 1, borderColor: C.border,

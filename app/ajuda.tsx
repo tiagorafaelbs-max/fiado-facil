@@ -129,7 +129,10 @@ export default function AjudaScreen() {
 
   return (
     <ScrollView style={estilos.container} contentContainerStyle={estilos.content}>
-      <Text style={estilos.subtitulo}>Encontre respostas rápidas sobre o uso do app.</Text>
+      <View style={estilos.introBox}>
+        <Ionicons name="help-buoy-outline" size={28} color={C.green} />
+        <Text style={estilos.introTexto}>Encontre respostas rápidas sobre o uso do app.</Text>
+      </View>
 
       {SECOES.map((secao) => (
         <View key={secao.id} style={estilos.secao}>
@@ -194,7 +197,12 @@ export default function AjudaScreen() {
 const estilos = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
   content: { padding: 16, paddingBottom: 48 },
-  subtitulo: { fontSize: 14, color: C.text2, marginBottom: 20 },
+  introBox: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: C.greenLight, borderRadius: 14, padding: 14, marginBottom: 20,
+    borderWidth: 1, borderColor: C.greenMid,
+  },
+  introTexto: { flex: 1, fontSize: 14, color: C.greenDark, fontWeight: '500', lineHeight: 20 },
   secao: { marginBottom: 20 },
   secaoHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
   secaoIcone: {
@@ -204,9 +212,10 @@ const estilos = StyleSheet.create({
   },
   secaoTitulo: { fontSize: 15, fontWeight: '700', color: C.text },
   secaoCard: {
-    backgroundColor: C.card, borderRadius: 16,
+    backgroundColor: C.card, borderRadius: 18,
     borderWidth: 1, borderColor: C.border,
     overflow: 'hidden',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 1,
   },
   itemWrapper: { paddingHorizontal: 16, paddingVertical: 14 },
   itemBorda: { borderBottomWidth: 1, borderBottomColor: C.border },
@@ -233,3 +242,4 @@ const estilos = StyleSheet.create({
   },
   rodapeBtnTexto: { fontSize: 14, fontWeight: '700', color: C.text },
 })
+

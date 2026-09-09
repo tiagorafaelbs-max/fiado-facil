@@ -1,0 +1,11 @@
+.git
+node_modules/.cache
+android/.gradle
+android/build
+android/app/build
+ios/build
+ios/Pods
+landing
+*.aab
+*.apk
+*.map

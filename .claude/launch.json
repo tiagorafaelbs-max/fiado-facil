@@ -1,0 +1,1 @@
+{"version":"0.0.1","configurations":[{"name":"landing-page","runtimeExecutable":"npx","runtimeArgs":["serve","docs","-p","4500","--no-clipboard"],"port":4500},{"name":"expo-web","runtimeExecutable":"npx","runtimeArgs":["expo","start","--web","--port","8081","--no-dev-client"],"port":8081}]}

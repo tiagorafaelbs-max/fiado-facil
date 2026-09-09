@@ -9,7 +9,8 @@ _(máx. 30 caracteres no iOS / 50 no Android)_
 ---
 
 ## SUBTÍTULO / TAGLINE (iOS — máx. 30 caracteres)
-**Para quem vende e quer receber**
+**Caderneta de fiado e cobrança**
+_(29 caracteres)_
 
 ---
 
@@ -69,7 +70,8 @@ Cancele quando quiser. Sem fidelidade.
 fiado, controle de fiado, caderninho de fiado, fiado digital, vendas a prazo, controle de clientes, cobrança whatsapp, contas a receber, crediário, controle de vendas, FiadoApp, app de fiado, mercadinho, comerciante, pequeno negócio, gestão de fiado, caderneta digital, controle financeiro, cobrança de clientes, prazo
 
 ## PALAVRAS-CHAVE — App Store (máx. 100 caracteres, separar por vírgula)
-fiado,crediario,vendas,cobranca,clientes,mercadinho,prazo,caderneta,financeiro,controle
+caderno,digital,controle,vendas,prazo,clientes,pix,whatsapp,mercadinho,lanchonete,padaria,devedor
+_(96 caracteres — cluster vencedor: "caderneta do fiado")_
 
 ---
 
@@ -83,6 +85,9 @@ fiado,crediario,vendas,cobranca,clientes,mercadinho,prazo,caderneta,financeiro,c
 - Livre (sem conteúdo inapropriado)
 
 ---
+
+## O QUE HÁ DE NOVO — versão 1.0.7
+Melhorias baseadas no feedback dos primeiros usuários: avalie o FiadoApp direto nas configurações, envie sugestões por e-mail, notificações de vencimento aprimoradas e correções de estabilidade.
 
 ## O QUE HÁ DE NOVO — versão 1.0.0
 Lançamento oficial do FiadoApp! Controle completo de vendas no fiado com cadastro de clientes, registro de pagamentos, cobranças pelo WhatsApp, relatórios mensais e anuais com exportação em PDF. Disponível para Android, iPhone e web.

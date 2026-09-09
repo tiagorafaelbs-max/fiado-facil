@@ -1,630 +1,1484 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FiadoApp — Chega de perder dinheiro com fiado</title>
-  <meta name="description" content="Registre, cobre e receba seu fiado direto do celular. Cobrança pelo WhatsApp, Pix integrado, histórico de cada cliente. Grátis para começar." />
-  <meta property="og:title" content="FiadoApp — Chega de perder dinheiro com fiado" />
-  <meta property="og:description" content="O caderninho virou app. Registre vendas, cobre pelo WhatsApp e receba pelo Pix." />
-  <meta property="og:image" content="./og-image.png" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&family=DM+Mono:wght@500&display=swap" rel="stylesheet" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fiado App — Controle de Fiado para Pequenos Negócios</title>
+  <meta name="description" content="Substitua o caderno de fiado pelo Fiado App. Controle clientes, vendas e cobranças direto no celular. App Store e Google Play.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
-    :root {
-      --navy: #0C1F3F;
-      --navy-mid: #162d52;
-      --amber: #E8920A;
-      --amber-light: #FEF3C7;
-      --amber-border: #FDE68A;
-      --paper: #FAFAF7;
-      --ink: #1C1917;
-      --muted: #78716C;
-      --border: #E7E5E4;
-      --white: #ffffff;
-    }
-
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green:     #16A34A;
+      --green-h:   #15803D;
+      --green-lt:  #DCFCE7;
+      --green-xl:  #F0FDF4;
+      --ink:       #0F172A;
+      --ink2:      #1E293B;
+      --mid:       #475569;
+      --muted:     #64748B;
+      --light:     #94A3B8;
+      --border:    #E2E8F0;
+      --surface:   #F8FAFC;
+      --white:     #FFFFFF;
+    }
+
     html { scroll-behavior: smooth; }
-    body { font-family: 'DM Sans', sans-serif; background: var(--paper); color: var(--ink); overflow-x: hidden; font-size: 16px; line-height: 1.6; }
 
-    /* NAV */
-    nav {
-      position: fixed; top: 0; left: 0; right: 0; z-index: 200;
-      padding: 0 32px; height: 64px;
-      display: flex; align-items: center; justify-content: space-between;
-      background: rgba(12, 31, 63, 0.97);
-      backdrop-filter: blur(16px);
-      border-bottom: 1px solid rgba(255,255,255,0.06);
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      color: var(--ink);
+      background: var(--white);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      overflow-x: hidden;
     }
-    .nav-logo { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; color: var(--white); text-decoration: none; letter-spacing: -0.5px; }
-    .nav-logo em { color: var(--amber); font-style: normal; }
-    .nav-links { display: flex; gap: 28px; align-items: center; }
-    .nav-links a { font-size: 14px; color: rgba(255,255,255,0.6); text-decoration: none; font-weight: 500; transition: color 0.2s; }
-    .nav-links a:hover { color: var(--white); }
-    .nav-cta { background: var(--amber) !important; color: var(--white) !important; padding: 9px 22px !important; border-radius: 8px !important; font-weight: 700 !important; transition: opacity 0.2s !important; }
-    .nav-cta:hover { opacity: 0.88 !important; }
 
-    /* HERO */
-    .hero {
-      min-height: 100vh;
-      background: var(--navy);
-      padding: 120px 80px 80px;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      align-items: center;
-      gap: 64px;
-      position: relative;
-      overflow: hidden;
+    img { max-width: 100%; display: block; }
+    a   { text-decoration: none; color: inherit; }
+    button { font-family: inherit; }
+
+    /* ── ANIMATIONS ─────────────────────────────────────── */
+    .reveal {
+      opacity: 0;
+      transform: translateY(28px);
+      transition: opacity .65s cubic-bezier(.16,1,.3,1),
+                  transform .65s cubic-bezier(.16,1,.3,1);
     }
-    .hero::before {
-      content: '';
-      position: absolute; top: -300px; right: -300px;
-      width: 700px; height: 700px;
-      background: radial-gradient(circle, rgba(232,146,10,0.08) 0%, transparent 65%);
-      pointer-events: none;
-    }
-    .hero-eyebrow {
+    .reveal.in { opacity: 1; transform: translateY(0); }
+    .reveal-d1 { transition-delay: .08s; }
+    .reveal-d2 { transition-delay: .16s; }
+    .reveal-d3 { transition-delay: .24s; }
+    .reveal-d4 { transition-delay: .32s; }
+    .reveal-d5 { transition-delay: .40s; }
+
+    /* ── BUTTONS ────────────────────────────────────────── */
+    .btn {
       display: inline-flex; align-items: center; gap: 8px;
-      background: rgba(232,146,10,0.12); border: 1px solid rgba(232,146,10,0.3);
-      border-radius: 6px; padding: 5px 12px;
-      font-size: 11px; font-weight: 700; color: var(--amber);
-      letter-spacing: 1px; text-transform: uppercase;
+      padding: 13px 22px; border-radius: 10px;
+      font-size: 15px; font-weight: 600;
+      border: none; cursor: pointer;
+      transition: all .18s ease;
+      white-space: nowrap; letter-spacing: -.01em;
+    }
+    .btn-primary {
+      background: var(--green); color: #fff;
+      box-shadow: 0 1px 2px rgba(22,163,74,.25), 0 4px 14px rgba(22,163,74,.3);
+    }
+    .btn-primary:hover {
+      background: var(--green-h);
+      transform: translateY(-2px);
+      box-shadow: 0 2px 4px rgba(22,163,74,.25), 0 10px 28px rgba(22,163,74,.35);
+    }
+    .btn-ghost {
+      background: transparent;
+      color: var(--mid);
+      border: 1.5px solid var(--border);
+    }
+    .btn-ghost:hover { border-color: var(--light); background: var(--surface); color: var(--ink); }
+    .btn-lg { padding: 15px 28px; font-size: 16px; border-radius: 12px; }
+    .btn-xl { padding: 17px 36px; font-size: 17px; border-radius: 14px; }
+
+    /* ── EYEBROW ────────────────────────────────────────── */
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 10px;
+      font-size: 11px; font-weight: 700; letter-spacing: .14em;
+      text-transform: uppercase; color: var(--green);
+      margin-bottom: 18px;
+    }
+    .eyebrow::before {
+      content: ''; display: block;
+      width: 18px; height: 2px;
+      background: currentColor; border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    /* ── NAVIGATION ─────────────────────────────────────── */
+    .nav {
+      position: sticky; top: 0; z-index: 200;
+      background: rgba(255,255,255,.88);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(226,232,240,.8);
+      height: 64px;
+    }
+    .nav-inner {
+      max-width: 1200px; margin: 0 auto; padding: 0 5vw;
+      height: 100%;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .nav-logo {
+      font-size: 20px; font-weight: 900; letter-spacing: -.5px;
+      color: var(--ink); flex-shrink: 0;
+    }
+    .nav-logo span { color: var(--green); }
+    .nav-links {
+      display: flex; align-items: center; gap: 32px; list-style: none;
+    }
+    .nav-links a {
+      font-size: 14px; font-weight: 500; color: var(--mid);
+      transition: color .15s;
+    }
+    .nav-links a:hover { color: var(--ink); }
+    .nav-cta { flex-shrink: 0; }
+    .nav-cta-btn {
+      padding: 9px 20px; border-radius: 9px;
+      font-size: 14px; font-weight: 600;
+      background: var(--green); color: #fff;
+      border: none; cursor: pointer; transition: all .18s;
+    }
+    .nav-cta-btn:hover { background: var(--green-h); transform: translateY(-1px); }
+    @media (max-width: 780px) { .nav-links { display: none; } }
+
+    /* ── HERO ───────────────────────────────────────────── */
+    .hero-section {
+      background: var(--white);
+      overflow: hidden;
+      position: relative;
+    }
+    /* Ghost notebook behind left column */
+    .hero-section::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 50%;
+      transform: translateY(-50%) rotate(-8deg);
+      width: 42%; max-width: 520px;
+      aspect-ratio: 3 / 4;
+      background: url('caderno.jpg') center/cover no-repeat;
+      opacity: .045;
+      pointer-events: none;
+      border-radius: 4px;
+    }
+    .hero {
+      max-width: 1200px; margin: 0 auto; padding: 88px 5vw 108px;
+      display: grid; grid-template-columns: 1fr 1fr;
+      align-items: center; gap: 56px;
+      min-height: calc(100vh - 64px);
+      position: relative;
+    }
+    .hero-content { position: relative; z-index: 2; }
+
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--green-xl);
+      border: 1px solid var(--green-lt);
+      color: var(--green-h);
+      font-size: 12px; font-weight: 600; letter-spacing: .01em;
+      padding: 6px 14px; border-radius: 100px;
+      margin-bottom: 32px;
+    }
+    .hero-badge-pulse {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--green);
+      animation: blink 2s ease-in-out infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.35} }
+
+    .hero h1 {
+      font-size: clamp(40px, 4.8vw, 64px);
+      font-weight: 900;
+      letter-spacing: -2.5px;
+      line-height: 1.03;
+      color: var(--ink);
       margin-bottom: 24px;
     }
-    .hero h1 {
-      font-family: 'Syne', sans-serif;
-      font-size: clamp(36px, 4vw, 58px);
-      font-weight: 800;
-      line-height: 1.1;
-      letter-spacing: -0.5px;
-      color: var(--white);
-      margin-bottom: 20px;
+    .hero h1 .accent { color: var(--green); }
+
+    .hero-sub {
+      font-size: 18px; color: var(--mid);
+      line-height: 1.68; max-width: 470px;
+      margin-bottom: 40px;
     }
-    .hero h1 em { color: var(--amber); font-style: normal; }
-    .hero-sub { font-size: 18px; color: rgba(255,255,255,0.58); line-height: 1.7; max-width: 460px; margin-bottom: 36px; }
-    .hero-cta { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 40px; }
 
-    .btn-primary { background: var(--amber); color: var(--white); padding: 16px 32px; border-radius: 10px; font-size: 16px; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; transition: transform 0.15s, box-shadow 0.15s; }
-    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(232,146,10,0.4); }
-    .btn-secondary { background: transparent; color: rgba(255,255,255,0.72); padding: 16px 28px; border-radius: 10px; font-size: 16px; font-weight: 600; text-decoration: none; border: 1.5px solid rgba(255,255,255,0.15); transition: border-color 0.2s, color 0.2s; }
-    .btn-secondary:hover { border-color: rgba(255,255,255,0.4); color: var(--white); }
+    .hero-actions {
+      display: flex; align-items: center; gap: 12px;
+      flex-wrap: wrap; margin-bottom: 52px;
+    }
 
-    .hero-proof { display: flex; align-items: center; gap: 14px; }
-    .proof-dots { display: flex; }
-    .proof-dots span { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--navy); background: var(--navy-mid); display: flex; align-items: center; justify-content: center; font-size: 14px; margin-left: -8px; }
-    .proof-dots span:first-child { margin-left: 0; }
-    .proof-text { font-size: 13px; color: rgba(255,255,255,0.4); }
-    .proof-text strong { color: rgba(255,255,255,0.8); }
+    .hero-stats {
+      display: flex; align-items: center; gap: 0;
+      border: 1px solid var(--border);
+      border-radius: 14px; overflow: hidden;
+      width: fit-content;
+    }
+    .hero-stat {
+      padding: 12px 20px;
+      border-right: 1px solid var(--border);
+    }
+    .hero-stat:last-child { border-right: none; }
+    .hero-stat-num {
+      font-size: 18px; font-weight: 800; letter-spacing: -.5px;
+      color: var(--ink); line-height: 1;
+    }
+    .hero-stat-label { font-size: 11px; color: var(--muted); margin-top: 3px; font-weight: 500; }
 
-    /* HERO VISUAL */
-    .hero-visual { z-index: 1; display: flex; justify-content: center; align-items: center; gap: 20px; }
+    /* Phone mockup */
+    .hero-visual {
+      display: flex; justify-content: center; align-items: center;
+      position: relative; z-index: 2;
+    }
+    .phone-wrap { position: relative; animation: float 7s ease-in-out infinite; }
+    @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-14px)} }
 
-    /* Notebook */
-    .notebook { background: var(--white); border-radius: 4px; width: 240px; box-shadow: 12px 12px 0 rgba(0,0,0,0.25), 0 20px 56px rgba(0,0,0,0.4); position: relative; transform: rotate(-4deg); flex-shrink: 0; }
-    .nb-spine { position: absolute; left: 0; top: 0; bottom: 0; width: 24px; background: #B91C1C; border-radius: 4px 0 0 4px; display: flex; flex-direction: column; justify-content: space-around; align-items: center; padding: 10px 0; }
-    .nb-ring { width: 13px; height: 13px; border-radius: 50%; background: #1a1a1a; border: 3px solid #bbb; }
-    .nb-margin { position: absolute; left: 24px; top: 0; bottom: 0; width: 1px; background: #FCA5A5; opacity: 0.5; }
-    .nb-body { margin-left: 24px; padding: 16px 12px; }
-    .nb-title { font-family: 'Caveat', cursive; font-size: 14px; color: #374151; margin-bottom: 12px; font-weight: 600; }
-    .nb-row { display: flex; align-items: center; gap: 6px; padding: 6px 0; border-bottom: 1px solid #BFDBFE; font-size: 12px; color: #374151; position: relative; font-family: Georgia, serif; }
-    .nb-row.x { color: #9CA3AF; }
-    .nb-row.x::after { content: ''; position: absolute; left: 0; top: 50%; right: 0; height: 1.5px; background: #EF4444; }
-    .nb-amt { margin-left: auto; font-weight: 600; }
+    /* Glow behind phone */
+    .phone-glow {
+      position: absolute; bottom: -48px; left: 50%;
+      transform: translateX(-50%);
+      width: 220px; height: 64px;
+      background: radial-gradient(ellipse, rgba(22,163,74,.28) 0%, transparent 70%);
+      pointer-events: none;
+    }
 
-    /* Phone */
-    .phone { width: 168px; background: #111; border-radius: 34px; padding: 8px; box-shadow: 0 28px 72px rgba(0,0,0,0.55); transform: rotate(3deg) translateY(-18px); border: 2px solid #2a2a2a; flex-shrink: 0; }
-    .ph-screen { background: var(--navy); border-radius: 26px; overflow: hidden; }
-    .ph-notch-bar { height: 16px; background: #0a1a2e; display: flex; justify-content: center; align-items: flex-end; padding-bottom: 3px; }
-    .ph-notch { width: 52px; height: 6px; background: #111; border-radius: 99px; }
-    .ph-body { padding: 10px; }
-    .ph-hd { font-size: 7px; color: rgba(255,255,255,0.38); font-family: 'DM Sans', sans-serif; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 6px; }
-    .ph-card { background: rgba(232,146,10,0.14); border-radius: 8px; padding: 9px; margin-bottom: 7px; border: 1px solid rgba(232,146,10,0.2); }
-    .ph-card-lbl { font-size: 7px; color: rgba(255,255,255,0.42); font-family: 'DM Sans', sans-serif; letter-spacing: 0.5px; text-transform: uppercase; }
-    .ph-card-val { font-size: 20px; font-weight: 500; color: var(--amber); font-family: 'DM Mono', monospace; letter-spacing: -1px; }
-    .ph-row { display: flex; align-items: center; gap: 5px; padding: 5px; border-radius: 6px; background: rgba(255,255,255,0.05); margin-bottom: 3px; }
-    .ph-av { width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; flex-shrink: 0; }
-    .ph-name { font-size: 7px; color: rgba(255,255,255,0.72); font-family: 'DM Sans', sans-serif; flex: 1; }
-    .ph-val { font-size: 7px; color: var(--amber); font-family: 'DM Mono', monospace; }
+    .phone-frame {
+      width: 285px;
+      background: #18181B;
+      border-radius: 46px;
+      padding: 14px;
+      box-shadow:
+        inset 0 0 0 1px rgba(255,255,255,.07),
+        0 0 0 1px #111,
+        0 48px 100px rgba(0,0,0,.38),
+        0 20px 40px rgba(0,0,0,.22);
+      position: relative;
+    }
+    /* Notch */
+    .phone-frame::before {
+      content: '';
+      position: absolute; top: 14px; left: 50%;
+      transform: translateX(-50%);
+      width: 88px; height: 26px;
+      background: #18181B;
+      border-radius: 0 0 18px 18px;
+      z-index: 2;
+    }
+    .phone-screen {
+      border-radius: 34px; overflow: hidden; background: #fff;
+    }
+    .phone-screen img { width: 100%; display: block; }
 
-    /* SOCIAL PROOF STRIP */
-    .proof-strip { background: var(--amber); padding: 12px 0; overflow: hidden; }
-    .proof-ticker { display: flex; white-space: nowrap; animation: ticker 22s linear infinite; }
-    .tk { font-size: 12px; font-weight: 700; color: var(--white); letter-spacing: 1px; text-transform: uppercase; padding: 0 24px; }
-    .tk-sep { color: rgba(255,255,255,0.45); }
-    @keyframes ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+    /* Floating cards */
+    .float-card {
+      position: absolute;
+      background: #fff;
+      border-radius: 14px;
+      padding: 13px 16px;
+      box-shadow: 0 8px 40px rgba(0,0,0,.13), 0 2px 8px rgba(0,0,0,.07);
+      white-space: nowrap; border: 1px solid var(--border);
+      animation: float 7s ease-in-out infinite;
+    }
+    .float-card:nth-child(3) { animation-delay: -3.5s; }
+    .float-card-label { font-size: 11px; color: var(--muted); font-weight: 500; margin-bottom: 3px; }
+    .float-card-value { font-size: 17px; font-weight: 800; color: var(--ink); letter-spacing: -.4px; }
+    .float-card-value.g { color: var(--green); }
+    .float-card-tag {
+      display: inline-block;
+      font-size: 10px; font-weight: 700;
+      background: var(--green-xl); color: var(--green-h);
+      padding: 2px 7px; border-radius: 5px; margin-left: 6px;
+    }
+    .fc-left  { left: -96px; top: 22%; }
+    .fc-right { right: -96px; bottom: 26%; }
+    @media (max-width: 1100px) { .float-card { display: none; } }
 
-    /* SECTIONS */
-    .section { max-width: 1080px; margin: 0 auto; padding: 100px 32px; }
-    .s-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase; color: var(--amber); margin-bottom: 14px; }
-    .s-title { font-family: 'Syne', sans-serif; font-size: clamp(28px, 3.5vw, 42px); font-weight: 800; letter-spacing: -0.3px; color: var(--ink); line-height: 1.12; margin-bottom: 14px; }
-    .s-sub { font-size: 17px; color: var(--muted); line-height: 1.7; max-width: 520px; margin-bottom: 52px; }
+    @media (max-width: 900px) {
+      .hero { grid-template-columns: 1fr; min-height: auto; padding: 56px 5vw 72px; gap: 48px; }
+      .hero-visual { order: -1; }
+      .phone-frame { width: 224px; border-radius: 38px; }
+      .hero-section::before { display: none; }
+      .hero h1 { letter-spacing: -2px; }
+    }
+    @media (max-width: 480px) {
+      .hero { padding: 40px 5vw 60px; }
+      .hero h1 { letter-spacing: -1.5px; }
+      .hero-sub { font-size: 16px; }
+      .hero-stats { flex-wrap: wrap; border: none; gap: 20px; }
+      .hero-stat { border: 1px solid var(--border); border-radius: 10px; padding: 10px 16px; }
+    }
 
-    /* PROBLEMA */
-    .prob-section { background: var(--white); }
-    .prob-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-    .prob-card { background: var(--amber-light); border-radius: 16px; padding: 28px; border: 1px solid var(--amber-border); }
-    .prob-ico { font-size: 28px; margin-bottom: 14px; display: block; }
-    .prob-title { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; color: #92400E; margin-bottom: 8px; }
-    .prob-desc { font-size: 14px; color: #B45309; line-height: 1.6; }
+    /* ── TRUST STRIP ────────────────────────────────────── */
+    .trust {
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      padding: 24px 5vw;
+    }
+    .trust-inner {
+      max-width: 1200px; margin: 0 auto;
+      display: flex; align-items: center; justify-content: center;
+      gap: 40px; flex-wrap: wrap;
+    }
+    .trust-item { display: flex; align-items: center; gap: 10px; }
+    .trust-ico {
+      width: 34px; height: 34px; border-radius: 9px;
+      background: var(--white); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .trust-ico svg { width: 17px; height: 17px; }
+    .trust-label { font-size: 13px; font-weight: 600; color: var(--ink2); }
+    .trust-sub   { font-size: 12px; color: var(--muted); margin-top: 1px; }
 
-    /* FEATURES */
-    .feat-section { background: var(--paper); }
-    .feat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
-    .feat-card { background: var(--white); padding: 32px 24px; transition: background 0.18s; }
-    .feat-card:hover { background: #FFFBF5; }
-    .feat-ico { font-size: 26px; margin-bottom: 16px; display: block; }
-    .feat-title { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; color: var(--ink); margin-bottom: 8px; }
-    .feat-desc { font-size: 14px; color: var(--muted); line-height: 1.65; }
+    /* ── PROBLEM ────────────────────────────────────────── */
+    .problem {
+      background: #0C1420;
+      padding: 104px 5vw;
+      position: relative; overflow: hidden;
+    }
+    .problem::after {
+      content: '';
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse 55% 55% at 0% 60%, rgba(22,163,74,.09) 0%, transparent 60%),
+        radial-gradient(ellipse 45% 50% at 100% 10%, rgba(139,92,246,.06) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .problem-inner {
+      max-width: 1200px; margin: 0 auto;
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 88px; align-items: center;
+      position: relative; z-index: 1;
+    }
 
-    /* STATS */
-    .stats-section { background: var(--navy); padding: 72px 32px; }
-    .stats-inner { max-width: 1080px; margin: 0 auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 48px; text-align: center; }
-    .stat-val { font-family: 'Syne', sans-serif; font-size: 54px; font-weight: 800; color: var(--white); letter-spacing: -1px; line-height: 1; }
-    .stat-val em { color: var(--amber); font-style: normal; }
-    .stat-lbl { font-size: 14px; color: rgba(255,255,255,0.42); margin-top: 8px; }
+    .problem-visual { position: relative; }
+    .problem-notebook {
+      width: 100%; max-width: 440px;
+      border-radius: 6px;
+      box-shadow: 0 40px 100px rgba(0,0,0,.75), 0 8px 24px rgba(0,0,0,.5);
+      transform: rotate(-2deg);
+      filter: sepia(.18) saturate(.88) contrast(1.05);
+      display: block;
+      transition: transform .5s ease;
+    }
+    .problem-visual:hover .problem-notebook { transform: rotate(0deg); }
 
-    /* HOW */
-    .how-section { background: var(--white); }
-    .steps-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 48px; position: relative; }
-    .steps-row::before { content: ''; position: absolute; top: 23px; left: calc(16.6% + 24px); right: calc(16.6% + 24px); height: 1px; background: var(--border); }
-    .step-n { width: 46px; height: 46px; border-radius: 12px; background: var(--navy); color: var(--white); font-family: 'DM Mono', monospace; font-size: 17px; font-weight: 500; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; }
-    .step-title { font-family: 'Syne', sans-serif; font-size: 17px; font-weight: 700; color: var(--ink); margin-bottom: 10px; }
-    .step-desc { font-size: 14px; color: var(--muted); line-height: 1.65; }
+    /* Large X over notebook */
+    .nb-x {
+      position: absolute; inset: -6px;
+      pointer-events: none; overflow: visible;
+    }
 
-    /* TESTIMONIALS */
-    .testi-section { background: var(--paper); }
-    .testi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-    .testi-card { background: var(--white); border-radius: 16px; padding: 28px; border: 1px solid var(--border); }
-    .testi-stars { color: var(--amber); font-size: 14px; letter-spacing: 2px; margin-bottom: 14px; }
-    .testi-quote { font-size: 15px; color: #44403C; line-height: 1.65; margin-bottom: 20px; font-style: italic; }
+    /* Floating question bubbles */
+    .nb-q {
+      position: absolute;
+      background: rgba(239,68,68,.13);
+      border: 1px solid rgba(239,68,68,.32);
+      color: #FCA5A5;
+      font-size: 12px; font-weight: 600;
+      padding: 8px 13px; border-radius: 9px;
+      backdrop-filter: blur(6px);
+      white-space: nowrap;
+      animation: drift 4s ease-in-out infinite;
+    }
+    @keyframes drift {
+      0%,100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
+    }
+    .nb-q:nth-child(3) { animation-delay: -1s; }
+    .nb-q:nth-child(4) { animation-delay: -2s; }
+    .nb-q:nth-child(5) { animation-delay: -3s; }
+    .nbq-1 { top: 10%; left: -4%; }
+    .nbq-2 { top: 28%; right: -6%; }
+    .nbq-3 { top: 55%; left: -8%; }
+    .nbq-4 { bottom: 18%; right: -4%; }
+
+    .problem-content .eyebrow { color: #F87171; }
+    .problem-content .eyebrow::before { background: #F87171; }
+    .problem-content h2 {
+      font-size: clamp(28px, 2.8vw, 44px);
+      font-weight: 900; letter-spacing: -1.5px; line-height: 1.1;
+      color: #fff; margin-bottom: 18px;
+    }
+    .problem-intro {
+      font-size: 17px; color: rgba(255,255,255,.45);
+      line-height: 1.7; margin-bottom: 36px;
+    }
+    .pain-list { display: flex; flex-direction: column; gap: 10px; }
+    .pain-item {
+      display: flex; align-items: flex-start; gap: 14px;
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.07);
+      border-radius: 12px; padding: 16px 20px;
+      transition: background .25s, border-color .25s;
+    }
+    .pain-item:hover { background: rgba(255,255,255,.07); border-color: rgba(239,68,68,.3); }
+    .pain-dot {
+      width: 8px; height: 8px; min-width: 8px;
+      border-radius: 50%; background: #EF4444; margin-top: 7px;
+    }
+    .pain-text { font-size: 15px; color: rgba(255,255,255,.7); line-height: 1.55; }
+    .pain-text strong { color: #fff; font-weight: 700; }
+
+    @media (max-width: 900px) {
+      .problem-inner { grid-template-columns: 1fr; gap: 56px; }
+      .problem-notebook { max-width: 300px; margin: 0 auto; }
+      .nb-q { display: none; }
+    }
+
+    /* ── TRANSFORM / COMPARISON ─────────────────────────── */
+    .transform { padding: 104px 5vw; background: var(--white); }
+    .transform-inner { max-width: 1100px; margin: 0 auto; }
+    .transform-header { text-align: center; margin-bottom: 60px; }
+    .transform-header h2 {
+      font-size: clamp(28px, 3.2vw, 46px);
+      font-weight: 900; letter-spacing: -1.5px; line-height: 1.08;
+      color: var(--ink); margin-bottom: 14px;
+    }
+    .transform-header p { font-size: 17px; color: var(--mid); max-width: 480px; margin: 0 auto; }
+
+    .compare-wrap {
+      display: grid; grid-template-columns: 1fr 64px 1fr;
+      gap: 0; align-items: stretch;
+    }
+    .compare-before {
+      background: #FFFBEB; border: 1.5px solid #FDE68A;
+      border-radius: 20px 0 0 20px; padding: 36px 32px;
+    }
+    .compare-after {
+      background: var(--green-xl); border: 1.5px solid var(--green-lt);
+      border-radius: 0 20px 20px 0; padding: 36px 32px;
+    }
+    .compare-center {
+      display: flex; align-items: center; justify-content: center;
+      border-top: 1.5px solid #FDE68A; border-bottom: 1.5px solid var(--green-lt);
+      background: linear-gradient(to right, #FFFBEB 50%, var(--green-xl) 50%);
+    }
+    .compare-arrow-btn {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: var(--ink);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 2px 12px rgba(0,0,0,.2);
+      flex-shrink: 0;
+    }
+    .compare-arrow-btn svg { width: 16px; height: 16px; }
+
+    .compare-col-title {
+      font-size: 11px; font-weight: 800; letter-spacing: .12em;
+      text-transform: uppercase; margin-bottom: 22px;
+    }
+    .compare-before .compare-col-title { color: #92400E; }
+    .compare-after  .compare-col-title { color: #14532D; }
+
+    .compare-items { display: flex; flex-direction: column; gap: 12px; }
+    .compare-item { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; line-height: 1.45; }
+    .compare-before .compare-item { color: #78350F; }
+    .compare-after  .compare-item { color: #166534; }
+
+    .ci-x {
+      width: 20px; height: 20px; min-width: 20px;
+      background: #FEE2E2; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; margin-top: 1px;
+    }
+    .ci-x svg { width: 10px; height: 10px; color: #EF4444; }
+    .ci-ok {
+      width: 20px; height: 20px; min-width: 20px;
+      background: var(--green-lt); border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; margin-top: 1px;
+    }
+    .ci-ok svg { width: 10px; height: 10px; color: var(--green); }
+
+    @media (max-width: 760px) {
+      .compare-wrap { grid-template-columns: 1fr; }
+      .compare-before { border-radius: 16px; border-width: 1.5px; margin-bottom: 0; }
+      .compare-center {
+        height: 56px; border-left: 1.5px solid #FDE68A; border-right: 1.5px solid var(--green-lt);
+        border-top: none; border-bottom: none;
+        background: linear-gradient(to bottom, #FFFBEB 50%, var(--green-xl) 50%);
+      }
+      .compare-after { border-radius: 16px; }
+    }
+
+    /* ── FEATURES ───────────────────────────────────────── */
+    .features { background: var(--surface); padding: 104px 5vw; }
+    .features-inner { max-width: 1200px; margin: 0 auto; }
+    .features-header { text-align: center; margin-bottom: 60px; }
+    .features-header h2 {
+      font-size: clamp(28px, 3.2vw, 46px);
+      font-weight: 900; letter-spacing: -1.5px; line-height: 1.1;
+      color: var(--ink); margin-bottom: 14px;
+    }
+    .features-header p { font-size: 17px; color: var(--mid); max-width: 460px; margin: 0 auto; }
+
+    .features-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px;
+    }
+    @media (max-width: 1000px) { .features-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 540px)  { .features-grid { grid-template-columns: 1fr; } }
+
+    .feat-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 18px; padding: 28px 26px;
+      transition: border-color .25s, box-shadow .25s, transform .25s;
+    }
+    .feat-card:hover {
+      border-color: var(--green-lt);
+      box-shadow: 0 8px 36px rgba(22,163,74,.09);
+      transform: translateY(-4px);
+    }
+    .feat-ico {
+      width: 44px; height: 44px; border-radius: 12px;
+      background: var(--green-xl);
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 16px;
+    }
+    .feat-ico svg { width: 22px; height: 22px; color: var(--green); }
+    .feat-card h3 { font-size: 15px; font-weight: 700; color: var(--ink); margin-bottom: 7px; }
+    .feat-card p  { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+    /* ── HOW IT WORKS ───────────────────────────────────── */
+    .how { background: var(--white); padding: 104px 5vw; }
+    .how-inner { max-width: 1200px; margin: 0 auto; }
+    .how-header { text-align: center; margin-bottom: 72px; }
+    .how-header h2 {
+      font-size: clamp(28px, 3.2vw, 46px);
+      font-weight: 900; letter-spacing: -1.5px;
+      color: var(--ink); margin-bottom: 14px;
+    }
+    .how-header p { font-size: 17px; color: var(--mid); }
+
+    .steps {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 28px;
+      position: relative;
+    }
+    .steps::before {
+      content: '';
+      position: absolute; top: 27px; left: 14%; right: 14%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border) 10%, var(--border) 90%, transparent);
+    }
+    @media (max-width: 880px) {
+      .steps { grid-template-columns: repeat(2, 1fr); }
+      .steps::before { display: none; }
+    }
+    @media (max-width: 480px) { .steps { grid-template-columns: 1fr; } }
+
+    .step { text-align: center; }
+    .step-num {
+      width: 54px; height: 54px; border-radius: 50%;
+      background: var(--ink); color: #fff;
+      font-size: 18px; font-weight: 800;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 18px; position: relative; z-index: 1;
+    }
+    .step h3 { font-size: 16px; font-weight: 700; color: var(--ink); margin-bottom: 8px; }
+    .step p  { font-size: 14px; color: var(--muted); line-height: 1.6; max-width: 200px; margin: 0 auto; }
+
+    /* ── PRODUCT SHOWCASE ───────────────────────────────── */
+    .product {
+      background: #0C1420;
+      padding: 104px 5vw 80px;
+      position: relative; overflow: hidden;
+    }
+    .product::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse 80% 70% at 50% 110%, rgba(22,163,74,.15) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .product-inner { max-width: 1200px; margin: 0 auto; position: relative; z-index: 1; }
+    .product-header { text-align: center; margin-bottom: 64px; }
+    .product-header .eyebrow { color: #86EFAC; }
+    .product-header .eyebrow::before { background: #86EFAC; }
+    .product-header h2 {
+      font-size: clamp(28px, 3.2vw, 46px);
+      font-weight: 900; letter-spacing: -1.5px; color: #fff; margin-bottom: 14px;
+    }
+    .product-header p { font-size: 17px; color: rgba(255,255,255,.45); }
+    .product-phone {
+      display: flex; justify-content: center; align-items: flex-end; gap: 28px;
+    }
+    .product-phone .phone-frame { width: 300px; }
+    .product-phone .phone-frame.side {
+      width: 240px; opacity: .55; transform: translateY(24px);
+    }
+    @media (max-width: 700px) {
+      .product-phone .phone-frame.side { display: none; }
+      .product-phone .phone-frame { width: 240px; }
+    }
+
+    /* ── BENEFITS ───────────────────────────────────────── */
+    .benefits { background: var(--surface); padding: 104px 5vw; }
+    .benefits-inner { max-width: 1200px; margin: 0 auto; }
+    .benefits-layout {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 88px; align-items: center;
+    }
+    @media (max-width: 800px) { .benefits-layout { grid-template-columns: 1fr; gap: 52px; } }
+    .benefits-left h2 {
+      font-size: clamp(28px, 3vw, 44px);
+      font-weight: 900; letter-spacing: -1.5px; line-height: 1.1;
+      color: var(--ink); margin-bottom: 18px;
+    }
+    .benefits-left > p {
+      font-size: 17px; color: var(--mid); line-height: 1.68; margin-bottom: 32px;
+    }
+    .ben-items { display: flex; flex-direction: column; gap: 18px; }
+    .ben-item { display: flex; gap: 14px; }
+    .ben-ico {
+      width: 40px; height: 40px; min-width: 40px;
+      background: var(--green-xl); border-radius: 11px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .ben-ico svg { width: 20px; height: 20px; color: var(--green); }
+    .ben-text h4 { font-size: 14px; font-weight: 700; color: var(--ink); margin-bottom: 3px; }
+    .ben-text p  { font-size: 13px; color: var(--muted); line-height: 1.55; }
+
+    /* ── SOCIAL PROOF ───────────────────────────────────── */
+    .proof { background: var(--white); padding: 104px 5vw; }
+    .proof-inner { max-width: 1200px; margin: 0 auto; }
+    .proof-header { text-align: center; margin-bottom: 14px; }
+    .proof-header h2 {
+      font-size: clamp(26px, 3vw, 42px);
+      font-weight: 900; letter-spacing: -1.5px;
+      color: var(--ink); margin-bottom: 12px;
+    }
+    .proof-header p { font-size: 17px; color: var(--mid); }
+    .proof-note {
+      text-align: center; font-size: 12px; color: var(--light);
+      font-style: italic; margin-bottom: 52px;
+    }
+    .testi-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px;
+    }
+    @media (max-width: 860px) { .testi-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 860px) and (min-width: 560px) { .testi-grid { grid-template-columns: 1fr 1fr; } }
+    .testi-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px; padding: 28px;
+    }
+    .stars { display: flex; gap: 3px; margin-bottom: 16px; }
+    .star {
+      width: 13px; height: 13px; background: #FBBF24;
+      clip-path: polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);
+    }
+    .testi-text { font-size: 15px; color: var(--ink2); line-height: 1.72; margin-bottom: 20px; }
     .testi-author { display: flex; align-items: center; gap: 12px; }
-    .testi-av { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+    .testi-avatar {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: var(--green-xl);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 800; color: var(--green-h);
+    }
     .testi-name { font-size: 14px; font-weight: 700; color: var(--ink); }
-    .testi-role { font-size: 12px; color: var(--muted); }
+    .testi-role { font-size: 12px; color: var(--muted); margin-top: 1px; }
 
-    /* PRICING */
-    .price-section { background: var(--white); }
-    .price-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 680px; }
-    .plan { border-radius: 16px; padding: 32px; border: 1.5px solid var(--border); background: var(--paper); }
-    .plan.pro { background: var(--navy); border-color: var(--navy); }
-    .plan-badge { font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #B45309; margin-bottom: 6px; }
-    .plan.pro .plan-badge { color: rgba(232,146,10,0.65); }
-    .plan-name { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; color: var(--ink); margin-bottom: 16px; }
-    .plan.pro .plan-name { color: var(--white); }
-    .plan-price { font-family: 'DM Mono', monospace; font-size: 44px; font-weight: 500; color: var(--ink); letter-spacing: -1.5px; line-height: 1; }
-    .plan.pro .plan-price { color: var(--white); }
-    .plan-period { font-size: 13px; color: var(--muted); margin-bottom: 24px; margin-top: 4px; }
-    .plan.pro .plan-period { color: rgba(255,255,255,0.38); }
-    .plan-features { list-style: none; display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
-    .plan-features li { font-size: 14px; color: var(--muted); display: flex; align-items: flex-start; gap: 9px; line-height: 1.45; }
-    .plan.pro .plan-features li { color: rgba(255,255,255,0.7); }
-    .plan-features li::before { content: '✓'; color: var(--amber); font-weight: 700; flex-shrink: 0; margin-top: 1px; }
-    .btn-plan-free { display: block; text-align: center; padding: 14px; border-radius: 10px; font-size: 15px; font-weight: 700; text-decoration: none; background: var(--navy); color: var(--white); transition: opacity 0.15s; }
-    .btn-plan-free:hover { opacity: 0.85; }
-    .btn-plan-pro { display: block; text-align: center; padding: 14px; border-radius: 10px; font-size: 15px; font-weight: 700; text-decoration: none; background: var(--amber); color: var(--white); transition: opacity 0.15s; }
-    .btn-plan-pro:hover { opacity: 0.88; }
-    .price-note { font-size: 13px; color: var(--muted); margin-top: 20px; }
-    .price-note strong { color: var(--ink); }
-
-    /* FAQ */
-    .faq-section { background: var(--paper); }
-    .faq-list { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
-    .faq-item { border-bottom: 1px solid var(--border); background: var(--white); }
-    .faq-item:last-child { border-bottom: none; }
-    .faq-q { width: 100%; text-align: left; background: none; border: none; padding: 22px 24px; font-size: 16px; font-weight: 600; color: var(--ink); cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 16px; font-family: 'DM Sans', sans-serif; }
-    .faq-q:hover { background: var(--paper); }
-    .faq-icon { width: 24px; height: 24px; border-radius: 50%; background: var(--paper); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; transition: transform 0.25s; color: var(--muted); }
-    .faq-item.open .faq-icon { transform: rotate(45deg); }
-    .faq-a { font-size: 15px; color: var(--muted); line-height: 1.7; padding: 0 24px 22px; display: none; }
-    .faq-item.open .faq-a { display: block; }
-
-    /* FINAL CTA */
-    .cta-section { background: var(--navy); padding: 110px 32px; }
-    .cta-inner { max-width: 680px; margin: 0 auto; text-align: center; }
-    .cta-inner h2 { font-family: 'Syne', sans-serif; font-size: clamp(30px, 4vw, 52px); font-weight: 800; color: var(--white); letter-spacing: -0.5px; line-height: 1.1; margin-bottom: 18px; }
-    .cta-inner h2 span { color: var(--amber); }
-    .cta-inner p { font-size: 17px; color: rgba(255,255,255,0.52); margin-bottom: 40px; line-height: 1.7; }
-    .store-btns { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
-    .btn-store { background: var(--white); color: var(--navy); padding: 14px 26px; border-radius: 12px; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 12px; transition: transform 0.15s, box-shadow 0.15s; }
-    .btn-store:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(0,0,0,0.28); }
-    .store-ico { font-size: 24px; }
-    .store-sub { font-size: 10px; color: var(--muted); display: block; font-weight: 500; }
-    .store-name { font-size: 14px; color: var(--navy); display: block; font-weight: 800; }
-    .cta-note { font-size: 13px; color: rgba(255,255,255,0.34); margin-top: 24px; }
-
-    /* FOOTER */
-    footer { border-top: 1px solid var(--border); padding: 40px 32px; background: var(--paper); }
-    .footer-inner { max-width: 1080px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
-    .footer-logo { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 800; color: var(--ink); text-decoration: none; }
-    .footer-logo em { color: var(--amber); font-style: normal; }
-    .footer-links { display: flex; gap: 24px; }
-    .footer-links a { font-size: 13px; color: var(--muted); text-decoration: none; }
-    .footer-links a:hover { color: var(--ink); }
-    .footer-copy { font-size: 12px; color: #A8A29E; }
-
-    /* FADE IN */
-    .fade { opacity: 0; transform: translateY(20px); transition: opacity 0.6s ease, transform 0.6s ease; }
-    .fade.in { opacity: 1; transform: none; }
-
-    /* RESPONSIVE */
-    @media (max-width: 960px) {
-      .hero { grid-template-columns: 1fr; padding: 100px 28px 64px; text-align: center; }
-      .hero-visual { display: none; }
-      .hero-sub { margin-left: auto; margin-right: auto; }
-      .hero-cta { justify-content: center; }
-      .hero-proof { justify-content: center; }
-      .prob-grid { grid-template-columns: 1fr; }
-      .feat-grid { grid-template-columns: 1fr 1fr; }
-      .stats-inner { grid-template-columns: 1fr; gap: 36px; }
-      .steps-row { grid-template-columns: 1fr; }
-      .steps-row::before { display: none; }
-      .testi-grid { grid-template-columns: 1fr; }
-      .price-grid { grid-template-columns: 1fr; max-width: 100%; }
-      .nav-links { display: none; }
-      .footer-inner { flex-direction: column; text-align: center; }
-      .s-sub { max-width: 100%; }
+    /* ── FAQ ────────────────────────────────────────────── */
+    .faq { background: var(--surface); padding: 104px 5vw; }
+    .faq-inner { max-width: 700px; margin: 0 auto; }
+    .faq-header { text-align: center; margin-bottom: 52px; }
+    .faq-header h2 {
+      font-size: clamp(26px, 3vw, 42px);
+      font-weight: 900; letter-spacing: -1.5px;
+      color: var(--ink); margin-bottom: 14px;
     }
-    @media (max-width: 600px) {
-      .hero { padding: 88px 20px 56px; }
-      .hero h1 { font-size: 34px; }
-      .feat-grid { grid-template-columns: 1fr; }
-      .btn-primary, .btn-secondary { width: 100%; justify-content: center; }
-      .store-btns { flex-direction: column; align-items: center; }
-      .btn-store { width: 100%; max-width: 280px; justify-content: center; }
+    .faq-header p { font-size: 17px; color: var(--mid); }
+    .faq-list { display: flex; flex-direction: column; gap: 8px; }
+    .faq-item {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 14px; overflow: hidden;
+      transition: border-color .2s;
     }
-    @media (prefers-reduced-motion: reduce) {
-      .fade { opacity: 1; transform: none; }
-      .proof-ticker { animation: none; }
+    .faq-item.open { border-color: var(--green-lt); }
+    .faq-q {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 19px 22px; cursor: pointer; gap: 14px;
+      user-select: none;
     }
+    .faq-q span { font-size: 15px; font-weight: 600; color: var(--ink); }
+    .faq-icon {
+      width: 28px; height: 28px; min-width: 28px;
+      border-radius: 50%; border: 1.5px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      transition: all .2s;
+    }
+    .faq-item.open .faq-icon { background: var(--green); border-color: var(--green); transform: rotate(45deg); }
+    .faq-icon svg { width: 12px; height: 12px; color: var(--mid); }
+    .faq-item.open .faq-icon svg { color: #fff; }
+    .faq-a { max-height: 0; overflow: hidden; transition: max-height .35s ease; }
+    .faq-a-inner { padding: 0 22px 18px; font-size: 14px; color: var(--mid); line-height: 1.75; }
+
+    /* ── FINAL CTA ──────────────────────────────────────── */
+    .cta-final {
+      background: var(--ink);
+      padding: 108px 5vw;
+      position: relative; overflow: hidden;
+    }
+    .cta-final::before {
+      content: '';
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse 65% 85% at 15% 50%, rgba(22,163,74,.14) 0%, transparent 60%),
+        radial-gradient(ellipse 55% 70% at 85% 50%, rgba(22,163,74,.10) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .cta-final-inner {
+      max-width: 720px; margin: 0 auto;
+      text-align: center; position: relative; z-index: 1;
+    }
+    .cta-final .eyebrow {
+      color: #86EFAC; justify-content: center;
+    }
+    .cta-final .eyebrow::before { background: #86EFAC; }
+    .cta-final h2 {
+      font-size: clamp(34px, 4.5vw, 58px);
+      font-weight: 900; letter-spacing: -2px; line-height: 1.04;
+      color: #fff; margin-bottom: 20px;
+    }
+    .cta-final h2 span { color: #86EFAC; }
+    .cta-final p {
+      font-size: 18px; color: rgba(255,255,255,.5);
+      max-width: 500px; margin: 0 auto 44px; line-height: 1.65;
+    }
+    .cta-actions { display: flex; justify-content: center; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .btn-ghost-dark {
+      background: transparent;
+      color: rgba(255,255,255,.65);
+      border: 1.5px solid rgba(255,255,255,.2);
+    }
+    .btn-ghost-dark:hover { border-color: rgba(255,255,255,.4); color: #fff; background: rgba(255,255,255,.05); }
+    .cta-note { margin-top: 28px; font-size: 13px; color: rgba(255,255,255,.28); }
+
+    /* ── FOOTER ─────────────────────────────────────────── */
+    footer {
+      background: #07101C;
+      border-top: 1px solid rgba(255,255,255,.05);
+      padding: 64px 5vw 40px;
+    }
+    .footer-inner { max-width: 1200px; margin: 0 auto; }
+    .footer-top {
+      display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;
+      gap: 48px; margin-bottom: 52px;
+    }
+    @media (max-width: 880px) { .footer-top { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 480px) { .footer-top { grid-template-columns: 1fr; gap: 36px; } }
+    .footer-logo { font-size: 20px; font-weight: 900; color: #fff; letter-spacing: -.5px; margin-bottom: 12px; }
+    .footer-logo span { color: var(--green); }
+    .footer-desc { font-size: 14px; color: rgba(255,255,255,.35); line-height: 1.7; max-width: 270px; }
+    .footer-col-title {
+      font-size: 11px; font-weight: 700; letter-spacing: .12em;
+      text-transform: uppercase; color: rgba(255,255,255,.4);
+      margin-bottom: 14px;
+    }
+    .footer-links { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    .footer-links a { font-size: 14px; color: rgba(255,255,255,.4); transition: color .15s; }
+    .footer-links a:hover { color: rgba(255,255,255,.75); }
+    .footer-bottom {
+      border-top: 1px solid rgba(255,255,255,.06);
+      padding-top: 28px;
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 12px; flex-wrap: wrap;
+    }
+    .footer-copy { font-size: 13px; color: rgba(255,255,255,.22); }
+    .footer-legal { display: flex; gap: 20px; }
+    .footer-legal a { font-size: 13px; color: rgba(255,255,255,.28); transition: color .15s; }
+    .footer-legal a:hover { color: rgba(255,255,255,.6); }
+
+    /* ── SECTION TITLE balance ──────────────────────────── */
+    h1, h2 { text-wrap: balance; }
   </style>
 </head>
 <body>
 
-<!-- NAV -->
-<nav>
-  <a href="#" class="nav-logo">Fiado<em>App</em></a>
-  <div class="nav-links">
-    <a href="#problema">O problema</a>
-    <a href="#como-funciona">Como funciona</a>
-    <a href="#precos">Preços</a>
-    <a href="#baixar" class="nav-cta">Baixar grátis</a>
+<!-- ── NAV ─────────────────────────────────────────────── -->
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="#" class="nav-logo">Fiado<span>.App</span></a>
+    <ul class="nav-links">
+      <li><a href="#problema">O problema</a></li>
+      <li><a href="#funcionalidades">Funcionalidades</a></li>
+      <li><a href="#como-funciona">Como funciona</a></li>
+      <li><a href="#faq">Dúvidas</a></li>
+    </ul>
+    <div class="nav-cta">
+      <button class="nav-cta-btn">Começar agora</button>
+    </div>
   </div>
 </nav>
 
-<!-- HERO -->
-<section class="hero">
-  <div class="hero-text">
-    <div class="hero-eyebrow">✦ Grátis para começar</div>
-    <h1>Chega de perder<br>dinheiro com <em>fiado.</em></h1>
-    <p class="hero-sub">Registre a venda, mande a cobrança no WhatsApp e receba pelo Pix. Em 3 toques. O caderninho que não esquece de cobrar.</p>
-    <div class="hero-cta">
-      <a href="#baixar" class="btn-primary">📱 Baixar grátis agora</a>
-      <a href="#como-funciona" class="btn-secondary">Ver como funciona</a>
-    </div>
-    <div class="hero-proof">
-      <div class="proof-dots">
-        <span>🧑</span><span>👩</span><span>👨</span><span>👩</span>
+<!-- ── HERO ────────────────────────────────────────────── -->
+<div class="hero-section">
+  <div class="hero">
+
+    <div class="hero-content">
+      <div class="hero-badge reveal">
+        <span class="hero-badge-pulse"></span>
+        Disponível no App Store e Google Play
       </div>
-      <p class="proof-text">Mais de <strong>500 lojistas</strong> já pararam de perder dinheiro</p>
+
+      <h1 class="reveal reveal-d1">
+        Fiado controlado.<br>
+        <span class="accent">Dinheiro garantido.</span>
+      </h1>
+
+      <p class="hero-sub reveal reveal-d2">
+        Substitua o caderno pelo Fiado App e saiba, em segundos, quanto
+        cada cliente deve — com histórico completo, cobranças e controle
+        financeiro na palma da sua mão.
+      </p>
+
+      <div class="hero-actions reveal reveal-d3">
+        <button class="btn btn-primary btn-lg">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Baixar agora — grátis
+        </button>
+        <button class="btn btn-ghost btn-lg">Ver como funciona</button>
+      </div>
+
+      <div class="hero-stats reveal reveal-d4">
+        <div class="hero-stat">
+          <div class="hero-stat-num">+2.400</div>
+          <div class="hero-stat-label">comerciantes</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-num">4.8 ★</div>
+          <div class="hero-stat-label">App Store</div>
+        </div>
+        <div class="hero-stat">
+          <div class="hero-stat-num">Grátis</div>
+          <div class="hero-stat-label">para começar</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-visual">
+      <!-- Floating left card -->
+      <div class="float-card fc-left reveal">
+        <div class="float-card-label">Total em aberto</div>
+        <div class="float-card-value g">R$ 1.892,00</div>
+      </div>
+
+      <!-- Phone -->
+      <div class="phone-wrap">
+        <div class="phone-glow"></div>
+        <div class="phone-frame">
+          <div class="phone-screen">
+            <img src="screen_app.jpg" alt="Dashboard do Fiado App mostrando clientes e valores em aberto">
+          </div>
+        </div>
+      </div>
+
+      <!-- Floating right card -->
+      <div class="float-card fc-right reveal">
+        <div class="float-card-label">Clientes ativos</div>
+        <div class="float-card-value">23 <span class="float-card-tag">+3 hoje</span></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── TRUST STRIP ──────────────────────────────────────── -->
+<div class="trust">
+  <div class="trust-inner">
+    <div class="trust-item">
+      <div class="trust-ico">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      </div>
+      <div>
+        <div class="trust-label">Dados protegidos</div>
+        <div class="trust-sub">Suas informações ficam seguras</div>
+      </div>
+    </div>
+    <div class="trust-item">
+      <div class="trust-ico">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+      </div>
+      <div>
+        <div class="trust-label">App Store e Google Play</div>
+        <div class="trust-sub">iPhone e Android</div>
+      </div>
+    </div>
+    <div class="trust-item">
+      <div class="trust-ico">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div>
+        <div class="trust-label">Simples de usar</div>
+        <div class="trust-sub">Comece em menos de 5 minutos</div>
+      </div>
+    </div>
+    <div class="trust-item">
+      <div class="trust-ico">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.56 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+      </div>
+      <div>
+        <div class="trust-label">Funciona offline</div>
+        <div class="trust-sub">Sem internet quando precisar</div>
+      </div>
     </div>
   </div>
-  <div class="hero-visual">
-    <div class="notebook">
-      <div class="nb-spine">
-        <div class="nb-ring"></div><div class="nb-ring"></div><div class="nb-ring"></div>
-        <div class="nb-ring"></div><div class="nb-ring"></div><div class="nb-ring"></div>
-        <div class="nb-ring"></div>
-      </div>
-      <div class="nb-margin"></div>
-      <div class="nb-body">
-        <div class="nb-title">📒 FiadoApp — Jun/26</div>
-        <div class="nb-row x"><span>João Silva</span><span class="nb-amt">R$45</span></div>
-        <div class="nb-row x"><span>Dona Maria</span><span class="nb-amt">R$120</span></div>
-        <div class="nb-row x"><span>Pedro C.</span><span class="nb-amt">R$30</span></div>
-        <div class="nb-row"><span>Ana Souza</span><span class="nb-amt">R$85</span></div>
-        <div class="nb-row"><span>Carlos R.</span><span class="nb-amt">R$200</span></div>
-        <div class="nb-row"><span>Sr. Antônio</span><span class="nb-amt">R$60</span></div>
-        <div class="nb-row"><span>Família Lima</span><span class="nb-amt">R$340</span></div>
+</div>
+
+<!-- ── PROBLEM ──────────────────────────────────────────── -->
+<section class="problem" id="problema">
+  <div class="problem-inner">
+
+    <div class="problem-visual reveal">
+      <img src="caderno.jpg" alt="Caderno de fiado manual, com anotações à mão e riscos" class="problem-notebook">
+
+      <!-- Large red X -->
+      <svg class="nb-x" viewBox="0 0 440 580" preserveAspectRatio="none" aria-hidden="true">
+        <line x1="36" y1="36" x2="404" y2="544" stroke="#EF4444" stroke-width="14" stroke-linecap="round" opacity=".72"/>
+        <line x1="404" y1="36" x2="36" y2="544" stroke="#EF4444" stroke-width="14" stroke-linecap="round" opacity=".72"/>
+      </svg>
+
+      <!-- Floating question bubbles -->
+      <div class="nb-q nbq-1">"Onde anotei aquela venda?"</div>
+      <div class="nb-q nbq-2">"Quanto ele ainda deve?"</div>
+      <div class="nb-q nbq-3">"Será que esqueci de cobrar?"</div>
+      <div class="nb-q nbq-4">"Quanto tenho a receber?"</div>
+    </div>
+
+    <div class="problem-content">
+      <div class="eyebrow reveal">O problema</div>
+      <h2 class="reveal reveal-d1">O caderno anota.<br>Mas não cobra por você.</h2>
+      <p class="problem-intro reveal reveal-d2">
+        Todo comerciante que vende fiado conhece a sensação: aquela dívida
+        que some, o cliente que esquece, o dinheiro que nunca volta.
+        O problema não é o fiado — é a falta de controle.
+      </p>
+
+      <div class="pain-list">
+        <div class="pain-item reveal">
+          <div class="pain-dot"></div>
+          <p class="pain-text"><strong>Cobranças esquecidas.</strong> Aquela dívida de dois meses atrás — alguém se lembrou de cobrar?</p>
+        </div>
+        <div class="pain-item reveal reveal-d1">
+          <div class="pain-dot"></div>
+          <p class="pain-text"><strong>Informações perdidas.</strong> Caderno molhado, amassado, esquecido na gaveta — e o dinheiro junto.</p>
+        </div>
+        <div class="pain-item reveal reveal-d2">
+          <div class="pain-dot"></div>
+          <p class="pain-text"><strong>Sem visão do total.</strong> Quanto você tem a receber agora, hoje, esse mês? Impossível saber.</p>
+        </div>
+        <div class="pain-item reveal reveal-d3">
+          <div class="pain-dot"></div>
+          <p class="pain-text"><strong>Vergonha de cobrar.</strong> Sem histórico claro, fica difícil chegar para o cliente com segurança.</p>
+        </div>
+        <div class="pain-item reveal reveal-d4">
+          <div class="pain-dot"></div>
+          <p class="pain-text"><strong>Descontrole financeiro.</strong> Você não sabe o que entrou, o que vai entrar e o que foi perdido.</p>
+        </div>
       </div>
     </div>
-    <div class="phone">
-      <div class="ph-screen">
-        <div class="ph-notch-bar"><div class="ph-notch"></div></div>
-        <div class="ph-body">
-          <div class="ph-hd">FiadoApp · Dashboard</div>
-          <div class="ph-card">
-            <div class="ph-card-lbl">Total em aberto</div>
-            <div class="ph-card-val">R$1.247</div>
+
+  </div>
+</section>
+
+<!-- ── TRANSFORM ─────────────────────────────────────────── -->
+<section class="transform" id="solucao">
+  <div class="transform-inner">
+    <div class="transform-header">
+      <div class="eyebrow reveal">A transformação</div>
+      <h2 class="reveal reveal-d1">De anotação à mão<br>para controle total.</h2>
+      <p class="reveal reveal-d2">A diferença entre perder dinheiro e saber exatamente o que você tem a receber.</p>
+    </div>
+
+    <div class="compare-wrap reveal">
+      <div class="compare-before">
+        <div class="compare-col-title">Caderno de fiado</div>
+        <div class="compare-items">
+          <div class="compare-item">
+            <div class="ci-x"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+            Anotações à mão, difíceis de ler
           </div>
-          <div class="ph-hd">Clientes</div>
-          <div class="ph-row"><div class="ph-av" style="background:#162d52">🧑</div><div class="ph-name">Ana Souza</div><div class="ph-val">R$85</div></div>
-          <div class="ph-row"><div class="ph-av" style="background:#0d1f3f">👩</div><div class="ph-name">Carlos R.</div><div class="ph-val">R$200</div></div>
-          <div class="ph-row"><div class="ph-av" style="background:#1a2d4a">👨</div><div class="ph-name">Sr. Antônio</div><div class="ph-val">R$60</div></div>
+          <div class="compare-item">
+            <div class="ci-x"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+            Informação espalhada e difícil de encontrar
+          </div>
+          <div class="compare-item">
+            <div class="ci-x"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+            Risco de perder ou danificar o caderno
+          </div>
+          <div class="compare-item">
+            <div class="ci-x"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+            Sem histórico organizado por cliente
+          </div>
+          <div class="compare-item">
+            <div class="ci-x"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+            Sem visão do total a receber no mês
+          </div>
+          <div class="compare-item">
+            <div class="ci-x"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+            Cobranças esquecidas e dinheiro perdido
+          </div>
+        </div>
+      </div>
+
+      <div class="compare-center">
+        <div class="compare-arrow-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </div>
+      </div>
+
+      <div class="compare-after">
+        <div class="compare-col-title">Fiado App</div>
+        <div class="compare-items">
+          <div class="compare-item">
+            <div class="ci-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+            Tudo registrado, organizado e legível
+          </div>
+          <div class="compare-item">
+            <div class="ci-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+            Qualquer cliente encontrado em segundos
+          </div>
+          <div class="compare-item">
+            <div class="ci-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+            Dados sempre disponíveis no celular
+          </div>
+          <div class="compare-item">
+            <div class="ci-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+            Histórico completo de cada cliente
+          </div>
+          <div class="compare-item">
+            <div class="ci-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+            Dashboard com visão financeira em tempo real
+          </div>
+          <div class="compare-item">
+            <div class="ci-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+            Cobrança via WhatsApp com um único toque
+          </div>
         </div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- SOCIAL PROOF STRIP -->
-<div class="proof-strip" aria-hidden="true">
-  <div class="proof-ticker">
-    <span class="tk">Padaria</span><span class="tk tk-sep">·</span>
-    <span class="tk">Mercadinho</span><span class="tk tk-sep">·</span>
-    <span class="tk">Açougue</span><span class="tk tk-sep">·</span>
-    <span class="tk">Bar</span><span class="tk tk-sep">·</span>
-    <span class="tk">Hortifruti</span><span class="tk tk-sep">·</span>
-    <span class="tk">Farmácia</span><span class="tk tk-sep">·</span>
-    <span class="tk">Quitanda</span><span class="tk tk-sep">·</span>
-    <span class="tk">Restaurante</span><span class="tk tk-sep">·</span>
-    <span class="tk">Distribuidora</span><span class="tk tk-sep">·</span>
-    <span class="tk">Padaria</span><span class="tk tk-sep">·</span>
-    <span class="tk">Mercadinho</span><span class="tk tk-sep">·</span>
-    <span class="tk">Açougue</span><span class="tk tk-sep">·</span>
-    <span class="tk">Bar</span><span class="tk tk-sep">·</span>
-    <span class="tk">Hortifruti</span><span class="tk tk-sep">·</span>
-    <span class="tk">Farmácia</span><span class="tk tk-sep">·</span>
-    <span class="tk">Quitanda</span><span class="tk tk-sep">·</span>
-    <span class="tk">Restaurante</span><span class="tk tk-sep">·</span>
-    <span class="tk">Distribuidora</span><span class="tk tk-sep">·</span>
-  </div>
-</div>
+<!-- ── FEATURES ─────────────────────────────────────────── -->
+<section class="features" id="funcionalidades">
+  <div class="features-inner">
+    <div class="features-header">
+      <div class="eyebrow reveal">Funcionalidades</div>
+      <h2 class="reveal reveal-d1">Tudo que você precisa,<br>em um só lugar.</h2>
+      <p class="reveal reveal-d2">Desenvolvido para quem vende fiado em pequenos comércios — sem complicação.</p>
+    </div>
 
-<!-- PROBLEMA -->
-<div class="prob-section" id="problema">
-  <div class="section fade">
-    <div class="s-eyebrow">O problema</div>
-    <h2 class="s-title">O caderninho não te avisa<br>quando o cliente some.</h2>
-    <p class="s-sub">Todo lojista que vende fiado conhece essa sensação. O dinheiro saiu, mas a cobrança ficou pra depois — e o depois nunca chega.</p>
-    <div class="prob-grid">
-      <div class="prob-card">
-        <span class="prob-ico">📒</span>
-        <div class="prob-title">Caderninho destruído</div>
-        <p class="prob-desc">Uma chuva, um derramamento ou uma bagunça — e meses de fiado desaparecem sem volta.</p>
+    <div class="features-grid">
+      <div class="feat-card reveal">
+        <div class="feat-ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <h3>Cadastro de Clientes</h3>
+        <p>Organize todos os clientes do seu comércio de forma rápida, com nome e contato.</p>
       </div>
-      <div class="prob-card">
-        <span class="prob-ico">😬</span>
-        <div class="prob-title">Vergonha de cobrar</div>
-        <p class="prob-desc">Sem registro claro, cobrar vira discussão. Com extrato na mão, é só mostrar o número.</p>
+
+      <div class="feat-card reveal reveal-d1">
+        <div class="feat-ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        </div>
+        <h3>Registro de Vendas</h3>
+        <p>Lance uma venda fiado em segundos. Cliente, valor e data — diretamente no celular.</p>
       </div>
-      <div class="prob-card">
-        <span class="prob-ico">🤯</span>
-        <div class="prob-title">Conta errada no balcão</div>
-        <p class="prob-desc">Soma de cabeça na correria sempre gera dúvida — de ambos os lados.</p>
+
+      <div class="feat-card reveal reveal-d2">
+        <div class="feat-ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </div>
+        <h3>Controle de Pagamentos</h3>
+        <p>Registre pagamentos parciais ou totais. O saldo do cliente atualiza na hora.</p>
+      </div>
+
+      <div class="feat-card reveal reveal-d3">
+        <div class="feat-ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
+        <h3>Histórico Completo</h3>
+        <p>Veja todas as compras e pagamentos de cada cliente, com data e valor detalhado.</p>
+      </div>
+
+      <div class="feat-card reveal">
+        <div class="feat-ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        </div>
+        <h3>Dashboard Financeiro</h3>
+        <p>Visão geral do seu negócio: total em aberto, cobranças vencidas e mais.</p>
+      </div>
+
+      <div class="feat-card reveal reveal-d1">
+        <div class="feat-ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </div>
+        <h3>Busca Rápida</h3>
+        <p>Encontre qualquer cliente em segundos, mesmo que você tenha dezenas cadastrados.</p>
+      </div>
+
+      <div class="feat-card reveal reveal-d2">
+        <div class="feat-ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <h3>Cobrança via WhatsApp</h3>
+        <p>Envie um lembrete de cobrança pelo WhatsApp com um único toque no app.</p>
+      </div>
+
+      <div class="feat-card reveal reveal-d3">
+        <div class="feat-ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        </div>
+        <h3>Relatórios</h3>
+        <p>Resumo do que foi vendido, recebido e o que ainda está em aberto no período.</p>
       </div>
     </div>
   </div>
-</div>
+</section>
 
-<!-- FEATURES -->
-<div class="feat-section">
-  <div class="section fade">
-    <div class="s-eyebrow">A solução</div>
-    <h2 class="s-title">Tudo que o caderninho fazia,<br>sem nenhum dos problemas.</h2>
-    <p class="s-sub">Feito para quem atende balcão — não para quem tem departamento de TI.</p>
-    <div class="feat-grid">
-      <div class="feat-card">
-        <span class="feat-ico">📋</span>
-        <div class="feat-title">Registro em 3 toques</div>
-        <p class="feat-desc">Nome, valor, produto. A venda já aparece na conta do cliente na hora — sem rasura.</p>
+<!-- ── HOW IT WORKS ──────────────────────────────────────── -->
+<section class="how" id="como-funciona">
+  <div class="how-inner">
+    <div class="how-header">
+      <div class="eyebrow reveal">Como funciona</div>
+      <h2 class="reveal reveal-d1">Comece em minutos,<br>não em dias.</h2>
+      <p class="reveal reveal-d2">Sem treinamento. Sem manual. Você abre e já entende.</p>
+    </div>
+
+    <div class="steps">
+      <div class="step reveal">
+        <div class="step-num">1</div>
+        <h3>Baixe o app</h3>
+        <p>Disponível gratuitamente no App Store e no Google Play.</p>
       </div>
-      <div class="feat-card">
-        <span class="feat-ico">💬</span>
-        <div class="feat-title">Cobrança pelo WhatsApp</div>
-        <p class="feat-desc">Um toque envia a cobrança com o valor exato e o histórico completo. Sem constrangimento.</p>
+      <div class="step reveal reveal-d1">
+        <div class="step-num">2</div>
+        <h3>Cadastre seus clientes</h3>
+        <p>Adicione nome e contato de cada um. Leva menos de um minuto.</p>
       </div>
-      <div class="feat-card">
-        <span class="feat-ico">⚡</span>
-        <div class="feat-title">Pix na hora</div>
-        <p class="feat-desc">QR Code gerado automaticamente. O cliente escaneia e você recebe sem sair do balcão.</p>
+      <div class="step reveal reveal-d2">
+        <div class="step-num">3</div>
+        <h3>Registre as vendas</h3>
+        <p>Toda vez que vender fiado, anote no app com poucos toques.</p>
       </div>
-      <div class="feat-card">
-        <span class="feat-ico">📊</span>
-        <div class="feat-title">Relatório do mês</div>
-        <p class="feat-desc">Quanto entrou, quanto está em aberto, quem está devendo. Sem planilha, sem dor de cabeça.</p>
-      </div>
-      <div class="feat-card">
-        <span class="feat-ico">👥</span>
-        <div class="feat-title">Histórico por cliente</div>
-        <p class="feat-desc">Cada compra, cada pagamento — registrado e consultável a qualquer hora do dia.</p>
-      </div>
-      <div class="feat-card">
-        <span class="feat-ico">☁️</span>
-        <div class="feat-title">Salvo na nuvem</div>
-        <p class="feat-desc">Celular quebrou? Trocou de aparelho? Os dados continuam lá. Nada se perde nunca mais.</p>
+      <div class="step reveal reveal-d3">
+        <div class="step-num">4</div>
+        <h3>Acompanhe e cobre</h3>
+        <p>Veja quem deve, quanto deve, e envie cobranças com um toque.</p>
       </div>
     </div>
   </div>
-</div>
+</section>
 
-<!-- STATS -->
-<div class="stats-section">
-  <div class="stats-inner fade">
-    <div class="stat"><div class="stat-val">+<em>500</em></div><div class="stat-lbl">lojistas usando hoje</div></div>
-    <div class="stat"><div class="stat-val"><em>3</em>s</div><div class="stat-lbl">para registrar uma venda</div></div>
-    <div class="stat"><div class="stat-val"><em>R$0</em></div><div class="stat-lbl">para começar agora</div></div>
-  </div>
-</div>
+<!-- ── PRODUCT SHOWCASE ──────────────────────────────────── -->
+<section class="product">
+  <div class="product-inner">
+    <div class="product-header">
+      <div class="eyebrow reveal">O produto</div>
+      <h2 class="reveal reveal-d1">Uma interface feita para<br>quem trabalha de verdade.</h2>
+      <p class="reveal reveal-d2">Simples, rápido e sem complicação. Tudo que você precisa, direto na tela do celular.</p>
+    </div>
 
-<!-- COMO FUNCIONA -->
-<div class="how-section" id="como-funciona">
-  <div class="section fade">
-    <div class="s-eyebrow">Como funciona</div>
-    <h2 class="s-title">Três passos.<br>Menos de um minuto.</h2>
-    <p class="s-sub">Se você sabe usar WhatsApp, você já sabe usar o FiadoApp.</p>
-    <div class="steps-row">
-      <div>
-        <div class="step-n">1</div>
-        <div class="step-title">Cadastre o cliente</div>
-        <p class="step-desc">Nome e telefone. O app cria o perfil e guarda o histórico completo — sem você precisar fazer nada.</p>
+    <div class="product-phone">
+      <div class="phone-frame side">
+        <div class="phone-screen">
+          <img src="screen_app.jpg" alt="Interface do Fiado App">
+        </div>
       </div>
-      <div>
-        <div class="step-n">2</div>
-        <div class="step-title">Registre a venda</div>
-        <p class="step-desc">Valor e o que foi vendido. Aparece na conta do cliente na hora, com cálculo automático, sem margem de erro.</p>
+      <div class="phone-wrap">
+        <div class="phone-frame reveal">
+          <div class="phone-screen">
+            <img src="screen_app.jpg" alt="Dashboard do Fiado App com clientes e valores em aberto">
+          </div>
+        </div>
       </div>
-      <div>
-        <div class="step-n">3</div>
-        <div class="step-title">Cobre e receba</div>
-        <p class="step-desc">Toque em cobrar. A mensagem vai pro WhatsApp com o valor certo e o QR Pix pronto para pagar.</p>
+      <div class="phone-frame side">
+        <div class="phone-screen">
+          <img src="screen_app.jpg" alt="Interface do Fiado App">
+        </div>
       </div>
     </div>
   </div>
-</div>
+</section>
 
-<!-- TESTIMONIALS -->
-<div class="testi-section">
-  <div class="section fade">
-    <div class="s-eyebrow">Depoimentos</div>
-    <h2 class="s-title">Quem já parou<br>de perder dinheiro.</h2>
+<!-- ── BENEFITS ──────────────────────────────────────────── -->
+<section class="benefits">
+  <div class="benefits-inner">
+    <div class="benefits-layout">
+      <div class="benefits-left">
+        <div class="eyebrow reveal">Por que usar</div>
+        <h2 class="reveal reveal-d1">Mais controle.<br>Menos preocupação.</h2>
+        <p class="reveal reveal-d2">
+          O Fiado App não é apenas um substituto do caderno. É uma ferramenta
+          profissional que coloca você no controle real do seu negócio.
+        </p>
+        <button class="btn btn-primary btn-lg reveal reveal-d3">Começar agora — grátis</button>
+      </div>
+
+      <div class="ben-items">
+        <div class="ben-item reveal">
+          <div class="ben-ico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </div>
+          <div class="ben-text">
+            <h4>Mais controle</h4>
+            <p>Saiba exatamente quanto você tem a receber — em tempo real, a qualquer momento.</p>
+          </div>
+        </div>
+
+        <div class="ben-item reveal reveal-d1">
+          <div class="ben-ico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <div class="ben-text">
+            <h4>Menos esquecimento</h4>
+            <p>Todos os seus fiados em um só lugar. Nunca mais perca uma cobrança.</p>
+          </div>
+        </div>
+
+        <div class="ben-item reveal reveal-d2">
+          <div class="ben-ico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          </div>
+          <div class="ben-text">
+            <h4>Mais praticidade</h4>
+            <p>Registre uma venda em segundos. Sem caneta, sem caderno, sem complicação.</p>
+          </div>
+        </div>
+
+        <div class="ben-item reveal reveal-d3">
+          <div class="ben-ico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          </div>
+          <div class="ben-text">
+            <h4>Mais tranquilidade</h4>
+            <p>Pare de depender de anotações espalhadas. Tudo centralizado e seguro no app.</p>
+          </div>
+        </div>
+
+        <div class="ben-item reveal reveal-d4">
+          <div class="ben-ico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+          </div>
+          <div class="ben-text">
+            <h4>Mais profissionalismo</h4>
+            <p>Seu comércio merece uma ferramenta profissional. O Fiado App foi feito para isso.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── SOCIAL PROOF ──────────────────────────────────────── -->
+<section class="proof">
+  <div class="proof-inner">
+    <div class="proof-header">
+      <div class="eyebrow reveal">Depoimentos</div>
+      <h2 class="reveal reveal-d1">Quem usa não volta para o caderno.</h2>
+      <p class="reveal reveal-d2">Comerciantes de todo o Brasil organizando o fiado com o app.</p>
+    </div>
+    <p class="proof-note reveal">Os depoimentos abaixo são ilustrativos. Depoimentos reais de clientes serão adicionados em breve.</p>
+
     <div class="testi-grid">
-      <div class="testi-card">
-        <div class="testi-stars">★★★★★</div>
-        <p class="testi-quote">"Antes eu perdia dinheiro toda semana porque esquecia de cobrar. Agora mando mensagem no WhatsApp e o cliente paga na hora."</p>
+      <div class="testi-card reveal">
+        <div class="stars"><div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div></div>
+        <p class="testi-text">"Antes eu perdia pelo menos R$ 300 por mês em fiados esquecidos. Com o app, sei exatamente quem deve e mando mensagem na hora. Mudou o meu negócio."</p>
         <div class="testi-author">
-          <div class="testi-av" style="background:#FEF3C7">🧑</div>
-          <div><div class="testi-name">Rodrigo M.</div><div class="testi-role">Mercadinho, São Paulo</div></div>
+          <div class="testi-avatar">J</div>
+          <div>
+            <div class="testi-name">João Alves</div>
+            <div class="testi-role">Dono de mercearia · São Paulo, SP</div>
+          </div>
         </div>
       </div>
-      <div class="testi-card">
-        <div class="testi-stars">★★★★★</div>
-        <p class="testi-quote">"Meu caderninho ficou todo molhado uma vez e perdi tudo. Com o app, mesmo trocando de celular, está tudo lá."</p>
+
+      <div class="testi-card reveal reveal-d1">
+        <div class="stars"><div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div></div>
+        <p class="testi-text">"Nunca pensei que ia largar o caderno tão rápido. O app é simples demais — aprendi a usar no primeiro dia e não precisei de ajuda de ninguém."</p>
         <div class="testi-author">
-          <div class="testi-av" style="background:#E0F2FE">👩</div>
-          <div><div class="testi-name">Aparecida S.</div><div class="testi-role">Padaria, Minas Gerais</div></div>
+          <div class="testi-avatar">M</div>
+          <div>
+            <div class="testi-name">Maria Aparecida</div>
+            <div class="testi-role">Proprietária de lanchonete · BH, MG</div>
+          </div>
         </div>
       </div>
-      <div class="testi-card">
-        <div class="testi-stars">★★★★★</div>
-        <p class="testi-quote">"Em 5 minutos aprendi tudo. Simples demais. Agora minha mulher também usa no açougue dela."</p>
+
+      <div class="testi-card reveal reveal-d2">
+        <div class="stars"><div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div><div class="star"></div></div>
+        <p class="testi-text">"Quando o cliente vem pagar, mostro o extrato completo na tela. Sem discussão, sem dúvida. O histórico não mente. Isso vale muito para mim."</p>
         <div class="testi-author">
-          <div class="testi-av" style="background:#EDE9FE">👨</div>
-          <div><div class="testi-name">Cleiton A.</div><div class="testi-role">Bar e mercearia, Rio de Janeiro</div></div>
+          <div class="testi-avatar">C</div>
+          <div>
+            <div class="testi-name">Carlos Ribeiro</div>
+            <div class="testi-role">Dono de padaria · Porto Alegre, RS</div>
+          </div>
         </div>
       </div>
     </div>
   </div>
-</div>
+</section>
 
-<!-- PRECOS -->
-<div class="price-section" id="precos">
-  <div class="section fade">
-    <div class="s-eyebrow">Preços</div>
-    <h2 class="s-title">Comece grátis.<br>Cresça quando quiser.</h2>
-    <p class="s-sub">Sem cartão de crédito, sem contrato, sem pegadinha. Cancele quando quiser.</p>
-    <div class="price-grid">
-      <div class="plan">
-        <div class="plan-badge">GRATUITO</div>
-        <div class="plan-name">Básico</div>
-        <div class="plan-price">R$0</div>
-        <div class="plan-period">para sempre</div>
-        <ul class="plan-features">
-          <li>Até 20 clientes</li>
-          <li>Registro de vendas ilimitado</li>
-          <li>Cobrança por WhatsApp</li>
-          <li>Histórico de pagamentos</li>
-          <li>QR Code Pix</li>
-        </ul>
-        <a href="#baixar" class="btn-plan-free">Começar grátis</a>
-      </div>
-      <div class="plan pro">
-        <div class="plan-badge">MAIS POPULAR</div>
-        <div class="plan-name">Pro</div>
-        <div class="plan-price">R$19</div>
-        <div class="plan-period">/mês · cancele quando quiser</div>
-        <ul class="plan-features">
-          <li>Clientes ilimitados</li>
-          <li>Pix integrado</li>
-          <li>Relatórios completos</li>
-          <li>Extrato PDF por cliente</li>
-          <li>Backup automático</li>
-          <li>Suporte prioritário</li>
-        </ul>
-        <a href="#baixar" class="btn-plan-pro">Assinar Pro</a>
-      </div>
+<!-- ── FAQ ───────────────────────────────────────────────── -->
+<section class="faq" id="faq">
+  <div class="faq-inner">
+    <div class="faq-header">
+      <div class="eyebrow reveal">Dúvidas frequentes</div>
+      <h2 class="reveal reveal-d1">Alguma dúvida?<br>A gente responde.</h2>
+      <p class="reveal reveal-d2">Tudo que você precisa saber antes de começar.</p>
     </div>
-    <p class="price-note">Plano anual por <strong>R$149/ano</strong> — economize 35%</p>
+    <div class="faq-list" id="faqList"></div>
   </div>
-</div>
+</section>
 
-<!-- FAQ -->
-<div class="faq-section">
-  <div class="section fade">
-    <div class="s-eyebrow">Dúvidas frequentes</div>
-    <h2 class="s-title">Antes de baixar,<br>tire suas dúvidas.</h2>
-    <div class="faq-list">
-      <div class="faq-item">
-        <button class="faq-q">Preciso de internet para usar?<span class="faq-icon">+</span></button>
-        <div class="faq-a">Você precisa de conexão para sincronizar os dados, mas pode registrar vendas offline. Tudo é sincronizado quando a internet voltar.</div>
-      </div>
-      <div class="faq-item">
-        <button class="faq-q">Se eu trocar de celular, perco os dados?<span class="faq-icon">+</span></button>
-        <div class="faq-a">Não. Tudo fica salvo na nuvem. É só entrar com a mesma conta no celular novo e tudo aparece exatamente como estava.</div>
-      </div>
-      <div class="faq-item">
-        <button class="faq-q">Como funciona o plano grátis? Tem limite?<span class="faq-icon">+</span></button>
-        <div class="faq-a">O plano gratuito permite até 20 clientes cadastrados, com vendas e cobranças ilimitadas para esses clientes. Para mais clientes, o plano Pro é R$19/mês.</div>
-      </div>
-      <div class="faq-item">
-        <button class="faq-q">O cliente precisa ter o app para eu cobrar?<span class="faq-icon">+</span></button>
-        <div class="faq-a">Não. A cobrança vai pelo WhatsApp normal, com uma mensagem e o QR Code do Pix. O cliente paga direto, sem precisar de nenhum app.</div>
-      </div>
-      <div class="faq-item">
-        <button class="faq-q">Posso cancelar quando quiser?<span class="faq-icon">+</span></button>
-        <div class="faq-a">Sim. Não tem contrato, não tem fidelidade. Cancele quando quiser pelo próprio app, sem burocracia.</div>
-      </div>
+<!-- ── FINAL CTA ─────────────────────────────────────────── -->
+<section class="cta-final">
+  <div class="cta-final-inner">
+    <div class="eyebrow reveal">Comece hoje</div>
+    <h2 class="reveal reveal-d1">Chega de depender<br>do <span>caderno.</span></h2>
+    <p class="reveal reveal-d2">
+      Você trabalhou duro para construir seu comércio.
+      Seu fiado merece o mesmo cuidado — organizado, seguro
+      e sempre na palma da sua mão.
+    </p>
+    <div class="cta-actions reveal reveal-d3">
+      <button class="btn btn-primary btn-xl">Baixar agora — grátis</button>
+      <button class="btn btn-ghost-dark btn-xl">Ver como funciona</button>
     </div>
+    <p class="cta-note reveal reveal-d4">Disponível no App Store e Google Play · Sem cartão de crédito</p>
   </div>
-</div>
+</section>
 
-<!-- CTA FINAL -->
-<div class="cta-section" id="baixar">
-  <div class="cta-inner fade">
-    <h2>Seu dinheiro tá no fiado.<br><span>Venha resgatar.</span></h2>
-    <p>Disponível para Android e iOS. Gratuito para começar.<br>Sem cartão de crédito, sem burocracia.</p>
-    <div class="store-btns">
-      <a href="https://apps.apple.com/app/fiadoapp/id6783416254" class="btn-store">
-        <span class="store-ico">🍎</span>
-        <span><span class="store-sub">Disponível na</span><span class="store-name">App Store</span></span>
-      </a>
-      <a href="https://play.google.com/store/apps/details?id=com.fiadofacil.app" class="btn-store">
-        <span class="store-ico">▶</span>
-        <span><span class="store-sub">Disponível no</span><span class="store-name">Google Play</span></span>
-      </a>
-    </div>
-    <p class="cta-note">Grátis para sempre no plano básico. Sem cartão.</p>
-  </div>
-</div>
-
-<!-- FOOTER -->
+<!-- ── FOOTER ─────────────────────────────────────────────── -->
 <footer>
   <div class="footer-inner">
-    <a href="#" class="footer-logo">Fiado<em>App</em></a>
-    <div class="footer-links">
-      <a href="./politica-de-privacidade.html">Privacidade</a>
-      <a href="mailto:contato@fiadofacil.app">Contato</a>
+    <div class="footer-top">
+      <div>
+        <div class="footer-logo">Fiado<span>.App</span></div>
+        <p class="footer-desc">
+          O aplicativo para pequenos comerciantes controlarem fiado,
+          clientes e cobranças — do jeito certo.
+        </p>
+      </div>
+      <div>
+        <div class="footer-col-title">Produto</div>
+        <ul class="footer-links">
+          <li><a href="#funcionalidades">Funcionalidades</a></li>
+          <li><a href="#como-funciona">Como funciona</a></li>
+          <li><a href="#faq">Dúvidas</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="footer-col-title">Empresa</div>
+        <ul class="footer-links">
+          <li><a href="#">Sobre nós</a></li>
+          <li><a href="#">Contato</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="footer-col-title">Legal</div>
+        <ul class="footer-links">
+          <li><a href="privacy.html">Política de Privacidade</a></li>
+          <li><a href="#">Termos de Uso</a></li>
+        </ul>
+      </div>
     </div>
-    <p class="footer-copy">© 2026 FiadoApp. Todos os direitos reservados.</p>
+
+    <div class="footer-bottom">
+      <span class="footer-copy">© 2026 Fiado App. Todos os direitos reservados.</span>
+      <div class="footer-legal">
+        <a href="privacy.html">Privacidade</a>
+        <a href="#">Termos</a>
+      </div>
+    </div>
   </div>
 </footer>
 
 <script>
-  const io = new IntersectionObserver(
-    es => es.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); }),
-    { threshold: 0.08 }
-  );
-  document.querySelectorAll('.fade').forEach(el => io.observe(el));
+  /* ── Intersection Observer — reveal animations ── */
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('in');
+        io.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.12 });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
 
-  document.querySelectorAll('.faq-q').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const item = btn.parentElement;
-      const isOpen = item.classList.contains('open');
-      document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
-      if (!isOpen) item.classList.add('open');
+  /* ── FAQ accordion ── */
+  const faqs = [
+    {
+      q: 'O que é o Fiado App?',
+      a: 'O Fiado App é um aplicativo para celular que ajuda pequenos comerciantes a controlar vendas fiado, clientes e cobranças de forma simples e profissional — substituindo o caderno ou papel.'
+    },
+    {
+      q: 'Para quem ele foi criado?',
+      a: 'Foi criado para donos de lanchonetes, mercearias, padarias, bares, pequenos mercados e qualquer comércio de bairro que venda fiado para clientes.'
+    },
+    {
+      q: 'Posso cadastrar vários clientes?',
+      a: 'Sim. Você pode cadastrar quantos clientes precisar, com nome, contato e histórico completo de cada um.'
+    },
+    {
+      q: 'Posso registrar pagamentos parciais?',
+      a: 'Sim. Você pode registrar pagamentos parciais ou totais a qualquer momento. O saldo devedor do cliente é atualizado automaticamente.'
+    },
+    {
+      q: 'Posso ver quanto cada cliente deve?',
+      a: 'Sim. O aplicativo mostra o saldo devedor de cada cliente em tempo real, além de um resumo geral de tudo que está em aberto no seu comércio.'
+    },
+    {
+      q: 'Preciso de internet para usar?',
+      a: 'O aplicativo funciona offline para as funções principais. Você pode registrar vendas e pagamentos sem conexão com a internet.'
+    },
+    {
+      q: 'O aplicativo é gratuito?',
+      a: 'O Fiado App pode ser baixado gratuitamente. Informações sobre planos e funcionalidades avançadas serão disponibilizadas em breve.'
+    },
+    {
+      q: 'Como faço para começar?',
+      a: 'Baixe o app na App Store ou Google Play, crie sua conta, cadastre seus primeiros clientes e comece a registrar vendas. É simples assim.'
+    },
+    {
+      q: 'Meus dados ficam seguros?',
+      a: 'Sim. Suas informações ficam armazenadas com segurança e só você tem acesso ao seu negócio.'
+    },
+    {
+      q: 'Está disponível para iPhone e Android?',
+      a: 'Sim. O Fiado App está disponível tanto para dispositivos iOS (iPhone) quanto para Android.'
+    }
+  ];
+
+  const faqList = document.getElementById('faqList');
+  faqs.forEach((item) => {
+    const div = document.createElement('div');
+    div.className = 'faq-item reveal';
+    div.innerHTML = `
+      <div class="faq-q">
+        <span>${item.q}</span>
+        <div class="faq-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+        </div>
+      </div>
+      <div class="faq-a"><div class="faq-a-inner">${item.a}</div></div>
+    `;
+    div.querySelector('.faq-q').addEventListener('click', () => {
+      const open = div.classList.contains('open');
+      document.querySelectorAll('.faq-item').forEach(f => {
+        f.classList.remove('open');
+        f.querySelector('.faq-a').style.maxHeight = '0';
+      });
+      if (!open) {
+        div.classList.add('open');
+        div.querySelector('.faq-a').style.maxHeight =
+          div.querySelector('.faq-a-inner').offsetHeight + 'px';
+      }
+    });
+    faqList.appendChild(div);
+    io.observe(div);
+  });
+
+  /* ── Smooth scroll ── */
+  document.querySelectorAll('a[href^="#"]').forEach(a => {
+    a.addEventListener('click', e => {
+      const id = a.getAttribute('href');
+      const target = document.querySelector(id);
+      if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
     });
   });
 </script>
-
 </body>
 </html>

@@ -1,8 +1,9 @@
 ﻿import { useState, useEffect, useRef } from 'react'
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, Alert, Platform, Switch, Modal, TextInput
+  StyleSheet, Alert, Platform, Switch, Modal, TextInput, Linking
 } from 'react-native'
+import * as StoreReview from 'expo-store-review'
 import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import * as Sharing from 'expo-sharing'
@@ -28,6 +29,7 @@ interface Perfil {
   chave_pix: string
   dia_cobranca: string
   notificacoes_ativas: boolean
+  cobranca_auto_tipo: 'vencidos' | 'todos'
 }
 
 function confirmar(titulo: string, msg: string, onConfirmar: () => void) {
@@ -52,7 +54,7 @@ export default function ConfiguracoesScreen() {
   const [nomeEdicaoCat, setNomeEdicaoCat] = useState('')
   const [perfil, setPerfil] = useState<Perfil>({
     nome_negocio: '', telefone: '', plano: 'gratuito',
-    chave_pix: '', dia_cobranca: '', notificacoes_ativas: true,
+    chave_pix: '', dia_cobranca: '', notificacoes_ativas: true, cobranca_auto_tipo: 'vencidos',
   })
   const [editandoDados, setEditandoDados] = useState(false)
   const [editandoPix, setEditandoPix] = useState(false)
@@ -68,7 +70,7 @@ export default function ConfiguracoesScreen() {
   useEffect(() => {
     if (!usuario) return
     supabase.from('perfis')
-      .select('nome_negocio, telefone, plano, chave_pix, dia_cobranca, notificacoes_ativas')
+      .select('nome_negocio, telefone, plano, chave_pix, dia_cobranca, notificacoes_ativas, cobranca_auto_tipo')
       .eq('id', usuario.id).single()
       .then(({ data }) => {
         if (data) setPerfil({
@@ -78,6 +80,7 @@ export default function ConfiguracoesScreen() {
           chave_pix: data.chave_pix ?? '',
           dia_cobranca: data.dia_cobranca?.toString() ?? '',
           notificacoes_ativas: data.notificacoes_ativas ?? true,
+          cobranca_auto_tipo: data.cobranca_auto_tipo ?? 'vencidos',
         })
       })
   }, [usuario])
@@ -88,7 +91,7 @@ export default function ConfiguracoesScreen() {
     if (perfil.telefone && !validarTelefone(perfil.telefone)) novosErros.telefone = 'Telefone inválido.'
     if (perfil.dia_cobranca) {
       const dia = parseInt(perfil.dia_cobranca)
-      if (isNaN(dia) || dia < 1 || dia > 28) novosErros.dia_cobranca = 'Dia deve ser entre 1 e 28.'
+      if (isNaN(dia) || dia < 1 || dia > 31) novosErros.dia_cobranca = 'Dia deve ser entre 1 e 31.'
     }
     setErros(novosErros)
     return Object.keys(novosErros).length === 0
@@ -105,6 +108,7 @@ export default function ConfiguracoesScreen() {
         chave_pix: perfil.chave_pix || null,
         dia_cobranca: perfil.dia_cobranca ? parseInt(perfil.dia_cobranca) : null,
         notificacoes_ativas: perfil.notificacoes_ativas,
+        cobranca_auto_tipo: perfil.cobranca_auto_tipo,
       })
       if (error) throw error
       setSucesso(true)
@@ -188,6 +192,22 @@ export default function ConfiguracoesScreen() {
     }
   }
 
+  async function abrirAvaliacaoManual() {
+    const storeUrl = Platform.OS === 'ios'
+      ? 'itms-apps://itunes.apple.com/app/id6783416254?action=write-review'
+      : 'market://details?id=com.fiadofacil.app'
+    try {
+      const disponivel = await StoreReview.isAvailableAsync()
+      if (disponivel) {
+        await StoreReview.requestReview()
+      } else {
+        await Linking.openURL(storeUrl).catch(() => {})
+      }
+    } catch {
+      await Linking.openURL(storeUrl).catch(() => {})
+    }
+  }
+
   async function toggleBeep(valor: boolean) {
     setBeepAtivoState(valor)
     await setBeepAtivo(valor)
@@ -244,7 +264,7 @@ export default function ConfiguracoesScreen() {
             <View style={estilos.upgradeItens}>
               <View style={estilos.upgradeItem}>
                 <Ionicons name="logo-whatsapp" size={12} color={C.green} />
-                <Text style={estilos.upgradeItemTexto}>Cobranças automáticas via WhatsApp</Text>
+                <Text style={estilos.upgradeItemTexto}>Cobrar todos com 1 clique via WhatsApp</Text>
               </View>
               <View style={estilos.upgradeItem}>
                 <Ionicons name="people" size={12} color={C.green} />
@@ -269,7 +289,7 @@ export default function ConfiguracoesScreen() {
             <View style={estilos.upgradeItens}>
               <View style={estilos.upgradeItem}>
                 <Ionicons name="logo-whatsapp" size={12} color={C.green} />
-                <Text style={estilos.upgradeItemTexto}>Cobranças automáticas via WhatsApp ativas</Text>
+                <Text style={estilos.upgradeItemTexto}>Cobrar todos com 1 clique via WhatsApp</Text>
               </View>
               <View style={estilos.upgradeItem}>
                 <Ionicons name="checkmark-circle" size={12} color={C.green} />
@@ -329,7 +349,7 @@ export default function ConfiguracoesScreen() {
       {/* Pix & Cobrança automática */}
       <View style={estilos.card}>
         <View style={estilos.cardHeader}>
-          <Text style={estilos.cardTitulo}>💳 Pix & Cobrança automática</Text>
+          <Text style={estilos.cardTitulo}>💳 Pix & Cobranças</Text>
           <TouchableOpacity
             style={[estilos.editarBtn, editandoPix && estilos.cancelarBtn]}
             onPress={() => { setEditandoPix(!editandoPix); setErros({}) }}
@@ -353,13 +373,47 @@ export default function ConfiguracoesScreen() {
               autoCapitalize="none"
             />
             <Campo
-              label="Dia de cobrança automática (1–28)"
+              label="Dia mensal para lembrete de cobrança (1–31)"
               value={perfil.dia_cobranca}
               onChangeText={(v) => setPerfil(p => ({ ...p, dia_cobranca: v.replace(/\D/g, '') }))}
               keyboardType="numeric"
               placeholder="Ex: 5 (todo dia 5 do mês)"
               erro={erros.dia_cobranca}
             />
+            {perfil.dia_cobranca ? (
+              <View style={{ marginTop: 4, marginBottom: 8 }}>
+                <Text style={{ fontSize: 13, color: C.text2, fontWeight: '600', marginBottom: 8 }}>
+                  Cobrança automática incluir
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  {(['vencidos', 'todos'] as const).map((tipo) => (
+                    <TouchableOpacity
+                      key={tipo}
+                      style={{
+                        flex: 1, paddingVertical: 10, borderRadius: 12,
+                        backgroundColor: perfil.cobranca_auto_tipo === tipo ? C.green : C.bg,
+                        borderWidth: 1.5,
+                        borderColor: perfil.cobranca_auto_tipo === tipo ? C.green : C.border,
+                        alignItems: 'center',
+                      }}
+                      onPress={() => setPerfil(p => ({ ...p, cobranca_auto_tipo: tipo }))}
+                    >
+                      <Text style={{
+                        fontSize: 13, fontWeight: '700',
+                        color: perfil.cobranca_auto_tipo === tipo ? C.white : C.text2,
+                      }}>
+                        {tipo === 'vencidos' ? '⚠ Só vencidos' : '📋 Todos em aberto'}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <Text style={{ fontSize: 11, color: C.text3, marginTop: 6, lineHeight: 16 }}>
+                  {perfil.cobranca_auto_tipo === 'vencidos'
+                    ? 'No dia configurado, avisa apenas clientes com parcelas vencidas.'
+                    : 'No dia configurado, avisa todos os clientes com qualquer saldo em aberto.'}
+                </Text>
+              </View>
+            ) : null}
             <Botao titulo="Salvar configurações" onPress={async () => { await handleSalvar(); setEditandoPix(false) }} carregando={salvando} />
           </>
         ) : (
@@ -434,18 +488,18 @@ export default function ConfiguracoesScreen() {
                 <Ionicons name={bloqueado ? 'lock-closed-outline' : info.icone as any} size={18} color={ativo ? C.green : C.red} />
               </View>
               <View style={{ flex: 1 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={[estilos.moduloLabel, !ativo && { color: C.text2 }]}>{info.label}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                  <Text style={[estilos.moduloLabel, !ativo && { color: C.text2 }, { flexShrink: 1 }]}>{info.label}</Text>
                   {info.pro && (
                     <View style={estilos.proBadge}>
                       <Text style={estilos.proTexto}>PRO</Text>
                     </View>
                   )}
-                  <View style={[estilos.statusChip, ativo ? estilos.statusChipAtivo : estilos.statusChipOff]}>
-                    <Text style={[estilos.statusChipTexto, ativo ? { color: C.green } : { color: C.red }]}>
-                      {ativo ? 'ATIVO' : 'INATIVO'}
-                    </Text>
-                  </View>
+                  {!ativo && (
+                    <View style={estilos.statusChipOff}>
+                      <Text style={[estilos.statusChipTexto, { color: C.red }]}>INATIVO</Text>
+                    </View>
+                  )}
                 </View>
                 <Text style={estilos.moduloDesc}>{info.descricao}</Text>
               </View>
@@ -462,13 +516,19 @@ export default function ConfiguracoesScreen() {
       </View>
 
       {/* Equipe */}
-      <TouchableOpacity style={estilos.card} onPress={() => router.push('/equipe')}>
+      <TouchableOpacity
+        style={estilos.card}
+        onPress={() => {
+          if (perfil.plano !== 'pro') { router.push('/planos'); return }
+          router.push('/equipe')
+        }}
+      >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <View style={estilos.acaoIcone}>
-            <Ionicons name="people-outline" size={20} color={C.green} />
+            <Ionicons name={perfil.plano !== 'pro' ? 'lock-closed-outline' : 'people-outline'} size={20} color={C.green} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={estilos.acaoLabel}>Equipe & funcionários</Text>
+            <Text style={estilos.acaoLabel}>Equipe & funcionários{perfil.plano !== 'pro' ? ' · Pro' : ''}</Text>
             <Text style={estilos.acaoSub}>Convide funcionários para usar o app</Text>
           </View>
           <Ionicons name="chevron-forward" size={16} color={C.text3} />
@@ -579,6 +639,15 @@ export default function ConfiguracoesScreen() {
         </View>
       )}
 
+      {/* Suporte */}
+      <View style={estilos.card}>
+        <Text style={[estilos.cardTitulo, { marginBottom: 8 }]}>⭐ Suporte</Text>
+        <AcaoRow icone="star-outline" label="Avaliar o FiadoApp" onPress={abrirAvaliacaoManual} />
+        <AcaoRow icone="mail-outline" label="Enviar sugestão"
+          onPress={() => Linking.openURL(`mailto:suporte@fiadofacil.com.br?subject=${encodeURIComponent('Sugestão - FiadoApp')}`).catch(() => {})}
+          ultimo />
+      </View>
+
       {/* Conta */}
       <View style={estilos.card}>
         <Text style={[estilos.cardTitulo, { marginBottom: 8 }]}>Conta</Text>
@@ -589,7 +658,7 @@ export default function ConfiguracoesScreen() {
           ultimo />
       </View>
 
-      <Text style={estilos.versao}>FiadoApp v1.0.0</Text>
+      <Text style={estilos.versao}>FiadoApp v1.0.7</Text>
     </ScrollView>
     </>
   )
@@ -609,7 +678,12 @@ function ItemInfo({ icone, label, valor, ultimo }: { icone: any; label: string; 
 
 function AcaoRow({ icone, label, onPress, cor = C.text, ultimo }: { icone: any; label: string; onPress: () => void; cor?: string; ultimo?: boolean }) {
   return (
-    <TouchableOpacity style={[estilos.acaoRow, ultimo && { borderBottomWidth: 0 }]} onPress={onPress}>
+    <TouchableOpacity
+      style={[estilos.acaoRow, ultimo && { borderBottomWidth: 0 }]}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
       <Ionicons name={icone} size={20} color={cor} />
       <Text style={[estilos.acaoTexto, { color: cor }]}>{label}</Text>
       <Ionicons name="chevron-forward" size={16} color={C.border} />
