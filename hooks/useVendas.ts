@@ -37,8 +37,12 @@ async function reconciliarPagoCliente(clienteId: string, uid: string) {
   let credito = (pagamentos ?? []).reduce((s: number, p: { valor: number }) => s + p.valor, 0)
   const fechar: string[] = []
   const reabrir: string[] = []
+  // Prefixo FIFO: assim que uma venda não couber no crédito, todas as seguintes
+  // ficam descobertas (mesma semântica de `acumulado <= total_pago` da view).
+  let coberto = true
   for (const v of vendas as Array<{ id: string; valor: number; pago: boolean }>) {
-    if (credito >= v.valor) {
+    coberto = coberto && credito >= v.valor
+    if (coberto) {
       credito -= v.valor
       if (!v.pago) fechar.push(v.id)
     } else if (v.pago) {
@@ -120,6 +124,8 @@ export function useVendas(clienteId?: string) {
       .single()
 
     if (error) throw new Error(traduzErroBanco(error.message))
+    // Cliente pode ter crédito sobrando (pagou adiantado) que cobre esta venda nova.
+    await reconciliarPagoCliente(dados.cliente_id, session.user.id)
     await buscar()
     return data
   }, [buscar])

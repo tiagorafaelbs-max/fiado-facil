@@ -46,9 +46,10 @@ function calcularScore(vendas: Venda[], pagamentos: Pagamento[]): { label: strin
   const hoje = new Date()
   // Alocação FIFO (mesma lógica da view clientes_com_saldo): uma venda vencida
   // só conta como "em atraso" se os pagamentos ainda não a cobriram.
-  const ordenadas = [...comVencimento].sort((a, b) =>
-    (a.data_vencimento! < b.data_vencimento! ? -1 : a.data_vencimento! > b.data_vencimento! ? 1 : 0)
-  )
+  const ordenadas = [...comVencimento].sort((a, b) => {
+    if (a.data_vencimento! !== b.data_vencimento!) return a.data_vencimento! < b.data_vencimento! ? -1 : 1
+    return (a.data_venda ?? '') < (b.data_venda ?? '') ? -1 : (a.data_venda ?? '') > (b.data_venda ?? '') ? 1 : 0
+  })
   let acumulado = 0
   let atrasadas = 0
   for (const v of ordenadas) {
