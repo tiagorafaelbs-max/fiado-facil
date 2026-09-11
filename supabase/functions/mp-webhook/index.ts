@@ -68,12 +68,18 @@ serve(async (req) => {
       return new Response('ok', { status: 200 })
     }
 
-    // Verifica assinatura HMAC (só para notificações reais com data.id)
-    if (body.data?.id) {
-      const assinaturaValida = await verificarAssinatura(req, body.data.id)
-      if (!assinaturaValida) {
-        return new Response('unauthorized', { status: 401 })
-      }
+    // Verifica assinatura HMAC. Antes, notificações sem `data.id` (só `id`
+    // no nível raiz) PULAVAM a verificação inteiramente e seguiam para
+    // consultar/sincronizar a assinatura sem autenticação nenhuma. Agora
+    // qualquer notificação sem `data.id` é ignorada — a assinatura HMAC do
+    // MP é sempre exigida para prosseguir.
+    if (!body.data?.id) {
+      console.warn('[mp-webhook] Notificação sem data.id — ignorada por segurança')
+      return new Response('ok', { status: 200 })
+    }
+    const assinaturaValida = await verificarAssinatura(req, body.data.id)
+    if (!assinaturaValida) {
+      return new Response('unauthorized', { status: 401 })
     }
 
     // Trata notificações de assinatura (preapproval)
