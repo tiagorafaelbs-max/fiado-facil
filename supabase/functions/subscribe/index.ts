@@ -66,6 +66,11 @@ serve(async (req) => {
         payer_email,
         external_reference: user.id,
         back_url: 'https://fiadoapp.app.br',
+        // Define explicitamente o webhook desta assinatura em vez de depender
+        // só da URL configurada no painel do MP (evita ambiguidade entre
+        // mp-webhook e mercadopago-webhook — mantidos idênticos em efeito,
+        // mas fixamos um canal único e conhecido para novas assinaturas).
+        notification_url: `${SUPABASE_URL}/functions/v1/mp-webhook`,
       }),
     })
 

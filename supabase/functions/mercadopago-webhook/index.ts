@@ -101,7 +101,10 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   )
 
-  const { error } = await supabase
+  // Registro auxiliar em subscriptions — best-effort. Um erro aqui (ex.: FK,
+  // conflito) NÃO pode impedir a ativação/revogação do plano em perfis, que é
+  // a fonte de verdade lida por todo o app.
+  const { error: subError } = await supabase
     .from('subscriptions')
     .upsert(
       {
@@ -119,12 +122,13 @@ Deno.serve(async (req) => {
       { onConflict: 'user_id,provider' }
     )
 
-  if (error) {
-    console.error('Supabase upsert error:', error)
-    return new Response('Database error', { status: 500 })
+  if (subError) {
+    console.error('Supabase upsert error (subscriptions, não bloqueante):', subError)
   }
 
-  // Sincroniza plano e módulos em perfis com base no status da assinatura
+  // Sincroniza plano e módulos em perfis com base no status da assinatura.
+  // 'gratuito' é o único valor que o resto do app reconhece como não-pro
+  // (telas de upsell checam `plano === 'gratuito'` explicitamente) — nunca usar 'free'.
   const { data: perfilAtual } = await supabase
     .from('perfis').select('modulos').eq('id', userId).single()
 
@@ -138,13 +142,21 @@ Deno.serve(async (req) => {
       cobranca_automatica: true,
       equipe: true,
     }
-    await supabase.from('perfis').update({ plano: 'pro', modulos: modulosAtualizados }).eq('id', userId)
+    const { error } = await supabase.from('perfis').update({ plano: 'pro', modulos: modulosAtualizados }).eq('id', userId)
+    if (error) {
+      console.error('Erro ao ativar plano pro:', error)
+      return new Response('Database error', { status: 500 })
+    }
     console.log(`Plano Pro ativado via MercadoPago para ${userId}`)
   } else if (status === 'cancelled' || status === 'expired') {
     const modulosDowngrade = { ...(perfilAtual?.modulos ?? {}) }
     for (const key of MODULOS_PRO_KEYS) modulosDowngrade[key] = false
-    await supabase.from('perfis').update({ plano: 'free', modulos: modulosDowngrade }).eq('id', userId)
-    console.log(`Plano revertido para free via MercadoPago para ${userId}`)
+    const { error } = await supabase.from('perfis').update({ plano: 'gratuito', modulos: modulosDowngrade }).eq('id', userId)
+    if (error) {
+      console.error('Erro ao reverter plano:', error)
+      return new Response('Database error', { status: 500 })
+    }
+    console.log(`Plano revertido para gratuito via MercadoPago para ${userId}`)
   }
 
   return new Response('OK', { status: 200 })
