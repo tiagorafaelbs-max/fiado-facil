@@ -466,8 +466,8 @@ export default function PlanosScreen() {
       <View style={estilos.garantiaBox}>
         <Ionicons name="shield-checkmark-outline" size={22} color={C.green} />
         <View style={{ flex: 1 }}>
-          <Text style={estilos.garantiaTitulo}>Garantia de 7 dias</Text>
-          <Text style={estilos.garantiaSub}>Cancele a qualquer momento nas configurações da sua conta {isIOS ? 'Apple ID' : 'do Mercado Pago'}.</Text>
+          <Text style={estilos.garantiaTitulo}>Cancele quando quiser</Text>
+          <Text style={estilos.garantiaSub}>Sem fidelidade e sem multa. Cancele a qualquer momento nas configurações da sua conta {isIOS ? 'Apple ID' : 'do Mercado Pago'}.</Text>
         </View>
       </View>
 
