@@ -43,6 +43,7 @@ const RECURSOS_GRATUITO = [
 ]
 
 const RECURSOS_PRO = [
+  { texto: 'Cobrar todos os vencidos com 1 toque', destaque: true },
   { texto: 'Clientes ilimitados', destaque: true },
   { texto: 'Lançamentos ilimitados', destaque: false },
   { texto: 'Cobranças WhatsApp ilimitadas', destaque: true },
@@ -56,8 +57,8 @@ const RECURSOS_PRO = [
 export default function PlanosScreen() {
   const router = useRouter()
   const [loading, setLoading] = useState<'monthly' | 'annual' | 'restore' | 'verificar' | null>(null)
-  const [precoMensal, setPrecoMensal] = useState('R$ 19,00')
-  const [precoAnual, setPrecoAnual]   = useState('R$ 149,00')
+  const [precoMensal, setPrecoMensal] = useState('R$ 19,90')
+  const [precoAnual, setPrecoAnual]   = useState('R$ 149,90')
   const [aguardandoMp, setAguardandoMp] = useState(false)
   const iapPronto    = useRef(false)
   const iapIniciando = useRef(false)
@@ -330,8 +331,8 @@ export default function PlanosScreen() {
     }
   }
 
-  const labelMensal = isIOS ? `${precoMensal}/mês` : 'R$ 19,00/mês'
-  const labelAnual  = isIOS ? `${precoAnual}/ano`  : 'R$ 149,00/ano'
+  const labelMensal = isIOS ? `${precoMensal}/mês` : 'R$ 19,90/mês'
+  const labelAnual  = isIOS ? `${precoAnual}/ano`  : 'R$ 149,90/ano'
 
   return (
     <ScrollView style={estilos.container} contentContainerStyle={estilos.content} showsVerticalScrollIndicator={false}>
@@ -408,11 +409,11 @@ export default function PlanosScreen() {
       <TouchableOpacity style={estilos.anualBox} onPress={() => handleAssinar('annual')} disabled={loading !== null}>
         <View style={estilos.anualEsquerda}>
           <Text style={estilos.anualTitulo}>💰 Plano Anual</Text>
-          <Text style={estilos.anualSub}>{labelAnual} — economize 33%</Text>
+          <Text style={estilos.anualSub}>{labelAnual} — economize 37%</Text>
         </View>
         {loading === 'annual'
           ? <ActivityIndicator color={C.green} size="small" />
-          : <View style={estilos.anualBadge}><Text style={estilos.anualBadgeTexto}>-33%</Text></View>
+          : <View style={estilos.anualBadge}><Text style={estilos.anualBadgeTexto}>-37%</Text></View>
         }
       </TouchableOpacity>
 
