@@ -43,6 +43,15 @@ function medalha(i: number) {
 function scoreMelhor(c: ClienteRanking) { return c.totalComprado * (0.5 + c.taxaPagamento * 0.5) }
 function scoreNegra(c: ClienteRanking)  { return c.saldoDevedor * 2 + c.diasAtraso * 100 + c.comprasVencidas * 500 }
 
+// Mascara o nome pra prévia bloqueada do ranking: mantém a 1ª letra de cada
+// palavra e troca o resto por bolinhas, ex. "Maria Souza" -> "M••••• S•••••"
+function mascararNome(nome: string) {
+  return nome
+    .split(' ')
+    .map(parte => (parte.length <= 1 ? parte : parte[0] + '•'.repeat(Math.min(parte.length - 1, 6))))
+    .join(' ')
+}
+
 function StarRating({ rate }: { rate: number }) {
   const stars = rate >= 0.9 ? 5 : rate >= 0.7 ? 4 : rate >= 0.5 ? 3 : rate >= 0.3 ? 2 : 1
   return (
@@ -470,6 +479,24 @@ export default function ClientesScreen() {
       {abaTop === 'ranking' && (
         plano !== 'pro' ? (
           <ScrollView contentContainerStyle={r.paywallContainer}>
+            {clientes.length >= 8 && (
+              <View style={r.preRankingBox}>
+                <Text style={r.preRankingTitulo}>👀 Sua prévia do ranking</Text>
+                {[...clientes]
+                  .sort((a, b) => (b.saldo_devedor ?? 0) - (a.saldo_devedor ?? 0))
+                  .slice(0, 3)
+                  .map((c, i) => (
+                    <View key={c.id} style={r.preRankingLinha}>
+                      <Text style={r.preRankingPos}>{i + 1}º</Text>
+                      <Text style={r.preRankingNome} numberOfLines={1}>{mascararNome(c.nome)}</Text>
+                      <Ionicons name="lock-closed" size={13} color={C.text3} />
+                    </View>
+                  ))}
+                <Text style={r.preRankingLegenda}>
+                  Você já tem {clientes.length} de 10 clientes do plano grátis — desbloqueie os nomes e o ranking completo no Pro.
+                </Text>
+              </View>
+            )}
             <View style={r.paywallIcone}>
               <Text style={{ fontSize: 44 }}>🏆</Text>
             </View>
@@ -884,6 +911,15 @@ const r = StyleSheet.create({
   vazioTexto: { fontSize: 14, color: C.text2, textAlign: 'center' },
 
   paywallContainer: { alignItems: 'center', padding: 28, paddingBottom: 60 },
+  preRankingBox: {
+    width: '100%', backgroundColor: C.card, borderRadius: 16, padding: 16,
+    borderWidth: 1, borderColor: C.border, marginBottom: 24, gap: 10,
+  },
+  preRankingTitulo: { fontSize: 13, fontWeight: '800', color: C.text2, marginBottom: 2 },
+  preRankingLinha: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  preRankingPos: { fontSize: 13, fontWeight: '800', color: C.text3, width: 22 },
+  preRankingNome: { flex: 1, fontSize: 14, fontWeight: '700', color: C.text, letterSpacing: 0.5 },
+  preRankingLegenda: { fontSize: 12, color: C.text2, lineHeight: 17, marginTop: 4 },
   paywallIcone: {
     width: 88, height: 88, borderRadius: 24,
     backgroundColor: C.yellowLight, borderWidth: 2, borderColor: C.yellowBorder,

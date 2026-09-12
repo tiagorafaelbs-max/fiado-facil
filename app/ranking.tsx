@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   ActivityIndicator, Platform, useWindowDimensions,
@@ -71,6 +71,17 @@ function TaxaBadge({ taxa }: { taxa: number }) {
 export default function RankingScreen() {
   const router = useRouter()
   const { usuario } = useAuth()
+
+  // Ranking é recurso Pro. Essa tela não tem botão nenhum apontando pra ela
+  // no app (a versão em uso é a aba "Ranking" em app/(tabs)/clientes.tsx, já
+  // com paywall) — mas por ser uma rota do Expo Router ela é acessível direto
+  // por deep link (fiadofacil://ranking), então precisa da mesma trava.
+  useEffect(() => {
+    if (!usuario?.id) return
+    supabase.from('perfis').select('plano').eq('id', usuario.id).single()
+      .then(({ data }) => { if (data?.plano !== 'pro') router.replace('/planos') })
+  }, [usuario?.id])
+
   const { width } = useWindowDimensions()
   const isTablet = width >= 768
   const [aba, setAba] = useState<Aba>('melhores')
