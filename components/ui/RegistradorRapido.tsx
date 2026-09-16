@@ -100,18 +100,14 @@ export function RegistradorRapido({ visivel, onFechar, clientePreSelecionado }: 
         categoria: 'Mercadoria',
       })
 
+      // Mesmo comportamento da Nova Venda normal: só avisa que registrou e
+      // fecha sozinho, sem exigir clique em "Novo lançamento"/"Fechar".
       setSucesso(true)
+      setTimeout(fechar, 1300)
     } catch (e: any) {
       setErro(e.message ?? 'Erro ao salvar.')
     } finally {
       setSalvando(false)
-    }
-  }
-
-  function novamente() {
-    setSucesso(false); setValor(''); setDescricao(''); setVencimento(''); setErro('')
-    if (!clientePreSelecionado) {
-      setEtapa('cliente'); setClienteSelecionado(null)
     }
   }
 
@@ -214,19 +210,14 @@ export function RegistradorRapido({ visivel, onFechar, clientePreSelecionado }: 
 
               {sucesso ? (
                 <View style={estilos.sucessoBox}>
-                  <Text style={{ fontSize: 52, marginBottom: 12 }}>✅</Text>
-                  <Text style={estilos.sucessoTitulo}>Registrado!</Text>
-                  <Text style={estilos.sucessoSub}>
-                    {formatarMoeda(parseFloat(valor.replace(',', '.') || '0'))} para {clienteSelecionado?.nome}
-                  </Text>
-                  <View style={estilos.sucessoBotoes}>
-                    <TouchableOpacity style={estilos.btnNovamente} onPress={novamente}>
-                      <Ionicons name="add" size={18} color={C.green} />
-                      <Text style={estilos.btnNovamenteTexto}>Novo lançamento</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={estilos.btnFecharSucesso} onPress={fechar}>
-                      <Text style={estilos.btnFecharSucessoTexto}>Fechar</Text>
-                    </TouchableOpacity>
+                  <View style={estilos.sucessoToast}>
+                    <Text style={{ fontSize: 26 }}>✅</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={estilos.sucessoTitulo}>Venda registrada!</Text>
+                      <Text style={estilos.sucessoSub}>
+                        {formatarMoeda(parseFloat(valor.replace(',', '.') || '0'))} para {clienteSelecionado?.nome}
+                      </Text>
+                    </View>
                   </View>
                 </View>
               ) : (
@@ -393,16 +384,12 @@ const estilos = StyleSheet.create({
   },
   btnRegistrarTexto: { color: C.white, fontWeight: '800', fontSize: 17 },
 
-  sucessoBox: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },
-  sucessoTitulo: { fontSize: 26, fontWeight: '900', color: C.text },
-  sucessoSub: { fontSize: 15, color: C.text2, textAlign: 'center' },
-  sucessoBotoes: { flexDirection: 'row', gap: 10, marginTop: 20 },
-  btnNovamente: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: C.greenLight, borderRadius: 12, paddingHorizontal: 18, paddingVertical: 12,
+  sucessoBox: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
+  sucessoToast: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, alignSelf: 'stretch',
+    backgroundColor: C.greenLight, borderRadius: 16, padding: 16,
     borderWidth: 1, borderColor: C.greenMid,
   },
-  btnNovamenteTexto: { color: C.green, fontWeight: '700', fontSize: 14 },
-  btnFecharSucesso: { backgroundColor: C.green, borderRadius: 12, paddingHorizontal: 18, paddingVertical: 12 },
-  btnFecharSucessoTexto: { color: C.white, fontWeight: '700', fontSize: 14 },
+  sucessoTitulo: { fontSize: 15, fontWeight: '800', color: C.greenDark },
+  sucessoSub: { fontSize: 13, color: C.green, marginTop: 2 },
 })
