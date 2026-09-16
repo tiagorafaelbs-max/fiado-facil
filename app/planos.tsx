@@ -43,8 +43,8 @@ const RECURSOS_GRATUITO = [
 ]
 
 const RECURSOS_PRO = [
-  { texto: 'Cobrar todos os vencidos com 1 toque', destaque: true },
   { texto: 'Clientes ilimitados', destaque: true },
+  { texto: 'Cobre todos os vencidos com um toque', destaque: true },
   { texto: 'Lançamentos ilimitados', destaque: false },
   { texto: 'Cobranças WhatsApp ilimitadas', destaque: true },
   { texto: 'Histórico completo (sem limite)', destaque: true },
