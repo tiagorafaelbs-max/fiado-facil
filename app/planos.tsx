@@ -448,16 +448,16 @@ export default function PlanosScreen() {
       <View style={estilos.depoimentosBox}>
         <Text style={estilos.depoimentosTitulo}>O que dizem nossos clientes</Text>
         {[
-          { nome: 'Fátima S.', negocio: 'Mercearia · Belo Horizonte', texto: 'Usava caderninho e sempre esquecia de cobrar. Agora não perco mais nada. Em 1 mês já recuperei mais de R$ 600.' },
-          { nome: 'Marcos R.', negocio: 'Padaria · São Paulo', texto: 'Cobro todo mundo com um clique só. O cliente paga na hora quando vê o extrato direitinho com o valor certo.' },
-          { nome: 'Cláudia M.', negocio: 'Salão de beleza · Recife', texto: 'Simples de usar e minha filha não precisa mais me ajudar a anotar. Recomendo muito!' },
+          { nome: 'Loja Gonçalos', texto: 'Melhor app de gerenciamento de contas que baixei até agora. Já tive que assinar o Pro pq estou usando na minha loja.' },
+          { nome: 'Soares Erika', texto: 'Facilitou meu dia. Agora controlo todos os meus recebimentos e tenho relatórios das vendas pra controlar na palma da mão.' },
+          { nome: 'Goulart13', texto: 'Tinha muita dificuldade pra me organizar, o app me facilitou muito.' },
         ].map((d, i) => (
           <View key={i} style={estilos.depoimentoCard}>
             <View style={estilos.depoimentoEstrelas}>
               {Array.from({ length: 5 }).map((_, j) => <Ionicons key={j} name="star" size={12} color={C.yellow} />)}
             </View>
             <Text style={estilos.depoimentoTexto}>"{d.texto}"</Text>
-            <Text style={estilos.depoimentoAutor}>{d.nome} · {d.negocio}</Text>
+            <Text style={estilos.depoimentoAutor}>{d.nome} · Avaliação verificada na App Store</Text>
           </View>
         ))}
       </View>

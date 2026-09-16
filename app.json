@@ -9,11 +9,6 @@
     "scheme": "fiadofacil",
     "description": "Controle suas vendas no fiado de forma simples e profissional. Cadastre clientes, registre vendas, cobre pelo WhatsApp e receba pelo Pix.",
     "primaryColor": "#14352A",
-    "splash": {
-      "image": "./assets/icon-512.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#14352A"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.fiadofacil.app",
@@ -35,11 +30,6 @@
     "android": {
       "package": "com.fiadofacil.app",
       "versionCode": 40,
-      "splash": {
-        "image": "./assets/icon-512.png",
-        "resizeMode": "contain",
-        "backgroundColor": "#14352A"
-      },
       "adaptiveIcon": {
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
@@ -73,6 +63,17 @@
         {
           "icon": "./assets/icon.png",
           "color": "#14352A"
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#14352A",
+          "dark": {
+            "backgroundColor": "#14352A"
+          }
         }
       ]
     ],
