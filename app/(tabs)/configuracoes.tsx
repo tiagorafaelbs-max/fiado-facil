@@ -181,11 +181,24 @@ export default function ConfiguracoesScreen() {
     }
 
     try {
-      const uid = usuario!.id
-      await supabase.from('pagamentos').delete().eq('usuario_id', uid)
-      await supabase.from('vendas').delete().eq('usuario_id', uid)
-      await supabase.from('clientes').delete().eq('usuario_id', uid)
-      await supabase.from('perfis').delete().eq('id', uid)
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error('Sessão expirada.')
+
+      // Exclui a conta de verdade (auth.users + cascade de todas as tabelas
+      // de negócio) via Edge Function com service role — o app comum não
+      // tem permissão pra apagar o próprio usuário de autenticação, só o
+      // dono do banco. Antes disso, só as tabelas eram limpas e o usuário
+      // continuava existindo pra sempre no Supabase Auth.
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL
+      const resp = await fetch(`${supabaseUrl}/functions/v1/delete-account`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (!resp.ok) {
+        const body = await resp.json().catch(() => ({}))
+        throw new Error(body.error ?? 'Erro ao excluir conta')
+      }
+
       await supabase.auth.signOut()
     } catch (e: any) {
       Alert.alert('Erro', 'Não foi possível excluir a conta. Tente novamente ou contate contato.fiadoapp@gmail.com')
