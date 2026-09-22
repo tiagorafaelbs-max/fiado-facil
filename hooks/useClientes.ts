@@ -79,10 +79,13 @@ export function useClientes() {
   }, [buscar])
 
   const excluir = useCallback(async (id: string) => {
+    const { data: { session } } = await supabase.auth.getSession()
+    const uid = session?.user?.id
+    if (!uid) throw new Error('Sessão expirada. Entre novamente.')
     // Remove vendas e pagamentos antes de excluir o cliente
-    await supabase.from('pagamentos').delete().eq('cliente_id', id)
-    await supabase.from('vendas').delete().eq('cliente_id', id)
-    const { error } = await supabase.from('clientes').delete().eq('id', id)
+    await supabase.from('pagamentos').delete().eq('cliente_id', id).eq('usuario_id', uid)
+    await supabase.from('vendas').delete().eq('cliente_id', id).eq('usuario_id', uid)
+    const { error } = await supabase.from('clientes').delete().eq('id', id).eq('usuario_id', uid)
     if (error) throw error
     await buscar()
   }, [buscar])

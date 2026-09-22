@@ -135,24 +135,27 @@ export default function DetalheClienteScreen() {
   }
 
   const carregarCliente = useCallback(async () => {
-    const { data } = await supabase.from('clientes_com_saldo').select('*').eq('id', id).single()
+    if (!usuario?.id) return
+    const { data } = await supabase.from('clientes_com_saldo').select('*')
+      .eq('id', id).eq('usuario_id', usuario.id).single()
     if (data) {
       setCliente(data)
       navigation.setOptions({ title: data.nome })
     }
-  }, [id])
+  }, [id, usuario?.id])
 
   const carregarPagamentos = useCallback(async () => {
+    if (!usuario?.id) return
     const { data } = await supabase.from('pagamentos')
       .select('id, valor, data_pagamento, observacao')
-      .eq('cliente_id', id).order('data_pagamento', { ascending: false })
+      .eq('cliente_id', id).eq('usuario_id', usuario.id).order('data_pagamento', { ascending: false })
     setPagamentos(data ?? [])
-  }, [id])
+  }, [id, usuario?.id])
 
   useEffect(() => {
     setCliente(null)
     carregarCliente(); buscar(); carregarPagamentos()
-  }, [id])
+  }, [id, usuario?.id])
 
   useEffect(() => {
     if (!usuario?.id) return
@@ -382,7 +385,7 @@ export default function DetalheClienteScreen() {
   async function handleSalvarEdicaoPagamento() {
     if (!modalEditarPagamento) return
     const valor = parseFloat(modalEditarPagamento.valor.replace(',', '.'))
-    if (isNaN(valor) || valor <= 0) return
+    if (isNaN(valor) || valor <= 0 || !usuario?.id) return
     setEditandoPagamento(true)
     try {
       const { supabase } = await import('../../lib/supabase')
@@ -392,11 +395,12 @@ export default function DetalheClienteScreen() {
         const [dd, mm, aaaa] = modalEditarPagamento.data.split('/')
         if (dd && mm && aaaa) dataISO = `${aaaa}-${mm}-${dd}`
       }
-      await supabase.from('pagamentos').update({
+      const { error } = await supabase.from('pagamentos').update({
         valor,
         data_pagamento: dataISO,
         observacao: modalEditarPagamento.observacao || null,
-      }).eq('id', modalEditarPagamento.id)
+      }).eq('id', modalEditarPagamento.id).eq('usuario_id', usuario.id)
+      if (error) throw error
       await Promise.all([carregarCliente(), carregarPagamentos()])
       setModalEditarPagamento(null)
     } catch (e: any) {

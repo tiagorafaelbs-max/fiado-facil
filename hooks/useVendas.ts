@@ -49,8 +49,8 @@ async function reconciliarPagoCliente(clienteId: string, uid: string) {
       reabrir.push(v.id)
     }
   }
-  if (fechar.length) await supabase.from('vendas').update({ pago: true }).in('id', fechar)
-  if (reabrir.length) await supabase.from('vendas').update({ pago: false }).in('id', reabrir)
+  if (fechar.length) await supabase.from('vendas').update({ pago: true }).in('id', fechar).eq('usuario_id', uid)
+  if (reabrir.length) await supabase.from('vendas').update({ pago: false }).in('id', reabrir).eq('usuario_id', uid)
 }
 
 export function useVendas(clienteId?: string) {

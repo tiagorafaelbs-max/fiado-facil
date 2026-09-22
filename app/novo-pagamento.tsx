@@ -56,11 +56,14 @@ export default function NovoPagamentoScreen() {
     setClienteSelecionado(cliente)
     setBusca('')
     // Busca saldo atualizado
-    const { data } = await supabase
-      .from('clientes_com_saldo')
-      .select('saldo_devedor')
-      .eq('id', cliente.id)
-      .single()
+    const { data } = usuario?.id
+      ? await supabase
+          .from('clientes_com_saldo')
+          .select('saldo_devedor')
+          .eq('id', cliente.id)
+          .eq('usuario_id', usuario.id)
+          .single()
+      : { data: null }
     setSaldo(data?.saldo_devedor ?? cliente.saldo_devedor ?? 0)
     setValor(String(data?.saldo_devedor ?? cliente.saldo_devedor ?? '').replace('.', ','))
   }

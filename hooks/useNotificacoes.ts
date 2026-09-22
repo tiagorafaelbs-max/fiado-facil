@@ -33,9 +33,15 @@ export async function agendarNotificacoesVencimento() {
     amanha.setDate(amanha.getDate() + 1)
     const dataAmanha = amanha.toISOString().split('T')[0]
 
+    const { data: { session } } = await supabase.auth.getSession()
+    const uid = session?.user?.id
+    if (!uid) return
+
+    // Filtro explícito por comerciante além da RLS (incidente 16/09).
     const { data: vendasAmanha } = await supabase
       .from('vendas')
       .select('id, valor, data_vencimento, clientes(nome)')
+      .eq('usuario_id', uid)
       .eq('pago', false)
       .eq('data_vencimento', dataAmanha)
 
@@ -43,6 +49,7 @@ export async function agendarNotificacoesVencimento() {
     const { data: clientesVencidos } = await supabase
       .from('clientes_com_saldo')
       .select('id, saldo_devedor')
+      .eq('usuario_id', uid)
       .eq('ativo', true)
       .eq('status_pagamento', 'vencido')
       .gt('saldo_devedor', 0)
@@ -94,9 +101,11 @@ export async function agendarNotificacoesVencimento() {
     cincoAntras.setDate(cincoAntras.getDate() - 5)
     const dataCinco = cincoAntras.toISOString().split('T')[0]
 
+    // ultima_compra só existe na view (é calculada a partir das vendas)
     const { data: clientesInativos } = await supabase
-      .from('clientes')
+      .from('clientes_com_saldo')
       .select('id, nome')
+      .eq('usuario_id', uid)
       .lt('ultima_compra', dataCinco)
       .not('ultima_compra', 'is', null)
       .eq('ativo', true)

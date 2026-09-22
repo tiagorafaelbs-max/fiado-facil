@@ -141,7 +141,7 @@ export default function DashboardScreen() {
         if (hoje === diaEfetivo) {
           setDiaCobranca(data.dia_cobranca)
           setCobrancaAutoTipo(data.cobranca_auto_tipo ?? 'vencidos')
-          supabase.from('clientes_com_saldo').select('id', { count: 'exact' }).gt('saldo_devedor', 0)
+          supabase.from('clientes_com_saldo').select('id', { count: 'exact' }).eq('usuario_id', usuario.id).gt('saldo_devedor', 0)
             .then(({ count }) => setClientesParaCobrar(count ?? 0))
         }
       })

@@ -83,7 +83,9 @@ export default function PlanosScreen() {
           const receipt = (purchase as any).purchaseToken ?? (purchase as any).transactionReceipt
           // Aceita purchaseState 'purchased' (string) ou undefined (iOS subscriptions às vezes omite)
           // Nunca aceita 'pending' ou 'failed'
-          const stateOk = purchase.purchaseState !== 'pending' && purchase.purchaseState !== 'failed'
+          // Os tipos do IAP v15 não listam 'failed', mas o valor pode chegar em runtime.
+          const estado = String(purchase.purchaseState)
+          const stateOk = estado !== 'pending' && estado !== 'failed'
           if (receipt && stateOk) {
             await handleApplePurchaseSuccess(purchase)
           }

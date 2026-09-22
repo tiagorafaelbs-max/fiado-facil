@@ -87,7 +87,9 @@
       }
     },
     "owner": "tiago-batista-organizacoes",
-    "runtimeVersion": "1.0.0",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
     "updates": {
       "url": "https://u.expo.dev/d8d7d3b3-83de-4260-84a8-8da259550bfe"
     }

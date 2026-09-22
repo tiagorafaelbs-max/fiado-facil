@@ -6,6 +6,7 @@ import {
 import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../hooks/useAuth'
 import { Avatar } from '../components/ui/Avatar'
 import { formatarMoeda } from '../lib/validacao'
 import { C } from '../constants/colors'
@@ -21,6 +22,7 @@ interface Resultado {
 
 export default function BuscaScreen() {
   const router = useRouter()
+  const { usuario } = useAuth()
   const [query, setQuery] = useState('')
   const [resultados, setResultados] = useState<Resultado[]>([])
   const [buscando, setBuscando] = useState(false)
@@ -28,18 +30,22 @@ export default function BuscaScreen() {
 
   async function buscar(texto: string) {
     setQuery(texto)
-    if (texto.trim().length < 2) { setResultados([]); setBuscou(false); return }
+    if (texto.trim().length < 2 || !usuario?.id) { setResultados([]); setBuscou(false); return }
     setBuscando(true)
     try {
+      // Filtro explícito por comerciante além da RLS: sem ele, a view
+      // clientes_com_saldo expôs clientes de outros comerciantes (incidente 16/09).
       const [{ data: clientes }, { data: vendas }] = await Promise.all([
         supabase
           .from('clientes_com_saldo')
           .select('id, nome, saldo_devedor, telefone')
+          .eq('usuario_id', usuario.id)
           .ilike('nome', `%${texto}%`)
           .limit(10),
         supabase
           .from('vendas')
           .select('id, descricao, valor, cliente_id, clientes(nome)')
+          .eq('usuario_id', usuario.id)
           .ilike('descricao', `%${texto}%`)
           .limit(10),
       ])

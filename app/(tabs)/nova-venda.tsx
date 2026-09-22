@@ -336,7 +336,9 @@ export default function NovaVendaScreen() {
     try {
       const { supabase } = await import('../../lib/supabase')
       const idsParaDeletar = ultimasParcelasIds.length > 0 ? ultimasParcelasIds : [ultimaVendaId]
-      await supabase.from('vendas').delete().in('id', idsParaDeletar)
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user?.id) return
+      await supabase.from('vendas').delete().in('id', idsParaDeletar).eq('usuario_id', session.user.id)
       setUltimaVendaId(null)
       setUltimasParcelasIds([])
       if (redirectTimer.current) { clearTimeout(redirectTimer.current); redirectTimer.current = null }
