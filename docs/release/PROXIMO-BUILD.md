@@ -29,6 +29,7 @@
 ## Já aplicado no banco (não depende de build)
 - 22/09: `supabase/migrations/revoga_privilegios_anon_tabelas.sql`: o papel `anon` perdeu todos os privilégios nas tabelas e views, e as tabelas futuras nascem sem privilégio para `anon`. Verificado: usuários logados seguem normais, e as edge functions usam a service role.
 - 26/09: `supabase/migrations/equipe_e_multiusuario.sql`: tabela `membros_equipe`, função `tenant_id_atual()`, RLS de `clientes`/`vendas`/`pagamentos`/`perfis` atualizada para resolver dono vs. funcionário, coluna `criado_por` em `vendas`/`pagamentos`, trigger de permissões em `vendas`. Validado em 2 rodadas pelo Agente Fiscal direto contra o banco real (não regressão confirmada para as contas sem equipe). **Falta publicar a edge function `convidar-funcionario`** — bloqueada pelo classificador do Claude Code, precisa rodar manualmente: `npx supabase functions deploy convidar-funcionario --project-ref eyipcpwmwtajrywouxub`.
+- 26/09: `supabase/migrations/idempotencia_fila_offline.sql`: coluna `client_op_id` + constraint única em `vendas`/`pagamentos`, fecha o risco de duplicata na fila offline (ver detalhes na seção do achado abaixo). Testado em transação com ROLLBACK e validado 2x (eu + Fiscal) antes de aplicar.
 
 ## Metadados do App Store Connect (fazer ao abrir a próxima versão, antes de enviar para revisão)
 - **URL da Política de Privacidade** está desatualizada: Distribuição → Privacidade do app → Política de privacidade → `https://rcsolucoes.github.io/fiado-facil/privacy` (domínio antigo) → trocar para `https://fiadoapp.app.br/privacidade`. Campo está congelado na 1.0.11 (já "Pronto para distribuição"), só libera dentro de uma versão nova. Backlink de alta autoridade apontando pro lugar errado — afeta SEO além de credibilidade.
@@ -40,7 +41,7 @@
 3. Exportação de relatório em PDF
 4. Envio de cobrança/extrato pelo WhatsApp
 5. **Fluxo Mercado Pago de ponta a ponta**: criar preferência (`subscribe`) → pagar → voltar ao app → confirmar que `mercadopago-webhook` recebeu a notificação → `perfis.plano` virou `'pro'` no banco. Prioridade alta — é o fluxo que estava quebrado até hoje.
-6. **Pagamento offline**: modo avião → lançar pagamento → voltar internet → confirmar que aparece UMA vez e o saldo fica certo. ⚠️ Ver achado de idempotência abaixo antes de considerar este item seguro.
+6. **Pagamento offline**: modo avião → lançar pagamento → voltar internet → confirmar que aparece UMA vez e o saldo fica certo. Proteção de idempotência já aplicada (ver seção abaixo) — este teste agora é confirmação, não investigação de risco aberto.
 7. **Pagamento offline + fechar o app antes de sincronizar** → reabrir com internet → confirmar que sincroniza uma vez só.
 8. **Equipe**: convidar funcionário, entrar como funcionário, conferir isolamento (só vê dados do próprio dono) e permissões de editar/excluir venda. Depende da edge function `convidar-funcionario` estar publicada — fica para depois do lançamento (publica junto, conforme decidido).
 9. **Ocultar saldo**: liga/desliga no dashboard, fecha e reabre o app, confirma que a preferência persiste.
@@ -55,23 +56,19 @@
 
 **Isso não é regressão só do pagamento offline de hoje** — o mesmo padrão já existe desde que a fila de venda offline foi criada (antes desta sessão); hoje eu estendi o mesmo mecanismo pra pagamento, então o mesmo risco passou a valer pros dois casos.
 
-**Correção que exigiria migration (NÃO aplicada — aguardando aprovação):**
+**RESOLVIDO (26/09) — migration `idempotencia_fila_offline.sql` aplicada em produção.** Decisão do Tiago: corrigir antes do build, ficando com a recomendação do Fiscal. O Tiago também corrigiu um erro na proposta original: índice único **parcial** (`where client_op_id is not null`) não é inferido pelo `ON CONFLICT (client_op_id)` que o supabase-js gera — quebraria toda sincronização offline. A migration final usa constraint única **normal**, que funciona porque múltiplos `NULL` nunca conflitam entre si no Postgres.
+
 ```sql
--- Chave de idempotência para operações offline: gerada uma única vez no
--- aparelho quando o pagamento/venda é criado (não a cada tentativa de sync),
--- permitindo que o servidor rejeite silenciosamente um reenvio da MESMA
--- operação sem criar um registro duplicado.
 alter table public.pagamentos add column if not exists client_op_id uuid;
-create unique index if not exists pagamentos_client_op_id_key
-  on public.pagamentos (client_op_id) where client_op_id is not null;
+alter table public.pagamentos add constraint pagamentos_client_op_id_key unique (client_op_id);
 
 alter table public.vendas add column if not exists client_op_id uuid;
-create unique index if not exists vendas_client_op_id_key
-  on public.vendas (client_op_id) where client_op_id is not null;
+alter table public.vendas add constraint vendas_client_op_id_key unique (client_op_id);
 ```
-No cliente: `enfileirarOperacao` passaria a gerar um `client_op_id` (UUID) uma única vez ao criar a operação, incluí-lo no payload, e `sincronizarFila` trocaria `insert(payload)` por `upsert(payload, { onConflict: 'client_op_id', ignoreDuplicates: true })` — reenviar a mesma operação nunca mais criaria um segundo registro.
 
-**Decisão pendente do Tiago:** aplicar essa migration antes do build (fecha o risco pro 1.0.12), ou aceitar o risco por ora (é uma janela estreita — só ocorre com queda de conexão bem no momento exato da confirmação) e corrigir num ciclo dedicado?
+Testado em transação com ROLLBACK antes de aplicar (dedupe funciona, `NULL`s coexistem, RLS de insert continua valendo com o upsert, view `clientes_com_saldo` intacta) — validado de forma independente 2x (eu + Agente Fiscal, cada um rodando os testes do zero).
+
+**Código:** `lib/uuid.ts` (novo — gera UUID v4 com `Math.random()`, sem depender de `crypto.randomUUID()`, que não é garantido em React Native/Hermes sem polyfill e o projeto não tem `expo-crypto`/`uuid` instalado). `hooks/useVendas.ts` (`criar`/`registrarPagamento` geram `client_op_id` uma vez por chamada). `hooks/useOffline.ts` (`sincronizarFila` usa `upsert(..., { onConflict: 'client_op_id', ignoreDuplicates: true })` em vez de `insert`).
 
 ## Planos preparados — NÃO executar sem aprovação explícita do Tiago
 

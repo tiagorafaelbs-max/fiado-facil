@@ -50,7 +50,14 @@ async function sincronizarFila(): Promise<number> {
         // Remove o id local (não é UUID válido) — Supabase gera o UUID real ao inserir
         const { id: localId, ...dadosSemId } = op.dados
         const payload = typeof localId === 'string' && localId.startsWith('local_') ? dadosSemId : op.dados
-        const { error } = await supabase.from(op.tabela).insert(payload)
+        // upsert com onConflict em client_op_id: se essa operação já foi enviada com
+        // sucesso numa tentativa anterior (mas a confirmação de rede se perdeu, fazendo
+        // o app achar que falhou), o conflito é ignorado em vez de criar um registro
+        // duplicado — client_op_id é gerado uma única vez no aparelho, não a cada retry.
+        // Só vendas/pagamentos passam por aqui hoje; ambos têm a coluna.
+        const { error } = await supabase
+          .from(op.tabela)
+          .upsert(payload, { onConflict: 'client_op_id', ignoreDuplicates: true })
         if (error) throw error
         if ((op.tabela === 'vendas' || op.tabela === 'pagamentos') && payload.cliente_id && payload.usuario_id) {
           clientesParaReconciliar.set(payload.cliente_id, payload.usuario_id)

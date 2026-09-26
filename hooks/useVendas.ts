@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { enfileirarOperacao, verificarConectividade } from './useOffline'
 import { resolverTenantId } from '../lib/tenant'
 import { reconciliarPagoCliente } from '../lib/reconciliacao'
+import { gerarUUID } from '../lib/uuid'
 import type { Venda, Pagamento } from '../types'
 
 // Traduz erros crus do Postgres para mensagens em português.
@@ -65,6 +66,7 @@ export function useVendas(clienteId?: string) {
       categoria: dados.categoria,
       usuario_id: tenantId,
       criado_por: session.user.id,
+      client_op_id: gerarUUID(),
       data_venda: dados.data_venda ?? new Date().toISOString().split('T')[0],
       pago: false,
     }
@@ -110,6 +112,10 @@ export function useVendas(clienteId?: string) {
       ...rest,
       usuario_id: tenantId,
       criado_por: user.id,
+      // Gerado sempre (online e offline), não só na fila: mantém um único caminho
+      // de código e protege também um futuro retry no caminho online, sem custo —
+      // é só mais uma coluna preenchida, nunca gera colisão real.
+      client_op_id: gerarUUID(),
       data_pagamento: data_pagamento ?? new Date().toISOString().split('T')[0],
     }
 
