@@ -21,6 +21,7 @@ import { agendarNotificacoesVencimento } from '../../hooks/useNotificacoes'
 import { gerarExtratoCliente } from '../../lib/pdf'
 import { gerarPayloadPix } from '../../lib/pix'
 import { useModulos } from '../../hooks/useModulos'
+import { useTenant } from '../../hooks/useTenant'
 import { useOffline } from '../../hooks/useOffline'
 import { formatarMoeda, formatarInputMoeda, validarDataBR } from '../../lib/validacao'
 import { C } from '../../constants/colors'
@@ -71,13 +72,15 @@ export default function DetalheClienteScreen() {
   const { vendas, carregando, buscar, registrarPagamento, excluirVenda, editarVenda, excluirPagamento } = useVendas(id)
   const { width } = useWindowDimensions()
   const isTablet = width >= 768
-  const { modulos } = useModulos(usuario?.id)
+  const { tenantId } = useTenant()
+  const { modulos } = useModulos(tenantId || usuario?.id)
   const { online } = useOffline()
   const { tocar } = useBeep()
   const { excluir: excluirCliente, atualizar: atualizarCliente } = useClientes()
 
   const [cliente, setCliente] = useState<Cliente | null>(null)
   const [pagamentos, setPagamentos] = useState<Pagamento[]>([])
+  const [nomesEquipe, setNomesEquipe] = useState<Record<string, string>>({})
   const [modalPagamento, setModalPagamento] = useState(false)
   const [modalPix, setModalPix] = useState(false)
   const [valorPagamento, setValorPagamento] = useState('')
@@ -135,22 +138,22 @@ export default function DetalheClienteScreen() {
   }
 
   const carregarCliente = useCallback(async () => {
-    if (!usuario?.id) return
+    if (!tenantId) return
     const { data } = await supabase.from('clientes_com_saldo').select('*')
-      .eq('id', id).eq('usuario_id', usuario.id).single()
+      .eq('id', id).eq('usuario_id', tenantId).single()
     if (data) {
       setCliente(data)
       navigation.setOptions({ title: data.nome })
     }
-  }, [id, usuario?.id])
+  }, [id, tenantId])
 
   const carregarPagamentos = useCallback(async () => {
-    if (!usuario?.id) return
+    if (!tenantId) return
     const { data } = await supabase.from('pagamentos')
       .select('id, valor, data_pagamento, observacao')
-      .eq('cliente_id', id).eq('usuario_id', usuario.id).order('data_pagamento', { ascending: false })
+      .eq('cliente_id', id).eq('usuario_id', tenantId).order('data_pagamento', { ascending: false })
     setPagamentos(data ?? [])
-  }, [id, usuario?.id])
+  }, [id, tenantId])
 
   useEffect(() => {
     setCliente(null)
@@ -158,10 +161,14 @@ export default function DetalheClienteScreen() {
   }, [id, usuario?.id])
 
   useEffect(() => {
-    if (!usuario?.id) return
-    supabase.from('perfis').select('nome_negocio, chave_pix').eq('id', usuario.id).single()
+    if (!tenantId) return
+    supabase.from('perfis').select('nome_negocio, chave_pix').eq('id', tenantId).single()
       .then(({ data }) => { if (data) setPerfil(data) })
-  }, [usuario?.id])
+    supabase.from('membros_equipe').select('membro_id, nome').eq('dono_id', tenantId).eq('status', 'ativo')
+      .then(({ data }) => {
+        if (data) setNomesEquipe(Object.fromEntries(data.map(m => [m.membro_id, m.nome])))
+      })
+  }, [tenantId])
 
   async function handlePagamento() {
     const valor = parseFloat(valorPagamento.replace(',', '.'))
@@ -355,6 +362,7 @@ export default function DetalheClienteScreen() {
     try {
       const { data: { session } } = await (await import('../../lib/supabase')).supabase.auth.getSession()
       if (!session?.user) throw new Error('Sessão expirada.')
+      if (!tenantId) throw new Error('Sessão expirada. Faça login novamente.')
       // converte DD/MM/AAAA → AAAA-MM-DD, ou usa hoje
       let dataISO = new Date().toISOString().split('T')[0]
       if (dividaData.length === 10 && dividaData.includes('/')) {
@@ -362,15 +370,17 @@ export default function DetalheClienteScreen() {
         if (dd && mm && aaaa) dataISO = `${aaaa}-${mm}-${dd}`
       }
       const { supabase } = await import('../../lib/supabase')
-      await supabase.from('vendas').insert({
+      const { error } = await supabase.from('vendas').insert({
         cliente_id: id,
-        usuario_id: session.user.id,
+        usuario_id: tenantId,
+        criado_por: session.user.id,
         descricao: dividaDescricao.trim() || 'Dívida anterior',
         valor,
         data_venda: dataISO,
         categoria: 'Dívida anterior',
         pago: false,
       })
+      if (error) throw error
       await Promise.all([carregarCliente(), buscar()])
       setModalDividaAnterior(false)
       setDividaValor(''); setDividaDescricao(''); setDividaData('')
@@ -385,7 +395,7 @@ export default function DetalheClienteScreen() {
   async function handleSalvarEdicaoPagamento() {
     if (!modalEditarPagamento) return
     const valor = parseFloat(modalEditarPagamento.valor.replace(',', '.'))
-    if (isNaN(valor) || valor <= 0 || !usuario?.id) return
+    if (isNaN(valor) || valor <= 0 || !tenantId) return
     setEditandoPagamento(true)
     try {
       const { supabase } = await import('../../lib/supabase')
@@ -395,12 +405,13 @@ export default function DetalheClienteScreen() {
         const [dd, mm, aaaa] = modalEditarPagamento.data.split('/')
         if (dd && mm && aaaa) dataISO = `${aaaa}-${mm}-${dd}`
       }
-      const { error } = await supabase.from('pagamentos').update({
+      const { data: atualizado, error } = await supabase.from('pagamentos').update({
         valor,
         data_pagamento: dataISO,
         observacao: modalEditarPagamento.observacao || null,
-      }).eq('id', modalEditarPagamento.id).eq('usuario_id', usuario.id)
+      }).eq('id', modalEditarPagamento.id).eq('usuario_id', tenantId).select().maybeSingle()
       if (error) throw error
+      if (!atualizado) throw new Error('Pagamento não encontrado ou sem permissão para editar.')
       await Promise.all([carregarCliente(), carregarPagamentos()])
       setModalEditarPagamento(null)
     } catch (e: any) {
@@ -595,6 +606,9 @@ export default function DetalheClienteScreen() {
                       {v.categoria && <View style={estilos.catBadge}><Text style={estilos.catBadgeTexto}>{v.categoria}</Text></View>}
                       {v.data_vencimento && <Text style={estilos.lancVenc}>Vence: {format(new Date(v.data_vencimento + 'T12:00:00'), "d MMM", { locale: ptBR })}</Text>}
                     </View>
+                    {Object.keys(nomesEquipe).length > 0 && v.criado_por && nomesEquipe[v.criado_por] && (
+                      <Text style={estilos.lancAutor}>Registrado por {nomesEquipe[v.criado_por]}</Text>
+                    )}
                     {v.foto_url && (
                       <Image source={{ uri: v.foto_url }} style={estilos.fotoThumb} resizeMode="cover" />
                     )}
@@ -741,11 +755,13 @@ export default function DetalheClienteScreen() {
                 <Text style={estilos.btnVerPixTexto}>Ver QR Code Pix</Text>
               </TouchableOpacity>
             )}
+            {!online && (
+              <Text style={estilos.avisoOffline}>Sem internet — o pagamento fica salvo e sincroniza quando reconectar.</Text>
+            )}
             <Botao
               titulo={tipoPagamento === 'parcelado' ? `Confirmar ${numParcelas}x parcelas` : 'Confirmar pagamento'}
               onPress={handlePagamento}
               carregando={salvando}
-              desabilitado={!online}
             />
           </View>
         </KeyboardAvoidingView>
@@ -1045,6 +1061,8 @@ const estilos = StyleSheet.create({
   lancIcone: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2 },
   lancDesc: { fontSize: 14, fontWeight: '600', color: C.text },
   lancMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3, flexWrap: 'wrap' },
+  lancAutor: { fontSize: 11, color: C.text3, marginTop: 2, fontStyle: 'italic' },
+  avisoOffline: { fontSize: 12, color: C.text2, textAlign: 'center', marginBottom: 10 },
   lancData: { fontSize: 12, color: C.text2 },
   lancVenc: { fontSize: 11, color: C.yellow, fontWeight: '600' },
   catBadge: { backgroundColor: C.greenLight, borderRadius: 99, paddingHorizontal: 7, paddingVertical: 2 },

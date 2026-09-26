@@ -10,6 +10,7 @@ import { useVendas } from '../../hooks/useVendas'
 import { useClientes } from '../../hooks/useClientes'
 import { useModulos } from '../../hooks/useModulos'
 import { useAuth } from '../../hooks/useAuth'
+import { useTenant } from '../../hooks/useTenant'
 import { Avatar } from '../../components/ui/Avatar'
 import { Campo } from '../../components/ui/Campo'
 import { Botao } from '../../components/ui/Botao'
@@ -31,7 +32,8 @@ export default function NovaVendaScreen() {
   const toastTranslate = useRef(new Animated.Value(20)).current
   const { criar, vendas } = useVendas()
   const { clientes, buscar, criar: criarCliente } = useClientes()
-  const { modulos } = useModulos(usuario?.id)
+  const { tenantId } = useTenant()
+  const { modulos } = useModulos(tenantId || usuario?.id)
   const { tocar } = useBeep()
 
   const [clienteId, setClienteId] = useState('')
@@ -44,7 +46,7 @@ export default function NovaVendaScreen() {
   const [novaCategoria, setNovaCategoria] = useState('')
   const [editandoCategoria, setEditandoCategoria] = useState<string | null>(null)
   const [nomeEdicao, setNomeEdicao] = useState('')
-  const { todas: todasCategorias, extras: categoriasExtra, adicionar: adicionarCat, remover: removerCat, renomear: renomearCat } = useCategorias(usuario?.id)
+  const { todas: todasCategorias, extras: categoriasExtra, adicionar: adicionarCat, remover: removerCat, renomear: renomearCat } = useCategorias(tenantId || usuario?.id)
   const [fotoUri, setFotoUri] = useState<string | null>(null)
   const [erros, setErros] = useState<Record<string, string>>({})
   const [salvando, setSalvando] = useState(false)
@@ -133,15 +135,15 @@ export default function NovaVendaScreen() {
     setUltimasParcelasIds([])
     if (redirectTimer.current) { clearTimeout(redirectTimer.current); redirectTimer.current = null }
     buscar()
-    if (usuario?.id) {
+    if (tenantId) {
       import('../../lib/supabase').then(({ supabase }) => {
-        supabase.from('perfis').select('nome_negocio, chave_pix').eq('id', usuario.id).single().then(({ data }) => {
+        supabase.from('perfis').select('nome_negocio, chave_pix').eq('id', tenantId).single().then(({ data }) => {
           if (data?.nome_negocio) setNomeNegocio(data.nome_negocio)
           if (data?.chave_pix) setChavePix(data.chave_pix)
         })
       })
     }
-  }, [usuario?.id]))
+  }, [tenantId]))
 
   const clientesFiltrados = buscaCliente.trim().length > 0
     ? clientes.filter(c => c.nome.toLowerCase().includes(buscaCliente.toLowerCase()))
@@ -338,13 +340,16 @@ export default function NovaVendaScreen() {
       const idsParaDeletar = ultimasParcelasIds.length > 0 ? ultimasParcelasIds : [ultimaVendaId]
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.user?.id) return
-      await supabase.from('vendas').delete().in('id', idsParaDeletar).eq('usuario_id', session.user.id)
+      const { resolverTenantId } = await import('../../lib/tenant')
+      const uid = await resolverTenantId(session.user.id)
+      const { error } = await supabase.from('vendas').delete().in('id', idsParaDeletar).eq('usuario_id', uid)
+      if (error) throw error
       setUltimaVendaId(null)
       setUltimasParcelasIds([])
       if (redirectTimer.current) { clearTimeout(redirectTimer.current); redirectTimer.current = null }
       setSucesso(false)
-    } catch {
-      // silencioso
+    } catch (e: any) {
+      Alert.alert('Erro', e?.message ?? 'Não foi possível desfazer o lançamento.')
     } finally {
       setDesfazendo(false)
     }

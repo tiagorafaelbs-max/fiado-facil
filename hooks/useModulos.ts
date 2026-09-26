@@ -72,7 +72,8 @@ export function useModulos(usuarioId?: string) {
     setModulos(novo)
     AsyncStorage.setItem(CACHE_KEY, JSON.stringify(novo))
     if (usuarioId) {
-      await supabase.from('perfis').update({ modulos: novo }).eq('id', usuarioId)
+      const { error } = await supabase.from('perfis').update({ modulos: novo }).eq('id', usuarioId)
+      if (error) console.warn('[useModulos] Falha ao salvar módulo:', error.message)
     }
   }, [modulos, usuarioId])
 

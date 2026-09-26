@@ -39,6 +39,7 @@ export interface Venda {
   criado_em: string
   foto_url?: string
   cliente?: Cliente
+  criado_por?: string
 }
 
 export interface Pagamento {
@@ -50,6 +51,7 @@ export interface Pagamento {
   data_pagamento: string
   observacao?: string
   criado_em: string
+  criado_por?: string
 }
 
 export interface DashboardResumo {

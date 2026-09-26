@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Platform } from 'react-native'
 import { supabase } from '../lib/supabase'
+import { reconciliarPagoCliente } from '../lib/reconciliacao'
 
 const FILA_KEY = '@fiado_fila_offline'
 
@@ -38,6 +39,10 @@ async function sincronizarFila(): Promise<number> {
 
   let sincronizados = 0
   const restantes: OperacaoOffline[] = []
+  // Clientes afetados por venda/pagamento sincronizado com sucesso — precisam
+  // ter a flag `pago` recalculada (FIFO) contra o estado real do banco, algo
+  // que não dava para fazer enquanto a operação só existia na fila local.
+  const clientesParaReconciliar = new Map<string, string>() // cliente_id -> usuario_id
 
   for (const op of fila) {
     try {
@@ -47,6 +52,9 @@ async function sincronizarFila(): Promise<number> {
         const payload = typeof localId === 'string' && localId.startsWith('local_') ? dadosSemId : op.dados
         const { error } = await supabase.from(op.tabela).insert(payload)
         if (error) throw error
+        if ((op.tabela === 'vendas' || op.tabela === 'pagamentos') && payload.cliente_id && payload.usuario_id) {
+          clientesParaReconciliar.set(payload.cliente_id, payload.usuario_id)
+        }
       } else if (op.operacao === 'update') {
         const { id, ...dados } = op.dados
         const { error } = await supabase.from(op.tabela).update(dados).eq('id', id)
@@ -62,6 +70,16 @@ async function sincronizarFila(): Promise<number> {
   }
 
   await AsyncStorage.setItem(FILA_KEY, JSON.stringify(restantes))
+
+  for (const [clienteId, usuarioId] of clientesParaReconciliar) {
+    try {
+      await reconciliarPagoCliente(clienteId, usuarioId)
+    } catch {
+      // Reconciliação falhou (ex: rede caiu de novo) — o próximo ajuste de
+      // pagamento no app recalcula tudo de novo, não é uma perda permanente.
+    }
+  }
+
   return sincronizados
 }
 

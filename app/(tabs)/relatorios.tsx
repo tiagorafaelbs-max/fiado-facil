@@ -8,6 +8,8 @@ import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { useModulos } from '../../hooks/useModulos'
+import { resolverTenantId } from '../../lib/tenant'
+import { useTenant } from '../../hooks/useTenant'
 import { Avatar } from '../../components/ui/Avatar'
 import { formatarMoeda } from '../../lib/validacao'
 import { KeyboardToolbar, KEYBOARD_TOOLBAR_ID } from '../../components/ui/KeyboardToolbar'
@@ -71,7 +73,8 @@ function parseDDMMYYYY(val: string): string | null {
 export default function RelatoriosScreen() {
   const router = useRouter()
   const { usuario } = useAuth()
-  const { modulos } = useModulos(usuario?.id)
+  const { tenantId } = useTenant()
+  const { modulos } = useModulos(tenantId || usuario?.id)
   const [plano, setPlano] = useState<'gratuito' | 'pro'>('gratuito')
   const [periodo, setPeriodo] = useState<Periodo>('hoje')
   const [dataCustom, setDataCustom] = useState('')
@@ -112,7 +115,7 @@ export default function RelatoriosScreen() {
       }
 
       const { data: { session: sess } } = await supabase.auth.getSession()
-      const uid = sess?.user?.id ?? ''
+      const uid = sess?.user ? await resolverTenantId(sess.user.id) : ''
       let qVendas = supabase.from('vendas').select('id, valor, cliente_id, categoria, descricao, data_venda, clientes(nome)').eq('usuario_id', uid)
       let qPagamentos = supabase.from('pagamentos').select('id, valor, cliente_id, data_pagamento, clientes(nome)').eq('usuario_id', uid)
 
@@ -232,11 +235,11 @@ export default function RelatoriosScreen() {
 
   useFocusEffect(useCallback(() => {
     if (periodo !== 'personalizado') buscar()
-    if (usuario?.id) {
-      supabase.from('perfis').select('plano').eq('id', usuario.id).single()
+    if (tenantId) {
+      supabase.from('perfis').select('plano').eq('id', tenantId).single()
         .then(({ data }) => { if (data?.plano) setPlano(data.plano) })
     }
-  }, [periodo, usuario?.id]))
+  }, [periodo, tenantId]))
 
   const PERIODOS: { key: Periodo; label: string }[] = [
     { key: 'hoje', label: 'Hoje' },

@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import { resolverTenantId } from '../lib/tenant'
 import type { DashboardResumo, Cliente } from '../types'
 import { format } from 'date-fns'
 
@@ -21,7 +22,7 @@ export function useDashboard() {
       const hoje = format(new Date(), 'yyyy-MM-dd')
 
       const { data: { session } } = await supabase.auth.getSession()
-      const uid = session?.user?.id
+      const uid = session?.user ? await resolverTenantId(session.user.id) : undefined
 
       const [{ data: clientes }, { data: recebidoHoje }, { data: perfil }] = await Promise.all([
         supabase

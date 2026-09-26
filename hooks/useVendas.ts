@@ -1,6 +1,8 @@
 import { useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { enfileirarOperacao, verificarConectividade } from './useOffline'
+import { resolverTenantId } from '../lib/tenant'
+import { reconciliarPagoCliente } from '../lib/reconciliacao'
 import type { Venda, Pagamento } from '../types'
 
 // Traduz erros crus do Postgres para mensagens em português.
@@ -9,48 +11,6 @@ function traduzErroBanco(msg: string): string {
     return 'A data informada tem um ano inválido. Confira a data de venda e de vencimento.'
   }
   return msg
-}
-
-// Reconcilia a flag `vendas.pago` de um cliente por alocação FIFO dos pagamentos
-// (mesma ordem da view clientes_com_saldo: vencimento, depois data da venda).
-// Fecha vendas cobertas pelo crédito e REABRE vendas que deixaram de estar
-// cobertas (ex.: após excluir um pagamento ou editar valor). Mantém a flag
-// coerente com o status calculado pela view.
-async function reconciliarPagoCliente(clienteId: string, uid: string) {
-  const [{ data: vendas }, { data: pagamentos }] = await Promise.all([
-    supabase
-      .from('vendas')
-      .select('id, valor, pago')
-      .eq('cliente_id', clienteId)
-      .eq('usuario_id', uid)
-      .order('data_vencimento', { ascending: true, nullsFirst: false })
-      .order('data_venda', { ascending: true })
-      .order('id', { ascending: true }),
-    supabase
-      .from('pagamentos')
-      .select('valor')
-      .eq('cliente_id', clienteId)
-      .eq('usuario_id', uid),
-  ])
-  if (!vendas) return
-
-  let credito = (pagamentos ?? []).reduce((s: number, p: { valor: number }) => s + p.valor, 0)
-  const fechar: string[] = []
-  const reabrir: string[] = []
-  // Prefixo FIFO: assim que uma venda não couber no crédito, todas as seguintes
-  // ficam descobertas (mesma semântica de `acumulado <= total_pago` da view).
-  let coberto = true
-  for (const v of vendas as Array<{ id: string; valor: number; pago: boolean }>) {
-    coberto = coberto && credito >= v.valor
-    if (coberto) {
-      credito -= v.valor
-      if (!v.pago) fechar.push(v.id)
-    } else if (v.pago) {
-      reabrir.push(v.id)
-    }
-  }
-  if (fechar.length) await supabase.from('vendas').update({ pago: true }).in('id', fechar).eq('usuario_id', uid)
-  if (reabrir.length) await supabase.from('vendas').update({ pago: false }).in('id', reabrir).eq('usuario_id', uid)
 }
 
 export function useVendas(clienteId?: string) {
@@ -64,10 +24,11 @@ export function useVendas(clienteId?: string) {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.user) { setCarregando(false); return }
+      const tenantId = await resolverTenantId(session.user.id)
       let query = supabase
         .from('vendas')
         .select('*, cliente:clientes(id, nome, telefone)')
-        .eq('usuario_id', session.user.id)
+        .eq('usuario_id', tenantId)
         .order('data_venda', { ascending: false })
 
       if (clienteId) {
@@ -95,13 +56,15 @@ export function useVendas(clienteId?: string) {
   }) => {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session?.user) throw new Error('Sessão expirada. Faça login novamente.')
+    const tenantId = await resolverTenantId(session.user.id)
 
     const payload: Record<string, unknown> = {
       cliente_id: dados.cliente_id,
       descricao: dados.descricao,
       valor: dados.valor,
       categoria: dados.categoria,
-      usuario_id: session.user.id,
+      usuario_id: tenantId,
+      criado_por: session.user.id,
       data_venda: dados.data_venda ?? new Date().toISOString().split('T')[0],
       pago: false,
     }
@@ -125,7 +88,7 @@ export function useVendas(clienteId?: string) {
 
     if (error) throw new Error(traduzErroBanco(error.message))
     // Cliente pode ter crédito sobrando (pagou adiantado) que cobre esta venda nova.
-    await reconciliarPagoCliente(dados.cliente_id, session.user.id)
+    await reconciliarPagoCliente(dados.cliente_id, tenantId)
     await buscar()
     return data
   }, [buscar])
@@ -137,45 +100,52 @@ export function useVendas(clienteId?: string) {
     observacao?: string
     data_pagamento?: string
   }) => {
-    const online = await verificarConectividade()
-    if (!online) throw new Error('Sem conexão com a internet. Conecte-se e tente registrar o pagamento novamente.')
-
     const { data: { session } } = await supabase.auth.getSession()
     const user = session?.user
     if (!user) throw new Error('Sessão expirada. Faça login novamente.')
+    const tenantId = await resolverTenantId(user.id)
 
     const { data_pagamento, ...rest } = params
-    const { error } = await supabase
-      .from('pagamentos')
-      .insert({
-        ...rest,
-        usuario_id: user.id,
-        data_pagamento: data_pagamento ?? new Date().toISOString().split('T')[0],
-      })
+    const payload = {
+      ...rest,
+      usuario_id: tenantId,
+      criado_por: user.id,
+      data_pagamento: data_pagamento ?? new Date().toISOString().split('T')[0],
+    }
 
+    const online = await verificarConectividade()
+    if (!online) {
+      // Sem internet: enfileira e sincroniza ao reconectar. A reconciliação do
+      // FIFO (flag `pago`) acontece em useOffline.ts logo após sincronizar,
+      // não aqui — offline não há como recalcular contra o estado real do banco.
+      await enfileirarOperacao({ tabela: 'pagamentos', operacao: 'insert', dados: payload })
+      return
+    }
+
+    const { error } = await supabase.from('pagamentos').insert(payload)
     if (error) throw error
 
     // Reconcilia a flag `pago` das vendas do cliente por alocação FIFO.
-    await reconciliarPagoCliente(params.cliente_id, user.id)
+    await reconciliarPagoCliente(params.cliente_id, tenantId)
 
     await buscar()
   }, [buscar])
 
   const excluirVenda = useCallback(async (id: string) => {
     const { data: { session } } = await supabase.auth.getSession()
-    const uid = session?.user?.id
-    if (!uid) throw new Error('Sessão expirada. Faça login novamente.')
+    if (!session?.user) throw new Error('Sessão expirada. Faça login novamente.')
+    const uid = await resolverTenantId(session.user.id)
     const { data: alvo } = await supabase.from('vendas').select('cliente_id').eq('id', id).eq('usuario_id', uid).single()
     const { error } = await supabase.from('vendas').delete().eq('id', id).eq('usuario_id', uid)
-    if (error) throw error
+    if (error) throw new Error(traduzErroBanco(error.message))
     if (alvo?.cliente_id) await reconciliarPagoCliente(alvo.cliente_id, uid)
     await buscar()
   }, [buscar])
 
   const editarVenda = useCallback(async (id: string, dados: { descricao?: string; valor?: number; data_vencimento?: string | null; data_venda?: string | null; categoria?: string }) => {
     const { data: { session } } = await supabase.auth.getSession()
-    const uid = session?.user?.id
-    if (!uid) throw new Error('Sessão expirada. Faça login novamente.')
+    if (!session?.user) throw new Error('Sessão expirada. Faça login novamente.')
+    const uid = await resolverTenantId(session.user.id)
     const { error } = await supabase.from('vendas').update(dados).eq('id', id).eq('usuario_id', uid)
     if (error) throw new Error(traduzErroBanco(error.message))
     const { data: alvo } = await supabase.from('vendas').select('cliente_id').eq('id', id).eq('usuario_id', uid).single()
@@ -185,8 +155,8 @@ export function useVendas(clienteId?: string) {
 
   const excluirPagamento = useCallback(async (id: string) => {
     const { data: { session } } = await supabase.auth.getSession()
-    const uid = session?.user?.id
-    if (!uid) throw new Error('Sessão expirada. Faça login novamente.')
+    if (!session?.user) throw new Error('Sessão expirada. Faça login novamente.')
+    const uid = await resolverTenantId(session.user.id)
     const { data: alvo } = await supabase.from('pagamentos').select('cliente_id').eq('id', id).eq('usuario_id', uid).single()
     const { error } = await supabase.from('pagamentos').delete().eq('id', id).eq('usuario_id', uid)
     if (error) throw error

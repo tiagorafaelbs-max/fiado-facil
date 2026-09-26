@@ -21,6 +21,7 @@ import { Avatar } from '../../components/ui/Avatar'
 import { sanitizarTexto, validarTelefone } from '../../lib/validacao'
 import { C } from '../../constants/colors'
 import { useCategorias, CATS_BASE } from '../../hooks/useCategorias'
+import { useTenant } from '../../hooks/useTenant'
 
 interface Perfil {
   nome_negocio: string
@@ -47,8 +48,9 @@ export default function ConfiguracoesScreen() {
   const router = useRouter()
   const { usuario, sair } = useAuth()
   const { online, pendentes } = useOffline()
-  const { modulos, alternar } = useModulos(usuario?.id)
-  const { todas: todasCats, extras: catsExtras, adicionar: adicionarCat, remover: removerCat, renomear: renomearCat } = useCategorias(usuario?.id)
+  const { tenantId, souFuncionario, nomeExibicao } = useTenant()
+  const { modulos, alternar } = useModulos(tenantId || usuario?.id)
+  const { todas: todasCats, extras: catsExtras, adicionar: adicionarCat, remover: removerCat, renomear: renomearCat } = useCategorias(tenantId || usuario?.id)
   const [novaCatConf, setNovaCatConf] = useState('')
   const [editandoCat, setEditandoCat] = useState<string | null>(null)
   const [nomeEdicaoCat, setNomeEdicaoCat] = useState('')
@@ -68,10 +70,10 @@ export default function ConfiguracoesScreen() {
   useEffect(() => { getBeepAtivo().then(setBeepAtivoState) }, [])
 
   useEffect(() => {
-    if (!usuario) return
+    if (!tenantId) return
     supabase.from('perfis')
       .select('nome_negocio, telefone, plano, chave_pix, dia_cobranca, notificacoes_ativas, cobranca_auto_tipo')
-      .eq('id', usuario.id).single()
+      .eq('id', tenantId).single()
       .then(({ data }) => {
         if (data) setPerfil({
           nome_negocio: data.nome_negocio ?? '',
@@ -83,7 +85,7 @@ export default function ConfiguracoesScreen() {
           cobranca_auto_tipo: data.cobranca_auto_tipo ?? 'vencidos',
         })
       })
-  }, [usuario])
+  }, [tenantId])
 
   function validar(): boolean {
     const novosErros: Record<string, string> = {}
@@ -102,7 +104,7 @@ export default function ConfiguracoesScreen() {
     setSalvando(true); setErroGeral(''); setSucesso(false)
     try {
       const { error } = await supabase.from('perfis').upsert({
-        id: usuario!.id,
+        id: tenantId,
         nome_negocio: sanitizarTexto(perfil.nome_negocio),
         telefone: perfil.telefone || null,
         chave_pix: perfil.chave_pix || null,
@@ -121,12 +123,12 @@ export default function ConfiguracoesScreen() {
   }
 
   async function handleExportarCSV() {
-    if (!usuario) return
+    if (!tenantId) return
     try {
       const [{ data: clientes }, { data: vendas }, { data: pagamentos }] = await Promise.all([
-        supabase.from('clientes').select('nome, telefone, created_at').eq('usuario_id', usuario.id),
-        supabase.from('vendas').select('descricao, valor, data_venda, categoria, clientes(nome)').eq('usuario_id', usuario.id),
-        supabase.from('pagamentos').select('valor, data_pagamento, clientes(nome)').eq('usuario_id', usuario.id),
+        supabase.from('clientes').select('nome, telefone, created_at').eq('usuario_id', tenantId),
+        supabase.from('vendas').select('descricao, valor, data_venda, categoria, clientes(nome)').eq('usuario_id', tenantId),
+        supabase.from('pagamentos').select('valor, data_pagamento, clientes(nome)').eq('usuario_id', tenantId),
       ])
 
       const linhasClientes = ['Cliente,Telefone,Cadastrado em', ...(clientes ?? []).map(c =>
@@ -232,7 +234,11 @@ export default function ConfiguracoesScreen() {
       const ok = await solicitarPermissaoNotificacoes()
       if (ok) await agendarNotificacoesVencimento()
     }
-    await supabase.from('perfis').update({ notificacoes_ativas: valor }).eq('id', usuario!.id)
+    const { error } = await supabase.from('perfis').update({ notificacoes_ativas: valor }).eq('id', tenantId)
+    if (error) {
+      setPerfil(p => ({ ...p, notificacoes_ativas: !valor }))
+      Alert.alert('Erro', 'Não foi possível salvar essa preferência.')
+    }
   }
 
   return (
@@ -528,25 +534,27 @@ export default function ConfiguracoesScreen() {
         })}
       </View>
 
-      {/* Equipe */}
-      <TouchableOpacity
-        style={estilos.card}
-        onPress={() => {
-          if (perfil.plano !== 'pro') { router.push('/planos'); return }
-          router.push('/equipe')
-        }}
-      >
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <View style={estilos.acaoIcone}>
-            <Ionicons name={perfil.plano !== 'pro' ? 'lock-closed-outline' : 'people-outline'} size={20} color={C.green} />
+      {/* Equipe — gestão é só do dono; funcionário nem vê o card */}
+      {!souFuncionario && (
+        <TouchableOpacity
+          style={estilos.card}
+          onPress={() => {
+            if (perfil.plano !== 'pro') { router.push('/planos'); return }
+            router.push('/equipe')
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <View style={estilos.acaoIcone}>
+              <Ionicons name={perfil.plano !== 'pro' ? 'lock-closed-outline' : 'people-outline'} size={20} color={C.green} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={estilos.acaoLabel}>Equipe & funcionários{perfil.plano !== 'pro' ? ' · Pro' : ''}</Text>
+              <Text style={estilos.acaoSub}>Convide funcionários para usar o app</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={C.text3} />
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={estilos.acaoLabel}>Equipe & funcionários{perfil.plano !== 'pro' ? ' · Pro' : ''}</Text>
-            <Text style={estilos.acaoSub}>Convide funcionários para usar o app</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={16} color={C.text3} />
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      )}
 
       {/* Dados & exportação */}
       <View style={estilos.card}>
@@ -656,8 +664,13 @@ export default function ConfiguracoesScreen() {
       <View style={estilos.card}>
         <Text style={[estilos.cardTitulo, { marginBottom: 8 }]}>⭐ Suporte</Text>
         <AcaoRow icone="star-outline" label="Avaliar o FiadoApp" onPress={abrirAvaliacaoManual} />
-        <AcaoRow icone="mail-outline" label="Enviar sugestão"
-          onPress={() => Linking.openURL(`mailto:contato.fiadoapp@gmail.com?subject=${encodeURIComponent('Sugestão - FiadoApp')}`).catch(() => {})}
+        <AcaoRow icone="chatbubble-ellipses-outline" label="Sugestões e reclamações"
+          onPress={() => {
+            const msg = encodeURIComponent('Olá! Quero enviar uma sugestão/reclamação sobre o FiadoApp:\n\n')
+            Linking.openURL(`https://wa.me/5531995515045?text=${msg}`).catch(() => {
+              Linking.openURL(`mailto:contato.fiadoapp@gmail.com?subject=${encodeURIComponent('Sugestão/reclamação - FiadoApp')}`).catch(() => {})
+            })
+          }}
           ultimo />
       </View>
 

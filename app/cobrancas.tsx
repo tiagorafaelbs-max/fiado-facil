@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useModulos } from '../hooks/useModulos'
+import { useTenant } from '../hooks/useTenant'
 import { useContadorWhatsApp } from '../hooks/useContadorWhatsApp'
 import { Avatar } from '../components/ui/Avatar'
 import { formatarMoeda } from '../lib/validacao'
@@ -39,7 +40,8 @@ export default function CobrancasScreen() {
   const router = useRouter()
   const { aba: abaParam } = useLocalSearchParams<{ aba?: string }>()
   const { usuario } = useAuth()
-  const { modulos } = useModulos(usuario?.id)
+  const { tenantId } = useTenant()
+  const { modulos } = useModulos(tenantId || usuario?.id)
   const [aba, setAba] = useState<Aba>(abaParam === 'aberto' ? 'aberto' : 'vencidos')
   const [vencidos, setVencidos] = useState<ClienteVencido[]>([])
   const [emAberto, setEmAberto] = useState<ClienteAberto[]>([])
@@ -47,12 +49,12 @@ export default function CobrancasScreen() {
   const [nomeNegocio, setNomeNegocio] = useState('nossa loja')
   const [chavePix, setChavePix] = useState<string | undefined>(undefined)
   const [plano, setPlano] = useState<'gratuito' | 'pro' | null>(null)
-  const { usado, restante, atingiuLimite, limite, registrarUso, reverterUso } = useContadorWhatsApp(plano, usuario?.id)
+  const { usado, restante, atingiuLimite, limite, registrarUso, reverterUso } = useContadorWhatsApp(plano, tenantId || usuario?.id)
   const [cobrando, setCobrando] = useState(false)
   const [progresso, setProgresso] = useState({ atual: 0, total: 0 })
 
   const buscarVencidos = useCallback(async () => {
-    if (!usuario?.id) return
+    if (!tenantId) return
     setCarregando(true)
     try {
       const hoje = new Date().toISOString().split('T')[0]
@@ -62,7 +64,7 @@ export default function CobrancasScreen() {
       const { data: clientesVencidos } = await supabase
         .from('clientes_com_saldo')
         .select('id, nome, telefone, saldo_devedor')
-        .eq('usuario_id', usuario.id)
+        .eq('usuario_id', tenantId)
         .eq('ativo', true)
         .eq('status_pagamento', 'vencido')
 
@@ -75,7 +77,7 @@ export default function CobrancasScreen() {
         .from('vendas')
         .select('cliente_id, data_vencimento')
         .in('cliente_id', clienteIds)
-        .eq('usuario_id', usuario.id)
+        .eq('usuario_id', tenantId)
         .eq('pago', false)
         .lt('data_vencimento', hoje)
         .not('data_vencimento', 'is', null)
@@ -106,16 +108,16 @@ export default function CobrancasScreen() {
     } finally {
       setCarregando(false)
     }
-  }, [usuario?.id])
+  }, [tenantId])
 
   const buscarEmAberto = useCallback(async () => {
-    if (!usuario?.id) return
+    if (!tenantId) return
     setCarregando(true)
     try {
       const { data } = await supabase
         .from('clientes_com_saldo')
         .select('id, nome, telefone, saldo_devedor')
-        .eq('usuario_id', usuario.id)
+        .eq('usuario_id', tenantId)
         .eq('ativo', true)
         .gt('saldo_devedor', 0)
         .order('saldo_devedor', { ascending: false })
@@ -123,21 +125,21 @@ export default function CobrancasScreen() {
     } finally {
       setCarregando(false)
     }
-  }, [usuario?.id])
+  }, [tenantId])
 
   const buscar = useCallback(async () => {
     await Promise.all([buscarVencidos(), buscarEmAberto()])
   }, [buscarVencidos, buscarEmAberto])
 
   useEffect(() => {
-    if (!usuario?.id) return
-    supabase.from('perfis').select('nome_negocio, plano, chave_pix').eq('id', usuario.id).single()
+    if (!tenantId) return
+    supabase.from('perfis').select('nome_negocio, plano, chave_pix').eq('id', tenantId).single()
       .then(({ data }) => {
         if (data?.nome_negocio) setNomeNegocio(data.nome_negocio)
         if (data?.plano) setPlano(data.plano)
         if (data?.chave_pix) setChavePix(data.chave_pix)
       })
-  }, [usuario?.id])
+  }, [tenantId])
 
   useFocusEffect(useCallback(() => { buscar() }, [buscar]))
 

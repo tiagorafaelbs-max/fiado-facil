@@ -15,6 +15,7 @@ import { useOffline } from '../../hooks/useOffline'
 import { useNotificacoes } from '../../hooks/useNotificacoes'
 import { useAvaliacaoApp } from '../../hooks/useAvaliacaoApp'
 import { useModulos } from '../../hooks/useModulos'
+import { useTenant } from '../../hooks/useTenant'
 import { Avatar } from '../../components/ui/Avatar'
 import { BadgeStatus } from '../../components/ui/BadgeStatus'
 import { AppTour, type TourStep } from '../../components/ui/AppTour'
@@ -30,7 +31,8 @@ export default function DashboardScreen() {
   const insets = useSafeAreaInsets()
   const { resumo, topDevedores, carregando, buscar, plano } = useDashboard()
   const { online, pendentes } = useOffline()
-  const { modulos } = useModulos(usuario?.id)
+  const { tenantId } = useTenant()
+  const { modulos } = useModulos(tenantId || usuario?.id)
   const { width } = useWindowDimensions()
   const isTablet = width >= 768
   const [diaCobranca, setDiaCobranca] = useState<number | null>(null)
@@ -44,8 +46,21 @@ export default function DashboardScreen() {
   const [modalVendas, setModalVendas] = useState(false)
   const [vendasDetalhadas, setVendasDetalhadas] = useState<{ id: string; data_venda: string; descricao: string; categoria?: string; valor: number; pago: boolean; clienteNome: string }[]>([])
   const [carregandoVendas, setCarregandoVendas] = useState(false)
+  const [saldoOculto, setSaldoOculto] = useState(false)
   useNotificacoes()
   useAvaliacaoApp()
+
+  useEffect(() => {
+    AsyncStorage.getItem('@fiado_saldo_oculto').then(v => { if (v === '1') setSaldoOculto(true) })
+  }, [])
+
+  function alternarSaldoOculto() {
+    setSaldoOculto(prev => {
+      const novo = !prev
+      AsyncStorage.setItem('@fiado_saldo_oculto', novo ? '1' : '0')
+      return novo
+    })
+  }
 
   const refHero = useRef<View>(null)
   const refCards = useRef<View>(null)
@@ -118,17 +133,17 @@ export default function DashboardScreen() {
     // Mostra setup modal uma única vez após cadastro se Pix não configurado
     AsyncStorage.getItem('@fiado_setup_ok').then(async (ok) => {
       if (ok) return
-      if (!usuario?.id) return
-      const { data } = await supabase.from('perfis').select('chave_pix, dia_cobranca').eq('id', usuario.id).single()
+      if (!tenantId) return
+      const { data } = await supabase.from('perfis').select('chave_pix, dia_cobranca').eq('id', tenantId).single()
       if (!data?.chave_pix && !data?.dia_cobranca) setSetupVisivel(true)
     })
-  }, [usuario?.id])
+  }, [tenantId])
 
   useFocusEffect(useCallback(() => { buscar() }, [buscar]))
 
   useEffect(() => {
-    if (!usuario?.id) return
-    supabase.from('perfis').select('dia_cobranca, nome_negocio, cobranca_auto_tipo').eq('id', usuario.id).single()
+    if (!tenantId) return
+    supabase.from('perfis').select('dia_cobranca, nome_negocio, cobranca_auto_tipo').eq('id', tenantId).single()
       .then(({ data }) => {
         if (!data) return
         if (data.nome_negocio) setNomeNegocio(data.nome_negocio)
@@ -141,11 +156,11 @@ export default function DashboardScreen() {
         if (hoje === diaEfetivo) {
           setDiaCobranca(data.dia_cobranca)
           setCobrancaAutoTipo(data.cobranca_auto_tipo ?? 'vencidos')
-          supabase.from('clientes_com_saldo').select('id', { count: 'exact' }).eq('usuario_id', usuario.id).gt('saldo_devedor', 0)
+          supabase.from('clientes_com_saldo').select('id', { count: 'exact' }).eq('usuario_id', tenantId).gt('saldo_devedor', 0)
             .then(({ count }) => setClientesParaCobrar(count ?? 0))
         }
       })
-  }, [usuario])
+  }, [tenantId])
 
   function corStatus(status: string) {
     if (status === 'vencido') return C.red
@@ -180,9 +195,9 @@ export default function DashboardScreen() {
     <>
       <AppTour steps={tourSteps} visivel={tourVisivel} onConcluir={concluirTour} />
       <RegistradorRapido visivel={registradorVisivel} onFechar={() => { setRegistradorVisivel(false); buscar() }} />
-      {usuario?.id && (
+      {tenantId && (
         <SetupModal
-          usuarioId={usuario.id}
+          usuarioId={tenantId}
           visivel={setupVisivel}
           onConcluir={async () => {
             await AsyncStorage.setItem('@fiado_setup_ok', '1')
@@ -343,9 +358,16 @@ export default function DashboardScreen() {
               <View style={estilos.heroValorRow}>
                 <View>
                   <Text style={estilos.heroLabelPrincipal}>TOTAL EM ABERTO</Text>
-                  <Text style={estilos.heroValor}>{formatarMoeda(resumo.total_em_aberto)}</Text>
+                  <Text style={estilos.heroValor}>
+                    {saldoOculto ? '••••••' : formatarMoeda(resumo.total_em_aberto)}
+                  </Text>
                 </View>
-                <Ionicons name="receipt-outline" size={22} color="rgba(255,255,255,0.5)" />
+                <TouchableOpacity
+                  onPress={alternarSaldoOculto}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                >
+                  <Ionicons name={saldoOculto ? 'eye-off-outline' : 'eye-outline'} size={22} color="rgba(255,255,255,0.75)" />
+                </TouchableOpacity>
               </View>
               <Text style={estilos.heroRelatorioHint}>Toque para ver relatório de vendas</Text>
 

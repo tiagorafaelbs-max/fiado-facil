@@ -39,7 +39,8 @@ export function useCategorias(usuarioId?: string) {
           await AsyncStorage.setItem(chave, JSON.stringify(merged))
           if (extras.length > 0) {
             try {
-              await supabase.from('perfis').update({ categorias_extra: merged }).eq('id', usuarioId)
+              const { error } = await supabase.from('perfis').update({ categorias_extra: merged }).eq('id', usuarioId)
+              if (error) console.warn('[useCategorias] Falha ao sincronizar:', error.message)
             } catch {
               // Falha de rede: merge local já salvo, tentará subir na próxima sessão
             }
@@ -47,7 +48,8 @@ export function useCategorias(usuarioId?: string) {
         } else if (local.length > 0) {
           // Supabase vazio (1ª vez após migration) — sobe dados locais
           try {
-            await supabase.from('perfis').update({ categorias_extra: local }).eq('id', usuarioId)
+            const { error } = await supabase.from('perfis').update({ categorias_extra: local }).eq('id', usuarioId)
+            if (error) console.warn('[useCategorias] Falha ao sincronizar:', error.message)
           } catch {
             // Falha de rede: dado já está no AsyncStorage, tentará de novo na próxima sessão
           }
@@ -60,7 +62,8 @@ export function useCategorias(usuarioId?: string) {
     await AsyncStorage.setItem(chave, JSON.stringify(lista))
     if (usuarioId) {
       try {
-        await supabase.from('perfis').update({ categorias_extra: lista }).eq('id', usuarioId)
+        const { error } = await supabase.from('perfis').update({ categorias_extra: lista }).eq('id', usuarioId)
+        if (error) console.warn('[useCategorias] Falha ao salvar:', error.message)
       } catch {
         // Falha de rede: dado salvo localmente, sincroniza na próxima abertura do app
       }

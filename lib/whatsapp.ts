@@ -103,7 +103,7 @@ export function montarUrlWhatsApp(
 }
 
 export function montarExtratoWhatsApp(
-  cliente: ClienteBasico,
+  cliente: ClienteBasico & { saldo_devedor?: number },
   vendas: { descricao: string; valor: number; data_venda: string; pago: boolean }[],
   nomeNegocio: string,
   chavePix?: string,
@@ -111,7 +111,10 @@ export function montarExtratoWhatsApp(
   if (!cliente.telefone) return null
 
   const abertas = vendas.filter(v => !v.pago)
-  const total = abertas.reduce((s, v) => s + v.valor, 0)
+  // Total exibido usa o saldo já calculado pela view clientes_com_saldo (FIFO de
+  // pagamentos), não a soma bruta das vendas em aberto — evita divergir do saldo
+  // real quando um pagamento não cobre integralmente a próxima venda da fila.
+  const total = cliente.saldo_devedor ?? abertas.reduce((s, v) => s + v.valor, 0)
   const hoje = new Date().toLocaleDateString('pt-BR')
 
   const linhasVendas = abertas.map((v, i) => {

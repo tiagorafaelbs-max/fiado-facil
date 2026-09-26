@@ -11,6 +11,8 @@ import { supabase } from '../../lib/supabase'
 import { useClientes } from '../../hooks/useClientes'
 import { useModulos } from '../../hooks/useModulos'
 import { useAuth } from '../../hooks/useAuth'
+import { useTenant } from '../../hooks/useTenant'
+import { resolverTenantId } from '../../lib/tenant'
 import { Avatar } from '../../components/ui/Avatar'
 import { Campo } from '../../components/ui/Campo'
 import { Botao } from '../../components/ui/Botao'
@@ -91,7 +93,8 @@ export default function ClientesScreen() {
   const router = useRouter()
   const { usuario } = useAuth()
   const { clientes, carregando, criar, buscar } = useClientes()
-  const { modulos } = useModulos(usuario?.id)
+  const { tenantId } = useTenant()
+  const { modulos } = useModulos(tenantId || usuario?.id)
 
   const [abaTop, setAbaTop] = useState<AbaTop>('lista')
   const [busca, setBusca] = useState('')
@@ -160,11 +163,11 @@ export default function ClientesScreen() {
 
   useFocusEffect(useCallback(() => {
     buscar()
-    if (usuario?.id) {
-      supabase.from('perfis').select('plano').eq('id', usuario.id).single()
+    if (tenantId) {
+      supabase.from('perfis').select('plano').eq('id', tenantId).single()
         .then(({ data }) => { if (data) setPlano(data.plano) })
     }
-  }, [buscar, usuario]))
+  }, [buscar, tenantId]))
 
   // ── filtro e agrupamento ────────────────────────────────────────────────────
 
@@ -239,7 +242,7 @@ export default function ClientesScreen() {
       const hoje = new Date()
       const hojeISO = format(hoje, 'yyyy-MM-dd')
       const { data: { session: cSess } } = await supabase.auth.getSession()
-      const cUid = cSess?.user?.id ?? ''
+      const cUid = cSess?.user ? await resolverTenantId(cSess.user.id) : ''
       const [{ data: vendas }, { data: pagamentos }, { data: base }] = await Promise.all([
         supabase.from('vendas').select('id, cliente_id, valor, data_venda, data_vencimento, pago').eq('usuario_id', cUid),
         supabase.from('pagamentos').select('id, cliente_id, valor').eq('usuario_id', cUid),

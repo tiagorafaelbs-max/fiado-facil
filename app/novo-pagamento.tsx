@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useClientes } from '../hooks/useClientes'
+import { useTenant } from '../hooks/useTenant'
 import { useBeep } from '../hooks/useBeep'
 import { agendarNotificacoesVencimento } from '../hooks/useNotificacoes'
 import { Avatar } from '../components/ui/Avatar'
@@ -21,6 +22,7 @@ import type { Cliente } from '../types'
 export default function NovoPagamentoScreen() {
   const router = useRouter()
   const { usuario } = useAuth()
+  const { tenantId } = useTenant()
   const { clientes, buscar } = useClientes()
   const { tocar } = useBeep()
 
@@ -56,12 +58,12 @@ export default function NovoPagamentoScreen() {
     setClienteSelecionado(cliente)
     setBusca('')
     // Busca saldo atualizado
-    const { data } = usuario?.id
+    const { data } = tenantId
       ? await supabase
           .from('clientes_com_saldo')
           .select('saldo_devedor')
           .eq('id', cliente.id)
-          .eq('usuario_id', usuario.id)
+          .eq('usuario_id', tenantId)
           .single()
       : { data: null }
     setSaldo(data?.saldo_devedor ?? cliente.saldo_devedor ?? 0)
@@ -69,7 +71,7 @@ export default function NovoPagamentoScreen() {
   }
 
   async function handleSalvar() {
-    if (!clienteSelecionado || !usuario?.id) return
+    if (!clienteSelecionado || !usuario?.id || !tenantId) return
     const valorNum = parseFloat(valor.replace(',', '.'))
     setErroValor('')
 
@@ -92,7 +94,8 @@ export default function NovoPagamentoScreen() {
 
       const { error } = await supabase.from('pagamentos').insert({
         cliente_id: clienteSelecionado.id,
-        usuario_id: usuario.id,
+        usuario_id: tenantId,
+        criado_por: usuario.id,
         valor: valorNum,
         data_pagamento: dataPagISO,
         observacao: observacao.trim() || null,

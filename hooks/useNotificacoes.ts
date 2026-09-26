@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Platform } from 'react-native'
 import * as Notifications from 'expo-notifications'
 import { supabase } from '../lib/supabase'
+import { resolverTenantId } from '../lib/tenant'
 import { formatarMoeda } from '../lib/validacao'
 
 Notifications.setNotificationHandler({
@@ -34,8 +35,8 @@ export async function agendarNotificacoesVencimento() {
     const dataAmanha = amanha.toISOString().split('T')[0]
 
     const { data: { session } } = await supabase.auth.getSession()
-    const uid = session?.user?.id
-    if (!uid) return
+    if (!session?.user) return
+    const uid = await resolverTenantId(session.user.id)
 
     // Filtro explícito por comerciante além da RLS (incidente 16/09).
     const { data: vendasAmanha } = await supabase

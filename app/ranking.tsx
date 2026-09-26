@@ -7,6 +7,8 @@ import { useRouter, useFocusEffect } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
+import { useTenant } from '../hooks/useTenant'
+import { resolverTenantId } from '../lib/tenant'
 import { Avatar } from '../components/ui/Avatar'
 import { formatarMoeda } from '../lib/validacao'
 import { C } from '../constants/colors'
@@ -71,16 +73,17 @@ function TaxaBadge({ taxa }: { taxa: number }) {
 export default function RankingScreen() {
   const router = useRouter()
   const { usuario } = useAuth()
+  const { tenantId } = useTenant()
 
   // Ranking é recurso Pro. Essa tela não tem botão nenhum apontando pra ela
   // no app (a versão em uso é a aba "Ranking" em app/(tabs)/clientes.tsx, já
   // com paywall) — mas por ser uma rota do Expo Router ela é acessível direto
   // por deep link (fiadofacil://ranking), então precisa da mesma trava.
   useEffect(() => {
-    if (!usuario?.id) return
-    supabase.from('perfis').select('plano').eq('id', usuario.id).single()
+    if (!tenantId) return
+    supabase.from('perfis').select('plano').eq('id', tenantId).single()
       .then(({ data }) => { if (data?.plano !== 'pro') router.replace('/planos') })
-  }, [usuario?.id])
+  }, [tenantId])
 
   const { width } = useWindowDimensions()
   const isTablet = width >= 768
@@ -92,7 +95,7 @@ export default function RankingScreen() {
     setCarregando(true)
     try {
       const { data: { session: rSess } } = await supabase.auth.getSession()
-      const rUid = rSess?.user?.id ?? ''
+      const rUid = rSess?.user ? await resolverTenantId(rSess.user.id) : ''
       const hoje = new Date()
       const hojeISO = format(hoje, 'yyyy-MM-dd')
 

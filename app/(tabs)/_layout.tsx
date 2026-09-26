@@ -6,6 +6,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import * as Notifications from 'expo-notifications'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { useTenant } from '../../hooks/useTenant'
 import { C } from '../../constants/colors'
 
 function BotaoAjuda() {
@@ -18,7 +19,7 @@ function BotaoAjuda() {
 }
 
 function useVencidosCount() {
-  const { usuario } = useAuth()
+  const { tenantId } = useTenant()
   const [novos, setNovos] = useState(0)
   // IDs que o usuário já visualizou na aba Clientes
   const vistoIds = useRef<Set<string>>(new Set())
@@ -26,12 +27,12 @@ function useVencidosCount() {
   const currentIds = useRef<string[]>([])
 
   useEffect(() => {
-    if (!usuario?.id) return
+    if (!tenantId) return
     async function buscar() {
       const { data } = await supabase
         .from('clientes_com_saldo')
         .select('id')
-        .eq('usuario_id', usuario!.id)
+        .eq('usuario_id', tenantId)
         .eq('status_pagamento', 'vencido')
         .eq('ativo', true)
       const ids = (data ?? []).map(r => String(r.id))
@@ -42,7 +43,7 @@ function useVencidosCount() {
     buscar()
     const interval = setInterval(buscar, 60000)
     return () => clearInterval(interval)
-  }, [usuario?.id])
+  }, [tenantId])
 
   const marcarVisto = useCallback(() => {
     // Marca todos os vencidos atuais como vistos e zera o badge
