@@ -40,6 +40,38 @@
 3. Exportação de relatório em PDF
 4. Envio de cobrança/extrato pelo WhatsApp
 5. **Fluxo Mercado Pago de ponta a ponta**: criar preferência (`subscribe`) → pagar → voltar ao app → confirmar que `mercadopago-webhook` recebeu a notificação → `perfis.plano` virou `'pro'` no banco. Prioridade alta — é o fluxo que estava quebrado até hoje.
+6. **Pagamento offline**: modo avião → lançar pagamento → voltar internet → confirmar que aparece UMA vez e o saldo fica certo. ⚠️ Ver achado de idempotência abaixo antes de considerar este item seguro.
+7. **Pagamento offline + fechar o app antes de sincronizar** → reabrir com internet → confirmar que sincroniza uma vez só.
+8. **Equipe**: convidar funcionário, entrar como funcionário, conferir isolamento (só vê dados do próprio dono) e permissões de editar/excluir venda. Depende da edge function `convidar-funcionario` estar publicada — fica para depois do lançamento (publica junto, conforme decidido).
+9. **Ocultar saldo**: liga/desliga no dashboard, fecha e reabre o app, confirma que a preferência persiste.
+10. **Sugestões via WhatsApp**: botão em Configurações abre o WhatsApp com a mensagem certa.
+11. **Android com R8**: app abre, nenhuma tela quebrada, compra/assinatura via Mercado Pago funciona de ponta a ponta.
+12. **iOS**: compra do plano mensal em sandbox (roteiro já documentado) com o app 1.0.12.
+13. **Atualização 1.0.11 → 1.0.12** num aparelho com o app já instalado: login mantido, dados intactos, nada pendente na fila offline se perde.
+
+## ⚠️ Achado da revisão de hoje — pagamento offline sem proteção contra duplicata (BLOQUEIA item 6 acima)
+
+**O problema:** nem `pagamentos` nem `vendas` têm qualquer chave de idempotência. Quando `sincronizarFila()` (`hooks/useOffline.ts`) tenta reenviar uma operação da fila, o único critério de "falhou, tentar de novo" é a promise do `insert()` rejeitar — o que acontece tanto quando a operação nunca chegou ao servidor quanto quando ela chegou, foi processada com sucesso, mas a confirmação de rede se perdeu no caminho de volta (queda de conexão logo após o commit, app fechado no meio, etc.). Nesses casos, o próximo sync reenvia o mesmo pagamento e cria um **segundo registro idêntico** — o saldo do cliente fica errado (parece que ele pagou mais do que pagou), e como o comerciante lançando duas vezes de propósito o mesmo valor é um caso legítimo que não pode virar falso positivo, não dá para "adivinhar" duplicata comparando os valores depois.
+
+**Isso não é regressão só do pagamento offline de hoje** — o mesmo padrão já existe desde que a fila de venda offline foi criada (antes desta sessão); hoje eu estendi o mesmo mecanismo pra pagamento, então o mesmo risco passou a valer pros dois casos.
+
+**Correção que exigiria migration (NÃO aplicada — aguardando aprovação):**
+```sql
+-- Chave de idempotência para operações offline: gerada uma única vez no
+-- aparelho quando o pagamento/venda é criado (não a cada tentativa de sync),
+-- permitindo que o servidor rejeite silenciosamente um reenvio da MESMA
+-- operação sem criar um registro duplicado.
+alter table public.pagamentos add column if not exists client_op_id uuid;
+create unique index if not exists pagamentos_client_op_id_key
+  on public.pagamentos (client_op_id) where client_op_id is not null;
+
+alter table public.vendas add column if not exists client_op_id uuid;
+create unique index if not exists vendas_client_op_id_key
+  on public.vendas (client_op_id) where client_op_id is not null;
+```
+No cliente: `enfileirarOperacao` passaria a gerar um `client_op_id` (UUID) uma única vez ao criar a operação, incluí-lo no payload, e `sincronizarFila` trocaria `insert(payload)` por `upsert(payload, { onConflict: 'client_op_id', ignoreDuplicates: true })` — reenviar a mesma operação nunca mais criaria um segundo registro.
+
+**Decisão pendente do Tiago:** aplicar essa migration antes do build (fecha o risco pro 1.0.12), ou aceitar o risco por ora (é uma janela estreita — só ocorre com queda de conexão bem no momento exato da confirmação) e corrigir num ciclo dedicado?
 
 ## Planos preparados — NÃO executar sem aprovação explícita do Tiago
 
