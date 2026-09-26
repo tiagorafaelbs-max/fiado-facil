@@ -81,7 +81,8 @@
         {
           "android": {
             "enableMinifyInReleaseBuilds": true,
-            "enableShrinkResourcesInReleaseBuilds": true
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "extraProguardRules": "# RevenueCat (react-native-purchases) referencia APIs do Google Play Billing\n# que este app nao usa (Android cobra via Mercado Pago, nao Play Billing) --\n# R8 falha com \"Missing class\" ao tentar resolver QueryPurchaseHistoryParams,\n# que nao esta no grafo de dependencias. dontwarn e seguro: o caminho de\n# codigo que a referencia nunca e executado neste app.\n-dontwarn com.android.billingclient.api.**"
           }
         }
       ]
