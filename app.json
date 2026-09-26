@@ -29,7 +29,7 @@
     },
     "android": {
       "package": "com.fiadofacil.app",
-      "versionCode": 48,
+      "versionCode": 49,
       "adaptiveIcon": {
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
