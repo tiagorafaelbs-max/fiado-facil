@@ -82,6 +82,11 @@ Deno.serve(async (req) => {
   const sub = await mpRes.json()
   const userId = sub.external_reference
 
+  // IDs dos planos criados em subscribe/index.ts — usados só para registrar
+  // corretamente mensal vs anual em `subscriptions` (perfis.plano não depende disso).
+  const PLAN_ID_ANUAL = '4860a5ae9f11475b9f2dbbd7a0de2848'
+  const planoRegistro = sub.preapproval_plan_id === PLAN_ID_ANUAL ? 'pro_annual' : 'pro_monthly'
+
   if (!userId) {
     console.error('external_reference missing in MP subscription:', subscriptionId)
     return new Response('Missing external_reference', { status: 400 })
@@ -111,7 +116,7 @@ Deno.serve(async (req) => {
         user_id: userId,
         provider: 'mercadopago',
         provider_subscription_id: subscriptionId,
-        plan_id: 'pro_monthly',
+        plan_id: planoRegistro,
         status,
         current_period_end: sub.next_payment_date
           ? new Date(sub.next_payment_date).toISOString()

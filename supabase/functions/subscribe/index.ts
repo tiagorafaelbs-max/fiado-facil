@@ -66,11 +66,12 @@ serve(async (req) => {
         payer_email,
         external_reference: user.id,
         back_url: 'https://fiadoapp.app.br',
-        // Define explicitamente o webhook desta assinatura em vez de depender
-        // só da URL configurada no painel do MP (evita ambiguidade entre
-        // mp-webhook e mercadopago-webhook — mantidos idênticos em efeito,
-        // mas fixamos um canal único e conhecido para novas assinaturas).
-        notification_url: `${SUPABASE_URL}/functions/v1/mp-webhook`,
+        // Usa mercadopago-webhook, não mp-webhook: o mp-webhook monta o manifesto
+        // HMAC fora do formato oficial do MP (falta ";" final e lê data.id do body
+        // em vez da query string), rejeitando com 401 toda notificação real e
+        // impedindo perfis.plano de virar 'pro' em pagamentos de verdade (achado
+        // de 26/09). mercadopago-webhook tem o formato correto.
+        notification_url: `${SUPABASE_URL}/functions/v1/mercadopago-webhook`,
       }),
     })
 
