@@ -32,7 +32,6 @@
     "react-native-gesture-handler": "^3.0.1",
     "react-native-iap": "^15.5.2",
     "react-native-nitro-modules": "^0.36.1",
-    "react-native-purchases": "^10.7.2",
     "react-native-qrcode-svg": "^6.3.21",
     "react-native-reanimated": "^4.4.1",
     "react-native-safe-area-context": "^5.8.0",

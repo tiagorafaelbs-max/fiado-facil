@@ -4,30 +4,6 @@ import { StatusBar } from 'expo-status-bar'
 import { Component, ReactNode, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
-// RevenueCat: só disponível em builds nativos (não no Expo Go)
-let Purchases: any = null
-let LOG_LEVEL: any = null
-try {
-  const rc = require('react-native-purchases')
-  Purchases = rc.default
-  LOG_LEVEL = rc.LOG_LEVEL
-} catch { /* Expo Go ou web */ }
-
-async function initRevenueCat(userId?: string) {
-  if (!Purchases) return
-  try {
-    const iosKey = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY ?? ''
-    const androidKey = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY ?? ''
-    const apiKey = Platform.OS === 'ios' ? iosKey : androidKey
-    if (!apiKey) return
-
-    if (__DEV__ && LOG_LEVEL) Purchases.setLogLevel(LOG_LEVEL.VERBOSE)
-    await Purchases.configure({ apiKey, appUserID: userId ?? null })
-  } catch (e) {
-    console.warn('RevenueCat init error:', e)
-  }
-}
-
 class ErrorBoundary extends Component<{ children: ReactNode }, { erro: string | null; stack: string | null }> {
   constructor(props: any) {
     super(props)
@@ -65,18 +41,8 @@ function AuthListener() {
   const router = useRouter()
 
   useEffect(() => {
-    // Inicializar RevenueCat com o usuário atual (se já logado)
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) initRevenueCat(session.user.id)
-    })
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
-        // Vincular usuário Supabase ao RevenueCat
-        Purchases?.logIn?.(session.user.id).catch(() => {})
-      }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_OUT') {
-        Purchases?.logOut?.().catch(() => {})
         router.replace('/(auth)/login')
       }
     })
