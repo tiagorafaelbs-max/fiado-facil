@@ -12,7 +12,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.fiadofacil.app",
-      "buildNumber": "83",
+      "buildNumber": "84",
       "deploymentTarget": "16.4",
       "infoPlist": {
         "NSCameraUsageDescription": "Usamos a câmera para tirar foto do comprovante de venda.",
