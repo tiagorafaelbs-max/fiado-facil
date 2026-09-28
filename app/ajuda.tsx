@@ -102,7 +102,7 @@ const SECOES: Secao[] = [
     itens: [
       {
         pergunta: 'Qual a diferença entre o plano Gratuito e o Pro?',
-        resposta: 'Gratuito: até 10 clientes, relatórios mensais e anuais, exportação PDF, agrupamento por empresa.\n\nPro (R$19/mês): clientes ilimitados + tudo do gratuito + cobranças em massa pelo WhatsApp + Ranking de clientes.',
+        resposta: 'Gratuito: até 10 clientes, relatórios mensais e anuais, exportação PDF, agrupamento por empresa.\n\nPro (R$19,90/mês): clientes ilimitados + tudo do gratuito + cobranças em massa pelo WhatsApp + Ranking de clientes.',
       },
       {
         pergunta: 'Como fazer upgrade para o Pro?',

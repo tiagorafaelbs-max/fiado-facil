@@ -21,6 +21,7 @@ import { agendarNotificacoesVencimento } from '../../hooks/useNotificacoes'
 import { gerarExtratoCliente } from '../../lib/pdf'
 import { gerarPayloadPix } from '../../lib/pix'
 import { useModulos } from '../../hooks/useModulos'
+import { useContadorWhatsApp } from '../../hooks/useContadorWhatsApp'
 import { useTenant } from '../../hooks/useTenant'
 import { useOffline } from '../../hooks/useOffline'
 import { formatarMoeda, formatarInputMoeda, validarDataBR } from '../../lib/validacao'
@@ -90,7 +91,8 @@ export default function DetalheClienteScreen() {
   const [tipoPagamento, setTipoPagamento] = useState<'total' | 'parcelado'>('total')
   const [numParcelas, setNumParcelas] = useState(2)
   const [salvando, setSalvando] = useState(false)
-  const [perfil, setPerfil] = useState<{ nome_negocio: string; chave_pix?: string } | null>(null)
+  const [perfil, setPerfil] = useState<{ nome_negocio: string; chave_pix?: string; plano?: 'gratuito' | 'pro' } | null>(null)
+  const { registrarUso: registrarUsoWpp, reverterUso: reverterUsoWpp, limite: limiteWpp } = useContadorWhatsApp(perfil?.plano ?? null, tenantId || usuario?.id)
   const [gerandoPDF, setGerandoPDF] = useState(false)
   const [modalEditarVenda, setModalEditarVenda] = useState<{ id: string; descricao: string; valor: string; data_venda: string; data_vencimento: string; categoria: string } | null>(null)
   const [editandoVenda, setEditandoVenda] = useState(false)
@@ -162,7 +164,7 @@ export default function DetalheClienteScreen() {
 
   useEffect(() => {
     if (!tenantId) return
-    supabase.from('perfis').select('nome_negocio, chave_pix').eq('id', tenantId).single()
+    supabase.from('perfis').select('nome_negocio, chave_pix, plano').eq('id', tenantId).single()
       .then(({ data }) => { if (data) setPerfil(data) })
     supabase.from('membros_equipe').select('membro_id, nome').eq('dono_id', tenantId).eq('status', 'ativo')
       .then(({ data }) => {
@@ -201,16 +203,30 @@ export default function DetalheClienteScreen() {
     }
   }
 
+  async function avisarLimiteWpp() {
+    Alert.alert(
+      'Limite atingido',
+      `Você usou ${limiteWpp} cobranças WhatsApp este mês (plano gratuito).\n\nFaça upgrade para cobranças ilimitadas.`,
+      [
+        { text: 'Fechar', style: 'cancel' },
+        { text: 'Ver planos', onPress: () => router.push('/planos') },
+      ],
+    )
+  }
+
   async function handleCobrar() {
     if (!cliente) return
     if (!cliente.telefone) {
       Alert.alert('Telefone não cadastrado', 'Edite o cliente e adicione o número de WhatsApp para enviar a cobrança.')
       return
     }
+    const permitido = await registrarUsoWpp()
+    if (!permitido) { await avisarLimiteWpp(); return }
     const nomeNeg = perfil?.nome_negocio || 'nosso estabelecimento'
     try {
       await cobrarViaWhatsApp(cliente, cliente.saldo_devedor ?? 0, nomeNeg, perfil?.chave_pix)
     } catch (e: any) {
+      await reverterUsoWpp()
       if (Platform.OS === 'web') window.alert(e.message)
       else Alert.alert('Erro', e.message)
     }
@@ -222,15 +238,18 @@ export default function DetalheClienteScreen() {
       Alert.alert('Telefone não cadastrado', 'Edite o cliente e adicione o número de WhatsApp para enviar o extrato.')
       return
     }
+    const permitido = await registrarUsoWpp()
+    if (!permitido) { await avisarLimiteWpp(); return }
     const nomeNeg = perfil?.nome_negocio || 'nosso estabelecimento'
     const url = montarExtratoWhatsApp(cliente, vendas, nomeNeg, perfil?.chave_pix)
-    if (!url) return
+    if (!url) { await reverterUsoWpp(); return }
     if (Platform.OS === 'web') {
       window.open(url, '_blank')
     } else {
       try {
         await Linking.openURL(url)
       } catch {
+        await reverterUsoWpp()
         Alert.alert('Erro', 'Não foi possível abrir o WhatsApp. Verifique se está instalado.')
       }
     }

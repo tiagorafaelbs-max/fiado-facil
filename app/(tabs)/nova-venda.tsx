@@ -9,6 +9,7 @@ import * as ImagePicker from 'expo-image-picker'
 import { useVendas } from '../../hooks/useVendas'
 import { useClientes } from '../../hooks/useClientes'
 import { useModulos } from '../../hooks/useModulos'
+import { useContadorWhatsApp } from '../../hooks/useContadorWhatsApp'
 import { useAuth } from '../../hooks/useAuth'
 import { useTenant } from '../../hooks/useTenant'
 import { Avatar } from '../../components/ui/Avatar'
@@ -72,6 +73,8 @@ export default function NovaVendaScreen() {
   const [erroGeral, setErroGeral] = useState('')
   const [nomeNegocio, setNomeNegocio] = useState('nossa loja')
   const [chavePix, setChavePix] = useState<string | undefined>(undefined)
+  const [plano, setPlano] = useState<'gratuito' | 'pro'>('gratuito')
+  const { registrarUso: registrarUsoWpp, reverterUso: reverterUsoWpp, limite: limiteWpp } = useContadorWhatsApp(plano, tenantId || usuario?.id)
   const [primeiraVenda, setPrimeiraVenda] = useState(false)
   const [tipoPagamento, setTipoPagamento] = useState<'fiado' | 'parcelado'>('fiado')
   const [numParcelas, setNumParcelas] = useState(2)
@@ -137,9 +140,10 @@ export default function NovaVendaScreen() {
     buscar()
     if (tenantId) {
       import('../../lib/supabase').then(({ supabase }) => {
-        supabase.from('perfis').select('nome_negocio, chave_pix').eq('id', tenantId).single().then(({ data }) => {
+        supabase.from('perfis').select('nome_negocio, chave_pix, plano').eq('id', tenantId).single().then(({ data }) => {
           if (data?.nome_negocio) setNomeNegocio(data.nome_negocio)
           if (data?.chave_pix) setChavePix(data.chave_pix)
+          if (data?.plano) setPlano(data.plano)
         })
       })
     }
@@ -374,7 +378,19 @@ export default function NovaVendaScreen() {
       setModalNovoCliente(false)
       setNomeNovoCliente(''); setTelNovoCliente('')
     } catch (e: any) {
-      setErroNovoCliente(e.message ?? 'Erro ao salvar.')
+      if (e.code === 'LIMITE_CLIENTES') {
+        setModalNovoCliente(false)
+        Alert.alert(
+          'Você chegou a 10 clientes',
+          'Com o Pro, cadastre clientes ilimitados por R$ 19,90/mês.',
+          [
+            { text: 'Agora não', style: 'cancel' },
+            { text: 'Ver planos', onPress: () => router.push('/planos') },
+          ],
+        )
+      } else {
+        setErroNovoCliente(e.message ?? 'Erro ao salvar.')
+      }
     } finally {
       setSalvandoCliente(false)
     }
@@ -385,11 +401,27 @@ export default function NovaVendaScreen() {
     setModalNovoCliente(true)
   }
 
-  function handleCobrarWhatsApp() {
+  async function handleCobrarWhatsApp() {
     if (!clienteSucesso?.telefone) return
+    const permitido = await registrarUsoWpp()
+    if (!permitido) {
+      Alert.alert(
+        'Limite atingido',
+        `Você usou ${limiteWpp} cobranças WhatsApp este mês (plano gratuito).\n\nFaça upgrade para cobranças ilimitadas.`,
+        [
+          { text: 'Fechar', style: 'cancel' },
+          { text: 'Ver planos', onPress: () => router.push('/planos') },
+        ],
+      )
+      return
+    }
     const url = montarUrlWhatsApp(clienteSucesso, clienteSucesso.saldo_devedor ?? 0, nomeNegocio, false, 0, chavePix)
-    if (Platform.OS === 'web') window.open(url, '_blank')
-    else require('react-native').Linking.openURL(url)
+    try {
+      if (Platform.OS === 'web') window.open(url, '_blank')
+      else await require('react-native').Linking.openURL(url)
+    } catch {
+      await reverterUsoWpp()
+    }
   }
 
   return (

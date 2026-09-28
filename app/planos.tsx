@@ -35,7 +35,6 @@ const RECURSOS_GRATUITO = [
   { texto: 'Até 10 clientes', ok: true },
   { texto: 'Lançamentos ilimitados', ok: true },
   { texto: '10 cobranças WhatsApp/mês', ok: true },
-  { texto: 'Histórico dos últimos 30 dias', ok: true },
   { texto: 'Cobranças WhatsApp ilimitadas', ok: false },
   { texto: 'Relatórios por categoria', ok: false },
   { texto: 'Exportação de dados CSV', ok: false },
@@ -47,7 +46,6 @@ const RECURSOS_PRO = [
   { texto: 'Cobre todos os vencidos com um toque', destaque: true },
   { texto: 'Lançamentos ilimitados', destaque: false },
   { texto: 'Cobranças WhatsApp ilimitadas', destaque: true },
-  { texto: 'Histórico completo (sem limite)', destaque: true },
   { texto: 'Relatórios por categoria', destaque: true },
   { texto: 'Exportação de dados CSV', destaque: true },
   { texto: 'Score de pagador', destaque: true },
@@ -451,15 +449,11 @@ export default function PlanosScreen() {
         <Text style={estilos.depoimentosTitulo}>O que dizem nossos clientes</Text>
         {[
           { nome: 'Loja Gonçalos', texto: 'Melhor app de gerenciamento de contas que baixei até agora. Já tive que assinar o Pro pq estou usando na minha loja.' },
-          { nome: 'Soares Erika', texto: 'Facilitou meu dia. Agora controlo todos os meus recebimentos e tenho relatórios das vendas pra controlar na palma da mão.' },
-          { nome: 'Goulart13', texto: 'Tinha muita dificuldade pra me organizar, o app me facilitou muito.' },
+          { nome: 'Analu enxovais', texto: 'App muito bom. Gostei bastante.' },
         ].map((d, i) => (
           <View key={i} style={estilos.depoimentoCard}>
-            <View style={estilos.depoimentoEstrelas}>
-              {Array.from({ length: 5 }).map((_, j) => <Ionicons key={j} name="star" size={12} color={C.yellow} />)}
-            </View>
             <Text style={estilos.depoimentoTexto}>"{d.texto}"</Text>
-            <Text style={estilos.depoimentoAutor}>{d.nome} · Avaliação verificada na App Store</Text>
+            <Text style={estilos.depoimentoAutor}>{d.nome} · Avaliação publicada na App Store</Text>
           </View>
         ))}
       </View>
@@ -533,7 +527,6 @@ const estilos = StyleSheet.create({
   depoimentosBox: { marginBottom: 16, gap: 10 },
   depoimentosTitulo: { fontSize: 13, fontWeight: '700', color: C.text2, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 },
   depoimentoCard: { backgroundColor: C.white, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: C.border, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
-  depoimentoEstrelas: { flexDirection: 'row', gap: 2, marginBottom: 8 },
   depoimentoTexto: { fontSize: 13, color: C.text, lineHeight: 20, fontStyle: 'italic', marginBottom: 8 },
   depoimentoAutor: { fontSize: 11, color: C.text3, fontWeight: '600' },
   btnRestaurar: { alignItems: 'center', paddingVertical: 10, marginBottom: 12 },

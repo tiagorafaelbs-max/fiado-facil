@@ -47,7 +47,11 @@ export function useClientes() {
     const { data: perfil } = await supabase.from('perfis').select('plano').eq('id', tenantId).single()
     if (perfil?.plano === 'gratuito') {
       const { count } = await supabase.from('clientes').select('id', { count: 'exact', head: true }).eq('usuario_id', tenantId).eq('ativo', true)
-      if ((count ?? 0) >= 10) throw new Error('Você atingiu o limite de 10 clientes do plano gratuito. Faça upgrade para Pro e tenha clientes ilimitados.')
+      if ((count ?? 0) >= 10) {
+        const erro: any = new Error('Você atingiu o limite de 10 clientes do plano gratuito. Faça upgrade para Pro e tenha clientes ilimitados.')
+        erro.code = 'LIMITE_CLIENTES'
+        throw erro
+      }
     }
 
     const { data, error } = await supabase

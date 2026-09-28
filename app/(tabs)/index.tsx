@@ -463,7 +463,7 @@ export default function DashboardScreen() {
                 </View>
                 <Text style={estilos.vazioTitulo}>Bem-vindo ao FiadoApp! 👋</Text>
                 <Text style={estilos.vazioTexto}>Comece cadastrando seu primeiro cliente e registrando uma venda fiada.</Text>
-                <TouchableOpacity style={estilos.vazioBtn} onPress={() => router.push('/(tabs)/clientes')}>
+                <TouchableOpacity style={estilos.vazioBtn} onPress={() => router.push('/(tabs)/clientes?novo=1')}>
                   <Ionicons name="person-add-outline" size={16} color={C.white} />
                   <Text style={estilos.vazioBtnTexto}>Cadastrar primeiro cliente</Text>
                 </TouchableOpacity>

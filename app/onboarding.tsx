@@ -40,9 +40,12 @@ export default function OnboardingScreen() {
   const fadeAnim  = useRef(new Animated.Value(1)).current
   const slideAnim = useRef(new Animated.Value(0)).current
 
-  async function concluir() {
+  // "Já tenho conta" e "Pular" levam pra login (usuário já deve ter cadastro).
+  // Terminar o fluxo de "Começar grátis" leva pro cadastro — era esse o ponto
+  // de entrada que estava incorretamente mandando pra login.
+  async function concluir(destino: 'login' | 'cadastro' = 'login') {
     await AsyncStorage.setItem('@fiado_onboarding_ok', '1')
-    router.replace('/(auth)/login')
+    router.replace(destino === 'cadastro' ? '/(auth)/cadastro' : '/(auth)/login')
   }
 
   function avancar() {
@@ -60,7 +63,7 @@ export default function OnboardingScreen() {
       ]).start()
       setPasso(proximo)
     } else {
-      concluir()
+      concluir('cadastro')
     }
   }
 
@@ -109,7 +112,7 @@ export default function OnboardingScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={concluir}
+            onPress={() => concluir()}
             style={s.linkWrap}
             activeOpacity={0.7}
             accessibilityRole="link"
@@ -143,7 +146,7 @@ export default function OnboardingScreen() {
 
       {/* Pular */}
       <TouchableOpacity
-        onPress={concluir}
+        onPress={() => concluir()}
         style={s.pularBtn}
         activeOpacity={0.7}
         accessibilityRole="button"

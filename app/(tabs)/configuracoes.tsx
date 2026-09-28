@@ -279,7 +279,7 @@ export default function ConfiguracoesScreen() {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={estilos.upgradeTitle}>Mude para o Plano Pro</Text>
-            <Text style={estilos.upgradeSub}>Desbloqueie tudo por R$ 19,00/mês</Text>
+            <Text style={estilos.upgradeSub}>Desbloqueie tudo por R$ 19,90/mês</Text>
             <View style={estilos.upgradeItens}>
               <View style={estilos.upgradeItem}>
                 <Ionicons name="logo-whatsapp" size={12} color={C.green} />
@@ -380,7 +380,7 @@ export default function ConfiguracoesScreen() {
         </View>
         <Text style={estilos.secaoInfo}>
           Sua chave Pix aparece como QR Code na tela de pagamento do cliente.
-          O dia de cobrança envia um lembrete automático todo mês.
+          No dia de cobrança configurado, o app te lembra e deixa a mensagem pronta — o envio pelo WhatsApp é feito por você.
         </Text>
         {editandoPix ? (
           <>
@@ -428,8 +428,8 @@ export default function ConfiguracoesScreen() {
                 </View>
                 <Text style={{ fontSize: 11, color: C.text3, marginTop: 6, lineHeight: 16 }}>
                   {perfil.cobranca_auto_tipo === 'vencidos'
-                    ? 'No dia configurado, avisa apenas clientes com parcelas vencidas.'
-                    : 'No dia configurado, avisa todos os clientes com qualquer saldo em aberto.'}
+                    ? 'No dia configurado, o app te lembra dos clientes com parcelas vencidas e deixa as mensagens prontas pra você confirmar o envio.'
+                    : 'No dia configurado, o app te lembra de todos os clientes com saldo em aberto e deixa as mensagens prontas pra você confirmar o envio.'}
                 </Text>
               </View>
             ) : null}

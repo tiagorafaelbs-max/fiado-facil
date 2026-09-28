@@ -30,7 +30,7 @@ export default function TermosScreen() {
       />
       <Secao
         titulo="4. Plano gratuito e Pro"
-        texto="O plano gratuito permite até 10 clientes cadastrados. O plano Pro, mediante assinatura mensal de R$ 19,00, oferece clientes ilimitados e recursos avançados. A cobrança é recorrente e pode ser cancelada a qualquer momento, com acesso mantido até o fim do período pago."
+        texto="O plano gratuito permite até 10 clientes cadastrados. O plano Pro, mediante assinatura mensal de R$ 19,90, oferece clientes ilimitados e recursos avançados. A cobrança é recorrente e pode ser cancelada a qualquer momento, com acesso mantido até o fim do período pago."
       />
       <Secao
         titulo="5. Responsabilidade pelos dados"
