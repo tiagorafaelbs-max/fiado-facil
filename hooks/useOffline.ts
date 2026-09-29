@@ -14,14 +14,32 @@ interface OperacaoOffline {
   criado_em: string
 }
 
-export async function enfileirarOperacao(op: Omit<OperacaoOffline, 'id' | 'criado_em'>) {
-  const fila = await carregarFila()
-  const nova: OperacaoOffline = {
-    ...op,
-    id: Math.random().toString(36).slice(2),
-    criado_em: new Date().toISOString(),
-  }
-  await AsyncStorage.setItem(FILA_KEY, JSON.stringify([...fila, nova]))
+// Trava global da fila: serializa TODO acesso de leitura+escrita (enfileirar E
+// sincronizar) numa fila de promises só. Sem isso, useOffline() montado em 4 telas
+// ao mesmo tempo dispara sincronizarFila() concorrente em cada uma, e um
+// enfileirarOperacao() no meio de uma sincronização corre pra gravar a fila ao mesmo
+// tempo que o setItem(restantes) do final da sincronização -- quem grava por último
+// vence, e a operação enfileirada no meio some (achado do Tiago, bloqueante pro 1.0.12).
+let travaDaFila: Promise<unknown> = Promise.resolve()
+
+function comTravaDaFila<T>(tarefa: () => Promise<T>): Promise<T> {
+  const resultado = travaDaFila.then(tarefa, tarefa)
+  // Nunca deixa uma tarefa rejeitada travar a fila pra sempre -- a próxima tarefa
+  // sempre roda, independente do resultado da anterior.
+  travaDaFila = resultado.catch(() => {})
+  return resultado
+}
+
+export function enfileirarOperacao(op: Omit<OperacaoOffline, 'id' | 'criado_em'>): Promise<void> {
+  return comTravaDaFila(async () => {
+    const fila = await carregarFila()
+    const nova: OperacaoOffline = {
+      ...op,
+      id: Math.random().toString(36).slice(2),
+      criado_em: new Date().toISOString(),
+    }
+    await AsyncStorage.setItem(FILA_KEY, JSON.stringify([...fila, nova]))
+  })
 }
 
 async function carregarFila(): Promise<OperacaoOffline[]> {
@@ -33,12 +51,12 @@ async function carregarFila(): Promise<OperacaoOffline[]> {
   }
 }
 
-async function sincronizarFila(): Promise<number> {
+async function sincronizarFilaInterno(): Promise<number> {
   const fila = await carregarFila()
   if (fila.length === 0) return 0
 
   let sincronizados = 0
-  const restantes: OperacaoOffline[] = []
+  const idsSincronizados = new Set<string>()
   // Clientes afetados por venda/pagamento sincronizado com sucesso — precisam
   // ter a flag `pago` recalculada (FIFO) contra o estado real do banco, algo
   // que não dava para fazer enquanto a operação só existia na fila local.
@@ -71,11 +89,18 @@ async function sincronizarFila(): Promise<number> {
         if (error) throw error
       }
       sincronizados++
+      idsSincronizados.add(op.id)
     } catch {
-      restantes.push(op)
+      // permanece na fila — não marca como sincronizado
     }
   }
 
+  // Relê a fila atual em vez de reescrever a partir do snapshot do início: mesmo com
+  // a trava, o loop acima faz vários `await` (chamadas de rede), então preserva
+  // qualquer operação que tenha entrado nesse meio tempo — remove só os ids que de
+  // fato sincronizaram com sucesso, nunca sobrescreve a fila inteira.
+  const filaAtual = await carregarFila()
+  const restantes = filaAtual.filter(op => !idsSincronizados.has(op.id))
   await AsyncStorage.setItem(FILA_KEY, JSON.stringify(restantes))
 
   for (const [clienteId, usuarioId] of clientesParaReconciliar) {
@@ -88,6 +113,19 @@ async function sincronizarFila(): Promise<number> {
   }
 
   return sincronizados
+}
+
+// Uma sincronização por vez no app inteiro: se já existe uma em andamento (ex: 4 telas
+// com useOffline() monitorando a mesma conexão voltar ao mesmo tempo), as chamadas
+// seguintes recebem a MESMA promise em vez de disparar uma sincronização concorrente.
+let sincronizacaoEmAndamento: Promise<number> | null = null
+
+export function sincronizarFila(): Promise<number> {
+  if (sincronizacaoEmAndamento) return sincronizacaoEmAndamento
+  sincronizacaoEmAndamento = comTravaDaFila(sincronizarFilaInterno).finally(() => {
+    sincronizacaoEmAndamento = null
+  })
+  return sincronizacaoEmAndamento
 }
 
 export async function verificarConectividade(): Promise<boolean> {

@@ -117,6 +117,21 @@ Arquivos a tocar:
 - Convivência com Mercado Pago: aderir ao programa "User Choice Billing" do Google (exige oferecer as duas opções lado a lado, não substituir o MP).
 - Estimativa: 3-5 dias de trabalho (fluxo de compra Android + edge function de verificação + testes de sandbox no Google Play Console + ajuste de UI pra oferecer as duas opções de pagamento).
 
+## Lote 29/09 (2) — bloqueante da fila offline corrigido antes do build
+
+**O problema (achado do Tiago):** `useOffline()` está montado em 4 telas (`index`, `nova-venda`, `cliente/[id]`, `configuracoes`). Cada uma dispara `sincronizarFila()` ao ficar online → várias sincronizações concorrentes processando a mesma fila. Pior: `sincronizarFila` lia a fila, processava (com `await` de rede no meio) e no final fazia `setItem(restantes)` a partir do snapshot do início — qualquer operação enfileirada **durante** a sincronização (ex: usuário lança uma venda nova enquanto o app ainda está sincronizando o que estava pendente) era sobrescrita e **perdida** nesse `setItem` final.
+
+**Corrigido em `hooks/useOffline.ts`:**
+- (a) Trava global (`comTravaDaFila`, uma fila de promises) — uma sincronização por vez no app inteiro; chamadas concorrentes de `sincronizarFila()` recebem a mesma promise em vez de rodar em paralelo.
+- (b) `sincronizarFila` agora relê a fila atual no final e remove só os ids que sincronizaram com sucesso (`idsSincronizados`), em vez de sobrescrever com o snapshot do início — preserva tanto o que falhou quanto o que entrou no meio.
+- (c) `enfileirarOperacao` passa pela mesma trava — leitura+escrita da fila nunca intercala com a sincronização nem com outro enfileiramento concorrente.
+
+Testado com uma simulação isolada (sem depender de AsyncStorage/Supabase reais): 3 chamadas concorrentes de `sincronizarFila()` + 1 `enfileirarOperacao()` disparado no meio → nenhuma duplicata, nenhuma perda, a operação enfileirada no meio sobrevive na fila. `tsc` 0 erros.
+
+## Backlog 1.0.13 (não implementar agora — só registrar)
+- Aviso de operação presa por permissão (funcionário desativado / outro usuário logado no aparelho) enquanto uma operação fica na fila offline sem conseguir sincronizar.
+- Confirmação de pagamento repetido: mesmo cliente, mesmo valor, lançado por outra pessoa, nos últimos 30 minutos — hoje não há nenhum aviso, só a decisão consciente do comerciante evita duplicidade.
+
 ## Pendências fora do lote
 - Foto de comprovante (`nova-venda.tsx:188`): o bucket `comprovantes` **não existe**, e o upload falha sem avisar. Se for ativar: bucket privado + URL assinada. Decisão de produto.
 - Testes automatizados e lint: backlog de adequação (`docs/adequacao-fabrica.md`, a criar).
