@@ -33,6 +33,18 @@ import type { Cliente, Venda } from '../../types'
 
 interface Pagamento {
   id: string; valor: number; data_pagamento: string; observacao?: string
+  criado_por?: string; criado_em?: string
+}
+
+const FUSO_NEGOCIO = 'America/Sao_Paulo'
+
+// "Lançado hoje" pro fuso do negócio, não o fuso do aparelho -- é o critério que a
+// policy de UPDATE de funcionário usa no banco (RLS é quem decide de verdade; isto
+// só evita mostrar um botão de editar que o banco vai recusar).
+function lancadoHoje(criadoEm?: string): boolean {
+  if (!criadoEm) return false
+  const fmt = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: FUSO_NEGOCIO }).format(d)
+  return fmt(new Date(criadoEm)) === fmt(new Date())
 }
 
 type ItemHistorico =
@@ -73,7 +85,7 @@ export default function DetalheClienteScreen() {
   const { vendas, carregando, buscar, registrarPagamento, excluirVenda, editarVenda, excluirPagamento } = useVendas(id)
   const { width } = useWindowDimensions()
   const isTablet = width >= 768
-  const { tenantId } = useTenant()
+  const { tenantId, souFuncionario, permissoes } = useTenant()
   const { modulos } = useModulos(tenantId || usuario?.id)
   const { online } = useOffline()
   const { tocar } = useBeep()
@@ -152,7 +164,7 @@ export default function DetalheClienteScreen() {
   const carregarPagamentos = useCallback(async () => {
     if (!tenantId) return
     const { data } = await supabase.from('pagamentos')
-      .select('id, valor, data_pagamento, observacao')
+      .select('id, valor, data_pagamento, observacao, criado_por, criado_em')
       .eq('cliente_id', id).eq('usuario_id', tenantId).order('data_pagamento', { ascending: false })
     setPagamentos(data ?? [])
   }, [id, tenantId])
@@ -448,6 +460,13 @@ export default function DetalheClienteScreen() {
   const score = modulos.score_cliente ? calcularScore(vendas, pagamentos) : null
   const pixPayload = modulos.qr_pix && perfil?.chave_pix ? gerarPayloadPix(perfil.chave_pix, perfil.nome_negocio, cliente.saldo_devedor ?? 0) : null
 
+  // Espelha no app o que a RLS decide de verdade no banco -- editar/excluir cliente
+  // nunca pra funcionário; editar venda/pagamento só do que ele mesmo lançou hoje e
+  // com a permissão ligada; excluir só com a permissão, sem exigir autoria/data.
+  const podeEditarLancamento = (criadoPor?: string, criadoEm?: string) =>
+    !souFuncionario || (permissoes.editar_venda && criadoPor === usuario?.id && lancadoHoje(criadoEm))
+  const podeExcluirLancamento = () => !souFuncionario || permissoes.excluir_venda
+
   const historico: ItemHistorico[] = [
     ...vendas.map(v => ({ tipo: 'venda' as const, data: v.data_venda, item: v })),
     ...pagamentos.map(p => ({ tipo: 'pagamento' as const, data: p.data_pagamento, item: p })),
@@ -500,15 +519,17 @@ export default function DetalheClienteScreen() {
             </View>
           </View>
 
-          {/* Botões editar / excluir */}
-          <View style={{ gap: 8, alignItems: 'center' }}>
-            <TouchableOpacity style={estilos.btnEditarCliente} onPress={abrirEditarCliente}>
-              <Ionicons name="pencil" size={15} color={C.green} />
-            </TouchableOpacity>
-            <TouchableOpacity style={estilos.btnExcluirCliente} onPress={handleExcluirCliente}>
-              <Ionicons name="trash-outline" size={15} color={C.red} />
-            </TouchableOpacity>
-          </View>
+          {/* Botões editar / excluir — dados cadastrais do cliente são só do dono */}
+          {!souFuncionario && (
+            <View style={{ gap: 8, alignItems: 'center' }}>
+              <TouchableOpacity style={estilos.btnEditarCliente} onPress={abrirEditarCliente}>
+                <Ionicons name="pencil" size={15} color={C.green} />
+              </TouchableOpacity>
+              <TouchableOpacity style={estilos.btnExcluirCliente} onPress={handleExcluirCliente}>
+                <Ionicons name="trash-outline" size={15} color={C.red} />
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         {/* Score separador */}
@@ -613,6 +634,8 @@ export default function DetalheClienteScreen() {
             const ultimo = i === historico.length - 1
             if (h.tipo === 'venda') {
               const v = h.item as Venda
+              const podeEditar = podeEditarLancamento(v.criado_por, v.criado_em)
+              const podeExcluir = podeExcluirLancamento()
               return (
                 <View key={`v-${v.id}`} style={[estilos.lancamento, ultimo && { borderBottomWidth: 0 }]}>
                   <View style={[estilos.lancIcone, { backgroundColor: C.redLight }]}>
@@ -634,19 +657,27 @@ export default function DetalheClienteScreen() {
                   </View>
                   <View style={estilos.lancAcoes}>
                     <Text style={[estilos.lancValor, { color: C.red }]}>- {formatarMoeda(v.valor)}</Text>
-                    <View style={estilos.lancBotoes}>
-                      <TouchableOpacity onPress={() => setModalEditarVenda({ id: v.id, descricao: v.descricao, valor: String(v.valor), data_venda: isoParaDisplay(v.data_venda ?? ''), data_vencimento: isoParaDisplay(v.data_vencimento ?? ''), categoria: v.categoria ?? '' })} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                        <Ionicons name="pencil-outline" size={14} color={C.text2} />
-                      </TouchableOpacity>
-                      <TouchableOpacity onPress={() => handleExcluirVenda(v.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                        <Ionicons name="trash-outline" size={14} color={C.red} />
-                      </TouchableOpacity>
-                    </View>
+                    {(podeEditar || podeExcluir) && (
+                      <View style={estilos.lancBotoes}>
+                        {podeEditar && (
+                          <TouchableOpacity onPress={() => setModalEditarVenda({ id: v.id, descricao: v.descricao, valor: String(v.valor), data_venda: isoParaDisplay(v.data_venda ?? ''), data_vencimento: isoParaDisplay(v.data_vencimento ?? ''), categoria: v.categoria ?? '' })} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                            <Ionicons name="pencil-outline" size={14} color={C.text2} />
+                          </TouchableOpacity>
+                        )}
+                        {podeExcluir && (
+                          <TouchableOpacity onPress={() => handleExcluirVenda(v.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                            <Ionicons name="trash-outline" size={14} color={C.red} />
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    )}
                   </View>
                 </View>
               )
             } else {
               const p = h.item as Pagamento
+              const podeEditar = podeEditarLancamento(p.criado_por, p.criado_em)
+              const podeExcluir = podeExcluirLancamento()
               return (
                 <View key={`p-${p.id}`} style={[estilos.lancamento, ultimo && { borderBottomWidth: 0 }]}>
                   <View style={[estilos.lancIcone, { backgroundColor: C.greenLight }]}>
@@ -655,17 +686,26 @@ export default function DetalheClienteScreen() {
                   <View style={{ flex: 1 }}>
                     <Text style={estilos.lancDesc}>{p.observacao ? p.observacao : 'Pagamento recebido'}</Text>
                     <Text style={estilos.lancData}>{format(new Date(p.data_pagamento + 'T12:00:00'), "d MMM yyyy", { locale: ptBR })}</Text>
+                    {Object.keys(nomesEquipe).length > 0 && p.criado_por && nomesEquipe[p.criado_por] && (
+                      <Text style={estilos.lancAutor}>Registrado por {nomesEquipe[p.criado_por]}</Text>
+                    )}
                   </View>
                   <View style={estilos.lancAcoes}>
                     <Text style={[estilos.lancValor, { color: C.green }]}>+ {formatarMoeda(p.valor)}</Text>
-                    <View style={estilos.lancBotoes}>
-                      <TouchableOpacity onPress={() => setModalEditarPagamento({ id: p.id, valor: String(p.valor), data: p.data_pagamento.split('-').reverse().join('/'), observacao: p.observacao ?? '' })} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                        <Ionicons name="pencil-outline" size={14} color={C.text2} />
-                      </TouchableOpacity>
-                      <TouchableOpacity onPress={() => handleExcluirPagamento(p.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                        <Ionicons name="trash-outline" size={14} color={C.red} />
-                      </TouchableOpacity>
-                    </View>
+                    {(podeEditar || podeExcluir) && (
+                      <View style={estilos.lancBotoes}>
+                        {podeEditar && (
+                          <TouchableOpacity onPress={() => setModalEditarPagamento({ id: p.id, valor: String(p.valor), data: p.data_pagamento.split('-').reverse().join('/'), observacao: p.observacao ?? '' })} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                            <Ionicons name="pencil-outline" size={14} color={C.text2} />
+                          </TouchableOpacity>
+                        )}
+                        {podeExcluir && (
+                          <TouchableOpacity onPress={() => handleExcluirPagamento(p.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                            <Ionicons name="trash-outline" size={14} color={C.red} />
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    )}
                   </View>
                 </View>
               )

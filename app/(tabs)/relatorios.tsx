@@ -74,7 +74,7 @@ function parseDDMMYYYY(val: string): string | null {
 export default function RelatoriosScreen() {
   const router = useRouter()
   const { usuario } = useAuth()
-  const { tenantId } = useTenant()
+  const { tenantId, souFuncionario } = useTenant()
   const { modulos } = useModulos(tenantId || usuario?.id)
   const [plano, setPlano] = useState<'gratuito' | 'pro'>('gratuito')
   const { registrarUso: registrarUsoWpp, reverterUso: reverterUsoWpp, limite: limiteWpp } = useContadorWhatsApp(plano, tenantId || usuario?.id)
@@ -236,12 +236,25 @@ export default function RelatoriosScreen() {
   }
 
   useFocusEffect(useCallback(() => {
+    if (souFuncionario) return // relatórios e totais do negócio são só do dono
     if (periodo !== 'personalizado') buscar()
     if (tenantId) {
       supabase.from('perfis').select('plano').eq('id', tenantId).single()
         .then(({ data }) => { if (data?.plano) setPlano(data.plano) })
     }
-  }, [periodo, tenantId]))
+  }, [periodo, tenantId, souFuncionario]))
+
+  // Guard defensivo: a aba já é escondida pra funcionário em (tabs)/_layout.tsx
+  // (href: null), isto cobre um acesso direto por link/estado antigo.
+  if (souFuncionario) {
+    return (
+      <View style={estilos.vazio}>
+        <Text style={{ fontSize: 36 }}>🔒</Text>
+        <Text style={estilos.vazioTitulo}>Disponível só para o dono</Text>
+        <Text style={estilos.vazioTexto}>Relatórios e totais do negócio ficam visíveis apenas pra quem é dono da conta.</Text>
+      </View>
+    )
+  }
 
   const PERIODOS: { key: Periodo; label: string }[] = [
     { key: 'hoje', label: 'Hoje' },

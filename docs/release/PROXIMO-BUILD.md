@@ -137,9 +137,33 @@ Arquivos a tocar:
 
 Testado com simulação isolada: sincronização de 4s de rede simulada + `enfileirarOperacao()` disparado no meio → responde em ~0ms (não espera a rede), e a fila final preserva corretamente o que entrou durante a sincronização. `tsc` 0 erros.
 
+## Lote 29/09 (3) — Equipe: funcionário editava/apagava tudo (mudança de plano: Equipe entra no 1.0.12)
+
+**Achado do Tiago:** as policies de `clientes`/`vendas`/`pagamentos` são `FOR ALL` por tenant — qualquer funcionário ativo edita ou apaga qualquer venda, pagamento ou cliente do negócio, mesmo lançado por outra pessoa há meses. O trigger `checar_permissao_venda_trigger` (existente) só checa a flag `editar_venda`/`excluir_venda` em `vendas`, não tem a exigência de autoria/mesmo dia, e **`pagamentos` não tem nenhuma checagem** — funcionário edita/apaga qualquer pagamento livremente.
+
+**Migration proposta (`equipe_permissoes_granulares.sql`) — NÃO aplicada, aguardando aprovação do Tiago:**
+- `tem_permissao(chave text)`: função `SECURITY DEFINER`, `search_path` fixo, sem `EXECUTE` pra `anon`, lê `membros_equipe.permissoes` do membro ativo.
+- `clientes`: SELECT/INSERT por tenant (como hoje); UPDATE/DELETE só `usuario_id = auth.uid()` — nunca funcionário.
+- `vendas`/`pagamentos`: SELECT/INSERT por tenant; UPDATE do dono sem restrição; UPDATE do funcionário só com `tem_permissao('editar_venda')` **e** `criado_por = auth.uid()` **e** lançado no mesmo dia (fuso America/Sao_Paulo); DELETE do dono sem restrição; DELETE do funcionário só com `tem_permissao('excluir_venda')` (sem exigência de autoria/data, conforme pedido).
+- Remove o trigger `checar_permissao_venda_trigger`/função `checar_permissao_venda()` — ficam redundantes: a nova RLS já é mais restritiva que o trigger em todos os casos que ele cobria.
+- `perfis` (plano, chave Pix, dados do negócio) segue só do dono — já garantido pela policy `perfil_proprio` existente, nenhuma mudança necessária.
+
+**App (feito, aguardando a migration pra fazer sentido de ponta a ponta):**
+- `hooks/useVendas.ts`: `excluirVenda`/`editarVenda`/`excluirPagamento` agora usam `.select().maybeSingle()` e lançam erro claro se a RLS recusar — antes um bloqueio da RLS passava batido (0 linhas afetadas, sem erro, tela agia como se tivesse dado certo).
+- `app/cliente/[id].tsx`: editar/excluir venda e pagamento só aparecem quando a RLS aceitaria (mesma regra espelhada no cliente: autoria + mesmo dia + permissão pra editar; só permissão pra excluir); editar/excluir cliente nunca aparece pra funcionário; "Registrado por {nome}" agora também em pagamentos (já existia em vendas).
+- `app/(tabs)/clientes.tsx`: campo "Limite de crédito" some do formulário de novo cliente pra funcionário.
+- `app/(tabs)/relatorios.tsx` + `app/(tabs)/_layout.tsx`: aba Relatórios escondida da tab bar (`href: null`) pra funcionário, com guard defensivo na própria tela.
+- `app/cobrancas.tsx`: botão "Cobrar vencidos" (cobrança em massa) escondido pra funcionário.
+- `app/planos.tsx`: tela inteira substituída por um aviso ("Assinatura gerenciada pelo dono") pra funcionário — centraliza a restrição num só lugar em vez de esconder cada botão que leva lá.
+- `app/(tabs)/configuracoes.tsx`: botões "Editar" de Dados do negócio e Pix/Cobranças escondidos; "Exportar dados (CSV)" e "Excluir conta" escondidos; banner de upgrade escondido pra funcionário no plano gratuito. Card "Equipe & funcionários" já era escondido pra funcionário (feature anterior).
+
+**Pendente:** testes via API direta (não só pela tela) com 2 contas reais de teste (dono + funcionário) depois da migration aplicada — cobrindo cada permissão ligada/desligada, editar lançamento de outra pessoa, editar de ontem, excluir cliente, ler perfil do dono, e isolamento entre lojas diferentes. `convidar-funcionario` só publica no dia do lançamento, com aprovação do Tiago.
+
 ## Backlog 1.0.13 (não implementar agora — só registrar)
 - Aviso de operação presa por permissão (funcionário desativado / outro usuário logado no aparelho) enquanto uma operação fica na fila offline sem conseguir sincronizar.
 - Confirmação de pagamento repetido: mesmo cliente, mesmo valor, lançado por outra pessoa, nos últimos 30 minutos — hoje não há nenhum aviso, só a decisão consciente do comerciante evita duplicidade.
+- Lixeira com restaurar (clientes/vendas/pagamentos excluídos ficam recuperáveis por um período antes de apagar de vez).
+- Permissões finas por funcionário para relatórios, exportação e cobrança em massa (hoje é tudo-ou-nada: dono vê, funcionário não vê nada disso).
 
 ## Pendências fora do lote
 - Foto de comprovante (`nova-venda.tsx:188`): o bucket `comprovantes` **não existe**, e o upload falha sem avisar. Se for ativar: bucket privado + URL assinada. Decisão de produto.

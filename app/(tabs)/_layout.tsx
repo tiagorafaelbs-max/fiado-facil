@@ -115,6 +115,7 @@ function ModalAcoes({ visivel, onFechar }: { visivel: boolean; onFechar: () => v
 
 export default function TabsLayout() {
   const { count: vencidosCount, marcarVisto } = useVencidosCount()
+  const { souFuncionario } = useTenant()
   const insets = useSafeAreaInsets()
   const [modalVisivel, setModalVisivel] = useState(false)
   useDeepLinkNotificacoes()
@@ -196,8 +197,10 @@ export default function TabsLayout() {
       />
       <Tabs.Screen
         name="relatorios"
+        // Relatórios e totais do negócio são só do dono — funcionário nem vê a aba.
         options={{
           title: 'Relatórios',
+          href: souFuncionario ? null : undefined,
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons name={focused ? 'bar-chart' : 'bar-chart-outline'} size={size} color={color} />
           ),

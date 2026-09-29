@@ -271,8 +271,8 @@ export default function ConfiguracoesScreen() {
         </View>
       </View>
 
-      {/* Banner upgrade */}
-      {perfil.plano === 'gratuito' ? (
+      {/* Banner upgrade — gestão do plano é só do dono; funcionário nem vê */}
+      {perfil.plano === 'gratuito' && souFuncionario ? null : perfil.plano === 'gratuito' ? (
         <TouchableOpacity style={estilos.upgradeBanner} onPress={() => router.push('/planos')}>
           <View style={estilos.upgradeIconeBox}>
             <Text style={{ fontSize: 24 }}>🚀</Text>
@@ -327,14 +327,17 @@ export default function ConfiguracoesScreen() {
       <View style={estilos.card}>
         <View style={estilos.cardHeader}>
           <Text style={estilos.cardTitulo}>Dados do negócio</Text>
-          <TouchableOpacity
-            style={[estilos.editarBtn, editandoDados && estilos.cancelarBtn]}
-            onPress={() => { setEditandoDados(!editandoDados); setErros({}); setErroGeral('') }}
-          >
-            <Text style={[estilos.editarTexto, editandoDados && estilos.cancelarTexto]}>
-              {editandoDados ? 'Cancelar' : 'Editar'}
-            </Text>
-          </TouchableOpacity>
+          {/* Dados da loja são só do dono */}
+          {!souFuncionario && (
+            <TouchableOpacity
+              style={[estilos.editarBtn, editandoDados && estilos.cancelarBtn]}
+              onPress={() => { setEditandoDados(!editandoDados); setErros({}); setErroGeral('') }}
+            >
+              <Text style={[estilos.editarTexto, editandoDados && estilos.cancelarTexto]}>
+                {editandoDados ? 'Cancelar' : 'Editar'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {sucesso && (
@@ -369,14 +372,17 @@ export default function ConfiguracoesScreen() {
       <View style={estilos.card}>
         <View style={estilos.cardHeader}>
           <Text style={estilos.cardTitulo}>💳 Pix & Cobranças</Text>
-          <TouchableOpacity
-            style={[estilos.editarBtn, editandoPix && estilos.cancelarBtn]}
-            onPress={() => { setEditandoPix(!editandoPix); setErros({}) }}
-          >
-            <Text style={[estilos.editarTexto, editandoPix && estilos.cancelarTexto]}>
-              {editandoPix ? 'Cancelar' : 'Editar'}
-            </Text>
-          </TouchableOpacity>
+          {/* Chave Pix e dia de cobrança são só do dono */}
+          {!souFuncionario && (
+            <TouchableOpacity
+              style={[estilos.editarBtn, editandoPix && estilos.cancelarBtn]}
+              onPress={() => { setEditandoPix(!editandoPix); setErros({}) }}
+            >
+              <Text style={[estilos.editarTexto, editandoPix && estilos.cancelarTexto]}>
+                {editandoPix ? 'Cancelar' : 'Editar'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
         <Text style={estilos.secaoInfo}>
           Sua chave Pix aparece como QR Code na tela de pagamento do cliente.
@@ -556,11 +562,13 @@ export default function ConfiguracoesScreen() {
         </TouchableOpacity>
       )}
 
-      {/* Dados & exportação */}
-      <View style={estilos.card}>
-        <Text style={[estilos.cardTitulo, { marginBottom: 8 }]}>💾 Dados</Text>
-        <AcaoRow icone="download-outline" label="Exportar dados (CSV)" onPress={handleExportarCSV} ultimo />
-      </View>
+      {/* Dados & exportação — exportar é dado sensível do negócio, só do dono */}
+      {!souFuncionario && (
+        <View style={estilos.card}>
+          <Text style={[estilos.cardTitulo, { marginBottom: 8 }]}>💾 Dados</Text>
+          <AcaoRow icone="download-outline" label="Exportar dados (CSV)" onPress={handleExportarCSV} ultimo />
+        </View>
+      )}
 
       {/* Legal */}
       <View style={estilos.card}>
@@ -674,14 +682,17 @@ export default function ConfiguracoesScreen() {
           ultimo />
       </View>
 
-      {/* Conta */}
+      {/* Conta — excluir conta é decisão só do dono do negócio */}
       <View style={estilos.card}>
         <Text style={[estilos.cardTitulo, { marginBottom: 8 }]}>Conta</Text>
         <AcaoRow icone="log-out-outline" label="Sair da conta"
-          onPress={() => confirmar('Sair', 'Tem certeza que deseja sair da sua conta?', sair)} />
-        <AcaoRow icone="trash-outline" label="Excluir conta" cor={C.red}
-          onPress={handleExcluirConta}
-          ultimo />
+          onPress={() => confirmar('Sair', 'Tem certeza que deseja sair da sua conta?', sair)}
+          ultimo={souFuncionario} />
+        {!souFuncionario && (
+          <AcaoRow icone="trash-outline" label="Excluir conta" cor={C.red}
+            onPress={handleExcluirConta}
+            ultimo />
+        )}
       </View>
 
       <Text style={estilos.versao}>FiadoApp v1.0.7</Text>

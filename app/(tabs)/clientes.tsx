@@ -95,7 +95,7 @@ export default function ClientesScreen() {
   const { novo } = useLocalSearchParams<{ novo?: string }>()
   const { usuario } = useAuth()
   const { clientes, carregando, criar, buscar } = useClientes()
-  const { tenantId } = useTenant()
+  const { tenantId, souFuncionario } = useTenant()
   const { modulos } = useModulos(tenantId || usuario?.id)
 
   const [abaTop, setAbaTop] = useState<AbaTop>('lista')
@@ -690,7 +690,8 @@ export default function ClientesScreen() {
               <Campo label="Empresa (opcional)" value={empresa} onChangeText={setEmpresa} placeholder="Ex: Mercado do João" autoCapitalize="words" />
               <Campo label="Endereço (opcional)" value={endereco} onChangeText={setEndereco} placeholder="Ex: Rua das Flores, 123" autoCapitalize="words" />
               <Campo label="Observação" value={observacao} onChangeText={setObservacao} placeholder="Opcional" multiline numberOfLines={3} />
-              {modulos.limite_credito && (
+              {/* Limite de crédito é decisão do dono do negócio */}
+              {modulos.limite_credito && !souFuncionario && (
                 <Campo label="Limite de crédito (R$)" value={limiteCredito} onChangeText={v => setLimiteCredito(formatarInputMoeda(v))} keyboardType="decimal-pad" placeholder="Ex: 200,00 (opcional)" />
               )}
 

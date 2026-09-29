@@ -40,7 +40,7 @@ export default function CobrancasScreen() {
   const router = useRouter()
   const { aba: abaParam } = useLocalSearchParams<{ aba?: string }>()
   const { usuario } = useAuth()
-  const { tenantId } = useTenant()
+  const { tenantId, souFuncionario } = useTenant()
   const { modulos } = useModulos(tenantId || usuario?.id)
   const [aba, setAba] = useState<Aba>(abaParam === 'aberto' ? 'aberto' : 'vencidos')
   const [vencidos, setVencidos] = useState<ClienteVencido[]>([])
@@ -434,7 +434,8 @@ export default function CobrancasScreen() {
               {aba === 'vencidos' ? 'total em atraso' : 'total em aberto'}
             </Text>
           </View>
-          {aba === 'vencidos' && (
+          {/* Cobrança em massa é só do dono */}
+          {aba === 'vencidos' && !souFuncionario && (
             <TouchableOpacity
               style={[
                 estilos.btnCobrarTodos,

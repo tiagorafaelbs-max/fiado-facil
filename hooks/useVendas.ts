@@ -142,8 +142,13 @@ export function useVendas(clienteId?: string) {
     if (!session?.user) throw new Error('Sessão expirada. Faça login novamente.')
     const uid = await resolverTenantId(session.user.id)
     const { data: alvo } = await supabase.from('vendas').select('cliente_id').eq('id', id).eq('usuario_id', uid).single()
-    const { error } = await supabase.from('vendas').delete().eq('id', id).eq('usuario_id', uid)
+    // .select() no delete é obrigatório aqui: a RLS de funcionário agora recusa
+    // excluir venda sem a permissão `excluir_venda`, e um delete recusado pela RLS
+    // não retorna erro -- só afeta 0 linhas em silêncio. Sem o .select(), o código
+    // seguiria como se tivesse apagado.
+    const { data: apagada, error } = await supabase.from('vendas').delete().eq('id', id).eq('usuario_id', uid).select().maybeSingle()
     if (error) throw new Error(traduzErroBanco(error.message))
+    if (!apagada) throw new Error('Você não tem permissão para excluir esta venda.')
     if (alvo?.cliente_id) await reconciliarPagoCliente(alvo.cliente_id, uid)
     await buscar()
   }, [buscar])
@@ -152,8 +157,12 @@ export function useVendas(clienteId?: string) {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session?.user) throw new Error('Sessão expirada. Faça login novamente.')
     const uid = await resolverTenantId(session.user.id)
-    const { error } = await supabase.from('vendas').update(dados).eq('id', id).eq('usuario_id', uid)
+    // .select() obrigatório pelo mesmo motivo do excluirVenda -- a RLS de
+    // funcionário só permite editar venda própria, do dia, com a permissão ligada;
+    // fora disso o update afeta 0 linhas sem erro nenhum.
+    const { data: atualizada, error } = await supabase.from('vendas').update(dados).eq('id', id).eq('usuario_id', uid).select().maybeSingle()
     if (error) throw new Error(traduzErroBanco(error.message))
+    if (!atualizada) throw new Error('Você não tem permissão para editar esta venda.')
     const { data: alvo } = await supabase.from('vendas').select('cliente_id').eq('id', id).eq('usuario_id', uid).single()
     if (alvo?.cliente_id) await reconciliarPagoCliente(alvo.cliente_id, uid)
     await buscar()
@@ -164,8 +173,11 @@ export function useVendas(clienteId?: string) {
     if (!session?.user) throw new Error('Sessão expirada. Faça login novamente.')
     const uid = await resolverTenantId(session.user.id)
     const { data: alvo } = await supabase.from('pagamentos').select('cliente_id').eq('id', id).eq('usuario_id', uid).single()
-    const { error } = await supabase.from('pagamentos').delete().eq('id', id).eq('usuario_id', uid)
+    // Mesmo motivo do excluirVenda: a RLS de funcionário exige a permissão
+    // `excluir_venda` (reaproveitada pra pagamentos) pra apagar.
+    const { data: apagado, error } = await supabase.from('pagamentos').delete().eq('id', id).eq('usuario_id', uid).select().maybeSingle()
     if (error) throw error
+    if (!apagado) throw new Error('Você não tem permissão para excluir este pagamento.')
     if (alvo?.cliente_id) await reconciliarPagoCliente(alvo.cliente_id, uid)
     await buscar()
   }, [buscar])

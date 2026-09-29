@@ -20,6 +20,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { supabase } from '../lib/supabase'
 import { C } from '../constants/colors'
+import { useTenant } from '../hooks/useTenant'
 import {
   SKU_MENSAL, SKU_ANUAL, SKUS, MODULOS_CACHE_KEY,
   garantirConexaoIAP, enviarParaVerificacaoApple, verificarComprasApplePendentes,
@@ -50,6 +51,7 @@ const RECURSOS_PRO = [
 
 export default function PlanosScreen() {
   const router = useRouter()
+  const { souFuncionario } = useTenant()
   const [loading, setLoading] = useState<'monthly' | 'annual' | 'restore' | 'verificar' | null>(null)
   const [precoMensal, setPrecoMensal] = useState('R$ 19,90')
   const [precoAnual, setPrecoAnual]   = useState('R$ 149,90')
@@ -304,6 +306,23 @@ export default function PlanosScreen() {
 
   const labelMensal = isIOS ? `${precoMensal}/mês` : 'R$ 19,90/mês'
   const labelAnual  = isIOS ? `${precoAnual}/ano`  : 'R$ 149,90/ano'
+
+  // Assinatura é decisão e responsabilidade só do dono do negócio -- centraliza aqui
+  // em vez de esconder cada botão/alerta espalhado pelo app que levaria pra esta tela.
+  if (souFuncionario) {
+    return (
+      <ScrollView style={estilos.container} contentContainerStyle={estilos.content}>
+        <TouchableOpacity style={estilos.btnFechar} onPress={() => router.back()}>
+          <Ionicons name="close" size={20} color={C.text2} />
+        </TouchableOpacity>
+        <View style={[estilos.header, { marginTop: 40 }]}>
+          <Ionicons name="lock-closed-outline" size={40} color={C.text3} />
+          <Text style={[estilos.titulo, { marginTop: 16, textAlign: 'center' }]}>Assinatura gerenciada pelo dono</Text>
+          <Text style={[estilos.sub, { textAlign: 'center' }]}>Fale com o dono do negócio para mudar o plano.</Text>
+        </View>
+      </ScrollView>
+    )
+  }
 
   return (
     <ScrollView style={estilos.container} contentContainerStyle={estilos.content} showsVerticalScrollIndicator={false}>
