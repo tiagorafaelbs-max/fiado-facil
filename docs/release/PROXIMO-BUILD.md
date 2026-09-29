@@ -161,17 +161,35 @@ Testado com simulação isolada: sincronização de 4s de rede simulada + `enfil
 
 **Achado do Tiago, ao revisar a migration aplicada:** `lib/reconciliacao.ts` fazia `UPDATE vendas.pago` diretamente do cliente, tocando vendas de **qualquer dia/autor** do cliente. Com a nova RLS de funcionário (só edita venda própria, do mesmo dia), esse update passou a ser recusado em silêncio pra vendas que não são do funcionário — uma venda antiga do dono, quitada por um pagamento que o funcionário registrou, ficava presa em `pago=false` e continuava aparecendo como "em aberto" em `cobrancas.tsx`, `useNotificacoes.ts`, painel, ranking, clientes e no extrato do WhatsApp. Risco real: cobrar de novo quem já pagou.
 
-**Migration `reconciliar_pago_cliente_rpc.sql` — PROPOSTA, NÃO aplicada, aguardando aprovação do Tiago:**
-- RPC `reconciliar_pago_cliente(p_cliente_id uuid)`, `SECURITY DEFINER`, `search_path` fixo: confere que o cliente pertence a `tenant_id_atual()` (senão lança exceção), recalcula FIFO na mesma ordem da view `clientes_com_saldo` (vencimento → data da venda → id), atualiza só a coluna `pago` num único `UPDATE ... FROM` atômico.
-- `REVOKE` de `public`/`anon`, `GRANT` só pra `authenticated` — mesmo padrão de `tem_permissao()`.
+**Migration `reconciliar_pago_cliente_rpc.sql` — APLICADA em produção em 29/09.** Confirmado no banco: `prosecdef=true`, `search_path=public` fixo, `has_function_privilege('anon', ..., 'EXECUTE')=false`, `has_function_privilege('authenticated', ..., 'EXECUTE')=true`, e `proacl` sem entrada nenhuma pra `public`/`anon` (só `postgres`, `authenticated`, `service_role`).
+- RPC `reconciliar_pago_cliente(p_cliente_id uuid)`: confere que o cliente pertence a `tenant_id_atual()` (senão lança exceção), recalcula FIFO na mesma ordem da view `clientes_com_saldo` (vencimento → data da venda → id), atualiza só a coluna `pago` num único `UPDATE ... FROM` atômico.
 
-**App (feito, aguardando a migration):**
-- `lib/reconciliacao.ts`: `reconciliarPagoCliente(clienteId)` agora só chama a RPC via `supabase.rpc(...)` — perdeu o segundo parâmetro `uid` (a RPC deriva o tenant sozinha via `tenant_id_atual()`, não precisa mais receber de fora).
-- `hooks/useVendas.ts` e `hooks/useOffline.ts`: os 6 call sites atualizados pra chamar com um argumento só; `clientesParaReconciliar` virou `Set<string>` (não precisa mais guardar o `usuario_id` junto).
+**App:**
+- `lib/reconciliacao.ts`: `reconciliarPagoCliente(clienteId)` agora só chama a RPC via `supabase.rpc(...)` — perdeu o segundo parâmetro `uid` (a RPC deriva o tenant sozinha via `tenant_id_atual()`).
+- `hooks/useVendas.ts` e `hooks/useOffline.ts`: os 6 call sites atualizados pra chamar com um argumento só; `clientesParaReconciliar` virou `Set<string>`.
+
+**Testes via API direta (11/11 cenários OK)** — 3 contas de TESTE criadas/apagadas na hora (`*@fiadoapp-teste.invalid`, nunca conta de cliente real), chamando o REST/RPC do Supabase direto com o token de cada conta (não pela tela):
+
+| # | Cenário | Esperado | Obtido |
+|---|---|---|---|
+| 1 | Funcionário registra pagamento que quita venda antiga do dono | venda fica `pago=true` | `insert=201, rpc=204, pago=true` ✅ |
+| 2 | Pagamento excluído pelo dono | venda volta a `pago=false` | `delete=200 (1 linha), rpc=204, pago=false` ✅ |
+| 3 | Funcionário edita venda de outro (do dono) | bloqueado | `0 linhas afetadas` ✅ |
+| 4 | Funcionário edita venda própria de ontem | bloqueado | `0 linhas afetadas` ✅ |
+| 5 | Funcionário edita venda própria de hoje (permissão ligada) | permitido | `1 linha afetada` ✅ |
+| 6 | Mesmo cenário 5, com `editar_venda` desligado | bloqueado | `0 linhas afetadas` ✅ |
+| 7 | Funcionário exclui cliente | bloqueado | `0 linhas afetadas` ✅ |
+| 8 | Funcionário chama a RPC pra cliente de outra loja | erro | `400, "Cliente não encontrado ou não pertence ao seu negócio"` ✅ |
+| 9 | Funcionário exclui venda de outro dia (`excluir_venda` ligado, sem exigir autoria/data) | permitido | `1 linha afetada` ✅ |
+| 10 | Mesmo cenário 9, com `excluir_venda` desligado | bloqueado | `0 linhas afetadas` ✅ |
+| 11 | Dono edita venda antiga e exclui o cliente de teste (sanity) | ambos permitidos | `1 linha cada` ✅ |
+
+Contas de teste e todos os dados criados (cliente, vendas, pagamento, vínculo de equipe) apagados logo depois via `DELETE FROM auth.users` (cascade limpa o resto) — nada ficou em produção além do que já era esperado.
 
 **Notas do Tiago, não bloqueantes, registradas pra depois:**
 - INSERT de funcionário aceita `criado_por` de outra pessoa no payload — considerar exigir `criado_por = auth.uid()` também no `WITH CHECK` do INSERT de funcionário numa limpeza futura.
 - `tenant_id_atual()` (função antiga, já em produção) não tem `REVOKE FROM PUBLIC` como as funções mais novas — impacto baixo (pra `anon`, `auth.uid()` é null), mas fica pra uma limpeza futura.
+- Adicionar `raise exception` explícito na RPC `reconciliar_pago_cliente` se `tenant_id_atual()` vier nulo (hoje, se `v_tenant` for null, a comparação `v_dono_cliente <> v_tenant` já é null e o `if` entra por `v_dono_cliente is null` só se o cliente também não existir — vale um raise dedicado pra esse caso ficar explícito, não implícito).
 
 **Pendente:** testes via API direta (não só pela tela) com 2 contas de TESTE (dono + funcionário, nunca contas de clientes) depois desta migration aplicada — cobrindo cada permissão ligada/desligada, editar lançamento de outra pessoa, editar de ontem, excluir cliente, ler perfil do dono, isolamento entre lojas diferentes, e o cenário específico "funcionário registra pagamento que quita venda antiga do dono → venda fica `pago=true` e some de Cobranças". `convidar-funcionario` só publica no dia do lançamento, com aprovação do Tiago.
 
