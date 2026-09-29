@@ -3,11 +3,9 @@ import {
   Alert, Linking, Platform, ActivityIndicator, AppState,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import { useRouter } from 'expo-router'
-import { useState, useEffect, useRef } from 'react'
+import { useRouter, useFocusEffect } from 'expo-router'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import {
-  initConnection,
-  endConnection,
   fetchProducts,
   requestPurchase,
   purchaseUpdatedListener,
@@ -22,14 +20,12 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { supabase } from '../lib/supabase'
 import { C } from '../constants/colors'
+import {
+  SKU_MENSAL, SKU_ANUAL, SKUS, MODULOS_CACHE_KEY,
+  garantirConexaoIAP, enviarParaVerificacaoApple, verificarComprasApplePendentes,
+} from '../lib/appleIAP'
 
 const isIOS = Platform.OS === 'ios'
-
-const SKU_MENSAL = 'com.fiadofacil.app.pro.monthly'
-const SKU_ANUAL  = 'com.fiadofacil.app.pro.annual'
-const SKUS       = [SKU_MENSAL, SKU_ANUAL]
-
-const MODULOS_CACHE_KEY = '@fiado_modulos'
 
 const RECURSOS_GRATUITO = [
   { texto: 'Até 10 clientes', ok: true },
@@ -58,23 +54,22 @@ export default function PlanosScreen() {
   const [precoMensal, setPrecoMensal] = useState('R$ 19,90')
   const [precoAnual, setPrecoAnual]   = useState('R$ 149,90')
   const [aguardandoMp, setAguardandoMp] = useState(false)
-  const iapPronto    = useRef(false)
-  const iapIniciando = useRef(false)
+  const [ativando, setAtivando] = useState(false)
   const appStateRef  = useRef(AppState.currentState)
   const appStateSub  = useRef<ReturnType<typeof AppState.addEventListener> | null>(null)
 
-  // Inicializa IAP no iOS
+  // Inicializa IAP no iOS -- a conexão é compartilhada com o AppleBackfillListener
+  // global (app/_layout.tsx), então esta tela nunca fecha a conexão sozinha (endConnection
+  // derrubaria a verificação em segundo plano do app inteiro).
   useEffect(() => {
     if (!isIOS) return
     let purchaseUpdateSub: ReturnType<typeof purchaseUpdatedListener>
     let purchaseErrorSub: ReturnType<typeof purchaseErrorListener>
 
     async function setupIAP() {
-      if (iapIniciando.current || iapPronto.current) return
-      iapIniciando.current = true
       try {
-        await initConnection()
-        iapPronto.current = true
+        const conectado = await garantirConexaoIAP()
+        if (!conectado) return
 
         purchaseUpdateSub = purchaseUpdatedListener(async (purchase: Purchase) => {
           // IAP v15 / Nitro: receipt está em purchaseToken (JWS) ou transactionReceipt
@@ -105,8 +100,6 @@ export default function PlanosScreen() {
         }
       } catch (e: any) {
         console.warn('[IAP] setupIAP falhou:', e?.message ?? e)
-      } finally {
-        iapIniciando.current = false
       }
     }
 
@@ -114,9 +107,15 @@ export default function PlanosScreen() {
     return () => {
       purchaseUpdateSub?.remove()
       purchaseErrorSub?.remove()
-      endConnection()
     }
   }, [])
+
+  // Verifica compras Apple pendentes ao voltar a esta tela (ex: usuário fechou o app
+  // no meio da compra e reabriu direto nos planos) -- reaproveita o mesmo mecanismo
+  // do AppleBackfillListener global.
+  useFocusEffect(useCallback(() => {
+    if (isIOS) verificarComprasApplePendentes()
+  }, []))
 
   // Android: detecta retorno do MercadoPago pelo AppState
   useEffect(() => {
@@ -171,41 +170,20 @@ export default function PlanosScreen() {
   }
 
   async function handleApplePurchaseSuccess(purchase: Purchase) {
+    setAtivando(true)
     try {
       // Finaliza transação Apple — obrigatório independente do backend
       await finishTransaction({ purchase, isConsumable: false })
 
-      // Chama backend para ativar plano (não é best-effort — é obrigatório)
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session) {
-        const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL
-        const resp = await fetch(`${supabaseUrl}/functions/v1/apple-iap-verify`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            receipt: (purchase as any).purchaseToken ?? (purchase as any).transactionReceipt,
-            productId: purchase.productId,
-          }),
-        })
-        if (resp.ok) {
-          // Invalida cache para que módulos sejam recarregados
-          await AsyncStorage.removeItem(MODULOS_CACHE_KEY)
-          Alert.alert(
-            '🎉 Assinatura ativa!',
-            'Bem-vindo ao FiadoApp Pro! Seus benefícios já estão disponíveis.',
-            [{ text: 'Continuar', onPress: () => router.back() }],
-          )
-        } else {
-          const errText = await resp.text()
-          console.warn('[IAP] apple-iap-verify retornou erro:', errText)
-          Alert.alert(
-            'Compra registrada',
-            'Sua compra foi processada pela Apple, mas houve um erro ao ativar os benefícios. Use "Restaurar compras" para tentar novamente.',
-          )
-        }
+      // Chama backend para ativar plano, com retentativa automática (item 2: uma compra
+      // confirmada pela Apple já ficou 1h16 sem ativar por uma falha transitória aqui).
+      const ok = await enviarParaVerificacaoApple(purchase)
+      if (ok) {
+        Alert.alert(
+          '🎉 Assinatura ativa!',
+          'Bem-vindo ao FiadoApp Pro! Seus benefícios já estão disponíveis.',
+          [{ text: 'Continuar', onPress: () => router.back() }],
+        )
       } else {
         Alert.alert(
           'Compra registrada',
@@ -220,34 +198,27 @@ export default function PlanosScreen() {
         'Sua compra foi concluída. Se os benefícios não aparecerem, use "Restaurar compras".',
       )
     } finally {
+      setAtivando(false)
       setLoading(null)
     }
   }
 
   async function handleAssinarIOS(sku: string, planType: 'monthly' | 'annual') {
-    if (!iapPronto.current) {
-      try {
-        if (!iapIniciando.current) {
-          iapIniciando.current = true
-          await initConnection()
-          iapPronto.current  = true
-          iapIniciando.current = false
-        } else {
-          await new Promise(resolve => setTimeout(resolve, 1500))
-          if (!iapPronto.current) {
-            Alert.alert('Loja indisponível', 'Não foi possível conectar à App Store. Tente novamente.')
-            return
-          }
-        }
-      } catch (e: any) {
-        iapIniciando.current = false
-        Alert.alert('Loja indisponível', 'Verifique sua conexão e tente novamente.')
-        return
-      }
+    const conectado = await garantirConexaoIAP()
+    if (!conectado) {
+      Alert.alert('Loja indisponível', 'Não foi possível conectar à App Store. Verifique sua conexão e tente novamente.')
+      return
     }
     setLoading(planType)
     try {
-      await requestPurchase({ request: { apple: { sku } }, type: 'subs' })
+      // appAccountToken = id do usuário Supabase -- permite a apple-server-notifications
+      // casar o webhook da Apple com o perfil certo quando ainda não há
+      // apple_original_transaction_id vinculado (item 1b).
+      const { data: { session } } = await supabase.auth.getSession()
+      await requestPurchase({
+        request: { apple: { sku, appAccountToken: session?.user.id } },
+        type: 'subs',
+      })
       // Resultado chega via purchaseUpdatedListener
     } catch (err: any) {
       if (err?.code !== ErrorCode.UserCancelled) {
@@ -340,6 +311,13 @@ export default function PlanosScreen() {
       <TouchableOpacity style={estilos.btnFechar} onPress={() => router.back()}>
         <Ionicons name="close" size={20} color={C.text2} />
       </TouchableOpacity>
+
+      {ativando && (
+        <View style={estilos.ativandoBanner}>
+          <ActivityIndicator color={C.white} size="small" />
+          <Text style={estilos.ativandoTexto}>Pagamento confirmado, ativando seu Pro…</Text>
+        </View>
+      )}
 
       <View style={estilos.header}>
         <View style={estilos.badgeNovo}>
@@ -486,6 +464,11 @@ const estilos = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
   content: { padding: 20, paddingBottom: 48 },
   btnFechar: { alignSelf: 'flex-end', width: 36, height: 36, borderRadius: 18, backgroundColor: C.border, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  ativandoBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: C.green, borderRadius: 14, padding: 14, marginBottom: 16,
+  },
+  ativandoTexto: { flex: 1, color: C.white, fontWeight: '700', fontSize: 13 },
   header: { alignItems: 'center', marginBottom: 24, paddingTop: 8 },
   badgeNovo: { backgroundColor: C.greenLight, borderRadius: 99, paddingHorizontal: 14, paddingVertical: 5, borderWidth: 1, borderColor: C.greenMid, marginBottom: 12 },
   badgeNovoTexto: { fontSize: 12, color: C.green, fontWeight: '700' },

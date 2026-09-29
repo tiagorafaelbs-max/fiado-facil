@@ -115,6 +115,10 @@ Deno.serve(async (req) => {
       console.error('[apple-server-notifications] Transação sem originalTransactionId')
       return new Response('Missing originalTransactionId', { status: 400 })
     }
+    // appAccountToken = id do usuário Supabase (UUID), enviado pelo app em todo
+    // requestPurchase novo -- serve de fallback quando o perfil ainda não tem
+    // apple_original_transaction_id gravado (assinantes anteriores a este vínculo).
+    const appAccountToken = transactionInfo.appAccountToken as string | undefined
 
     // signedRenewalInfo só vem em eventos de renovação/falha -- usado pra checar
     // se a carência (grace period) do DID_FAIL_TO_RENEW já expirou de verdade,
@@ -135,24 +139,48 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     )
 
-    const { data: perfil } = await supabase
+    let { data: perfil } = await supabase
       .from('perfis')
       .select('id, modulos')
       .eq('apple_original_transaction_id', originalTransactionId)
       .maybeSingle()
 
+    // Fallback: assinantes que compraram antes deste vínculo existir não têm
+    // apple_original_transaction_id gravado -- sem isso, cancelamento/expiração deles
+    // seria sempre ignorado (achado do Tiago, 29/09). appAccountToken é o próprio
+    // UUID do usuário Supabase, então dá pra casar direto pelo id do perfil, e a
+    // ativarPro()/revogarPro() abaixo já grava apple_original_transaction_id pra essa
+    // conta não precisar mais do fallback nas próximas notificações.
+    if (!perfil && appAccountToken) {
+      const { data: perfilPorToken } = await supabase
+        .from('perfis')
+        .select('id, modulos')
+        .eq('id', appAccountToken)
+        .maybeSingle()
+      perfil = perfilPorToken
+    }
+
     if (!perfil) {
-      // Sem perfil vinculado (ex: compra feita antes desta migration existir, ou
-      // apple-iap-verify falhou ao gravar o originalTransactionId). Responde 200
-      // pra Apple não ficar re-tentando pra sempre -- fica só no log pra investigar.
-      console.warn(`[apple-server-notifications] Nenhum perfil com apple_original_transaction_id=${originalTransactionId} (evento ${notificationType}${subtype ? '/' + subtype : ''})`)
+      // Sem perfil vinculado por nenhum dos dois métodos. Responde 200 pra Apple não
+      // ficar re-tentando pra sempre -- loga pra o Tiago conciliar manualmente.
+      console.warn(`[apple-server-notifications] Nenhum perfil encontrado (originalTransactionId=${originalTransactionId}, appAccountToken=${appAccountToken ?? 'ausente'}, evento ${notificationType}${subtype ? '/' + subtype : ''})`)
+      await supabase.from('apple_eventos_nao_conciliados').insert({
+        original_transaction_id: originalTransactionId,
+        notification_type: notificationType,
+        subtype: subtype ?? null,
+        app_account_token: appAccountToken ?? null,
+      })
       return new Response('OK', { status: 200 })
     }
 
     async function ativarPro() {
       const modulosAtualizados: Record<string, unknown> = { ...(perfil!.modulos ?? {}) }
       for (const k of MODULOS_PRO_KEYS) modulosAtualizados[k] = true
-      const { error } = await supabase.from('perfis').update({ plano: 'pro', modulos: modulosAtualizados }).eq('id', perfil!.id)
+      // Grava o vínculo agora se veio só pelo fallback do appAccountToken -- assim as
+      // próximas notificações dessa conta já batem direto, sem precisar do fallback.
+      const { error } = await supabase.from('perfis')
+        .update({ plano: 'pro', modulos: modulosAtualizados, apple_original_transaction_id: originalTransactionId })
+        .eq('id', perfil!.id)
       if (error) throw error
       console.log(`[apple-server-notifications] Pro ativado para ${perfil!.id} via ${notificationType}`)
     }

@@ -21,6 +21,27 @@
 | 12 | 26/09 | Botão de olho pra ocultar/mostrar o saldo total no dashboard (preferência salva no aparelho) | `app/(tabs)/index.tsx` | JS |
 | 13 | 26/09 | Botão "Sugestões e reclamações": trocado de e-mail (falha silenciosa sem app configurado) para WhatsApp, com e-mail como fallback | `app/(tabs)/configuracoes.tsx` | JS |
 
+## Lote 29/09 — fecha lacunas do Urgente 2 + delay de ativação Apple + checklist dia 0
+
+Decisão do Tiago (29/09) sobre o relatório da Growth Fase 1: aprovou o pacote com 3 correções obrigatórias antes de publicar `apple-server-notifications`, mais uma investigação de incidente real e o checklist do item 6.
+
+| # | Mudança | Arquivos | Tipo |
+|---|---|---|---|
+| 14 | **Item 1a** — backfill silencioso: ao abrir o app e ao voltar à tela de planos, se não há `apple_original_transaction_id` vinculado (ou o vínculo ainda não existe), verifica `getAvailablePurchases()` e reenvia pro `apple-iap-verify` sem alertar o usuário. Cobre os assinantes atuais sem o vínculo. | `lib/appleIAP.ts` (novo), `app/_layout.tsx` (`AppleBackfillListener`), `app/planos.tsx` (`useFocusEffect`) | JS |
+| 15 | **Item 1b** — `appAccountToken` (UUID do usuário) enviado em todo `requestPurchase` novo; `apple-server-notifications` casa primeiro por `apple_original_transaction_id` e, se não achar, por `appAccountToken` — e já grava o vínculo pra não precisar do fallback de novo | `app/planos.tsx`, `supabase/functions/apple-server-notifications/index.ts` | JS + edge function (não publicada) |
+| 16 | **Item 1c** — evento que não bate com nenhum perfil (nem por transação, nem por token) vai pra tabela `apple_eventos_nao_conciliados` (sem dado pessoal) em vez de só ficar no log | migration `apple_eventos_nao_conciliados.sql`, `supabase/functions/apple-server-notifications/index.ts` | banco (não aplicada) + edge function (não publicada) |
+| 17 | **Item 2** — investigado o atraso de 1h16 na compra de 29/09: o fluxo depende só do `purchaseUpdatedListener` disparar; se o app fechar entre a compra e o evento (ou o StoreKit demorar pra resolver), a ativação fica presa até o usuário lembrar de "Restaurar compras". Mitigado com: retentativa automática (3x, backoff) na chamada ao `apple-iap-verify`, e reaproveitando o mecanismo do item 1a (verifica compra pendente ao abrir o app / voltar aos planos) pra pegar o caso em que o listener nunca disparou. Não elimina 100% (StoreKit pode legitimamente demorar em compras que pedem autenticação extra), mas fecha o caso de o evento ser perdido de vez. | `lib/appleIAP.ts`, `app/planos.tsx` | JS |
+| 18 | Banner "Pagamento confirmado, ativando seu Pro…" durante a chamada ao backend após a compra | `app/planos.tsx` | JS |
+| 19 | **Item 6 (aprovado)** — checklist "1º cliente · 1ª venda · 2º cliente · 2ª venda" no dashboard, visível só nos 2 primeiros dias da conta, dispensável, some sozinho quando completo. `checklist_dia0_completado_em` grava quando (e de qual conta) completou, pra medir ativação | migration `checklist_dia0.sql`, `hooks/useChecklistDia0.ts` (novo), `components/ui/ChecklistDia0.tsx` (novo), `app/(tabs)/index.tsx` | JS + banco (não aplicada) |
+
+**Ordem de publicação obrigatória do Urgente 2 (pedida pelo Tiago, só depois da aprovação dele):**
+1. `apple_original_transaction_id.sql` (já escrita, item 13 do lote anterior)
+2. `apple_eventos_nao_conciliados.sql` (novo, item 16 acima)
+3. `apple-iap-verify` (já tem a gravação do campo, pronta desde o lote anterior)
+4. `apple-server-notifications` (fallback + log, item 15/16 acima)
+
+**Não publicado/aplicado ainda** — aguardando aprovação explícita do Tiago pra cada passo, conforme pedido dele.
+
 ## Já aplicado no servidor (edge functions — não depende de build do app)
 - 26/09: **Vulnerabilidade crítica corrigida** em `apple-iap-verify` — recibos JWS (StoreKit 2) não validavam a cadeia de certificado até a Root CA da Apple, permitindo forjar um recibo e ganhar Pro sem pagar. Corrigido com validação de cadeia completa (`@peculiar/x509`), testado localmente com ataque simulado antes do deploy. **Correção do relatório de 26/09:** o caso "Mimos Da Suely" (Oseas) NÃO foi exploração da falha — é cliente legítimo (sessão do app oficial, 127 clientes/129 vendas lançados, contatou o suporte). Decisão do Tiago: manter o Pro dela, não alterar nada.
 - 26/09: **Bug crítico corrigido** em `subscribe`/`mercadopago-webhook` — o `notification_url` apontava para `mp-webhook`, que tem o HMAC fora do formato oficial do MP e rejeitava toda notificação real com 401. Revertido para `mercadopago-webhook` (formato correto). Pagamentos Android via MP não estavam ativando o Pro até esta correção. Também corrigido `plan_id` sempre gravado como mensal mesmo em assinaturas anuais.
@@ -49,6 +70,8 @@
 11. **Android com R8**: app abre, nenhuma tela quebrada, compra/assinatura via Mercado Pago funciona de ponta a ponta.
 12. **iOS**: compra do plano mensal em sandbox (roteiro já documentado) com o app 1.0.12.
 13. **Atualização 1.0.11 → 1.0.12** num aparelho com o app já instalado: login mantido, dados intactos, nada pendente na fila offline se perde.
+14. **Backfill Apple (item 1a)**: conta iOS com Pro ativo, sem `apple_original_transaction_id` (simular limpando a coluna), abrir o app → confirmar que o campo é preenchido sozinho sem nenhum alerta aparecer.
+15. **Checklist dia 0**: conta nova, cadastrar 1 cliente e 1 venda → checklist mostra 2/4 feitos; completar os 4 → card some sozinho; dispensar manualmente → não volta a aparecer mesmo sem completar.
 
 ## ⚠️ Achado da revisão de hoje — pagamento offline sem proteção contra duplicata (BLOQUEIA item 6 acima)
 

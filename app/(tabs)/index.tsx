@@ -16,9 +16,11 @@ import { useNotificacoes } from '../../hooks/useNotificacoes'
 import { useAvaliacaoApp } from '../../hooks/useAvaliacaoApp'
 import { useModulos } from '../../hooks/useModulos'
 import { useTenant } from '../../hooks/useTenant'
+import { useChecklistDia0 } from '../../hooks/useChecklistDia0'
 import { Avatar } from '../../components/ui/Avatar'
 import { BadgeStatus } from '../../components/ui/BadgeStatus'
 import { AppTour, type TourStep } from '../../components/ui/AppTour'
+import { ChecklistDia0 } from '../../components/ui/ChecklistDia0'
 import { formatarMoeda } from '../../lib/validacao'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
@@ -33,6 +35,7 @@ export default function DashboardScreen() {
   const { online, pendentes } = useOffline()
   const { tenantId } = useTenant()
   const { modulos } = useModulos(tenantId || usuario?.id)
+  const checklistDia0 = useChecklistDia0(tenantId)
   const { width } = useWindowDimensions()
   const isTablet = width >= 768
   const [diaCobranca, setDiaCobranca] = useState<number | null>(null)
@@ -139,7 +142,7 @@ export default function DashboardScreen() {
     })
   }, [tenantId])
 
-  useFocusEffect(useCallback(() => { buscar() }, [buscar]))
+  useFocusEffect(useCallback(() => { buscar(); checklistDia0.recarregar() }, [buscar, checklistDia0.recarregar]))
 
   useEffect(() => {
     if (!tenantId) return
@@ -314,6 +317,16 @@ export default function DashboardScreen() {
                   Sem conexão · {pendentes > 0 ? `${pendentes} operação(ões) pendentes` : 'dados podem estar desatualizados'}
                 </Text>
               </View>
+            )}
+
+            {checklistDia0.visivel && (
+              <ChecklistDia0
+                primeiroCliente={checklistDia0.primeiroCliente}
+                primeiraVenda={checklistDia0.primeiraVenda}
+                segundoCliente={checklistDia0.segundoCliente}
+                segundaVenda={checklistDia0.segundaVenda}
+                onDispensar={checklistDia0.dispensar}
+              />
             )}
 
             {/* Alertas */}

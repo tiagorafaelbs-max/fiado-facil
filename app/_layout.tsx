@@ -1,8 +1,9 @@
 import { Stack, useRouter } from 'expo-router'
-import { Platform, View, Text, ScrollView, Linking } from 'react-native'
+import { AppState, Platform, View, Text, ScrollView, Linking } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
-import { Component, ReactNode, useEffect } from 'react'
+import { Component, ReactNode, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { verificarComprasApplePendentes } from '../lib/appleIAP'
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { erro: string | null; stack: string | null }> {
   constructor(props: any) {
@@ -47,6 +48,29 @@ function AuthListener() {
       }
     })
     return () => subscription.unsubscribe()
+  }, [])
+
+  return null
+}
+
+// iOS-only: reconcilia assinatura Apple em segundo plano ao abrir o app (item 1a/2
+// do pedido do Tiago em 29/09) -- pega tanto assinantes antigos sem
+// apple_original_transaction_id vinculado quanto compras que o purchaseUpdatedListener
+// da tela de planos perdeu. Nunca mostra alerta; falha em silêncio.
+function AppleBackfillListener() {
+  const appStateRef = useRef(AppState.currentState)
+
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return
+    verificarComprasApplePendentes()
+
+    const sub = AppState.addEventListener('change', (nextState) => {
+      if (appStateRef.current.match(/inactive|background/) && nextState === 'active') {
+        verificarComprasApplePendentes()
+      }
+      appStateRef.current = nextState
+    })
+    return () => sub.remove()
   }, [])
 
   return null
@@ -100,6 +124,7 @@ export default function RootLayout() {
       <SafeGestureWrapper>
         <StatusBar style="dark" />
         <AuthListener />
+        <AppleBackfillListener />
         <DeepLinkHandler />
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />
