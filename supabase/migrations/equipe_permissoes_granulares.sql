@@ -80,9 +80,14 @@ create policy vendas_update_funcionario on public.vendas
     and criado_por = auth.uid()
     and (criado_em at time zone 'America/Sao_Paulo')::date = (now() at time zone 'America/Sao_Paulo')::date
   )
+  -- Repete a checagem de mesmo dia sobre a linha NOVA: sem isso, o próprio update
+  -- permitido poderia adiantar criado_em pra amanhã (PostgREST aceita qualquer
+  -- coluna no payload; a RLS é a única barreira) e reabrir a janela de edição
+  -- indefinidamente -- achado do Fiscal, 29/09.
   with check (
     usuario_id = public.tenant_id_atual()
     and criado_por = auth.uid()
+    and (criado_em at time zone 'America/Sao_Paulo')::date = (now() at time zone 'America/Sao_Paulo')::date
   );
 
 -- Dono: sem restrição.
@@ -122,9 +127,12 @@ create policy pagamentos_update_funcionario on public.pagamentos
     and criado_por = auth.uid()
     and (criado_em at time zone 'America/Sao_Paulo')::date = (now() at time zone 'America/Sao_Paulo')::date
   )
+  -- Mesmo motivo do with check de vendas_update_funcionario: fecha a brecha de
+  -- adiantar criado_em pra reabrir a janela de edição.
   with check (
     usuario_id = public.tenant_id_atual()
     and criado_por = auth.uid()
+    and (criado_em at time zone 'America/Sao_Paulo')::date = (now() at time zone 'America/Sao_Paulo')::date
   );
 
 create policy pagamentos_delete_dono on public.pagamentos
