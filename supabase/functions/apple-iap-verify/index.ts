@@ -137,6 +137,12 @@ serve(async (req) => {
     }
 
     let planoTipo: 'monthly' | 'annual' = 'monthly'
+    // Gravado em perfis.apple_original_transaction_id -- é a chave que a function
+    // apple-server-notifications usa pra saber de quem é uma assinatura quando a
+    // Apple avisa expiração/falha de renovação/reembolso (o webhook da Apple só
+    // manda esse id, nunca o user_id do Supabase). Requer a migration
+    // apple_original_transaction_id.sql (proposta, ainda não aplicada).
+    let originalTransactionId: string | null = null
 
     if (isJWS(receipt)) {
       // StoreKit 2: verifica assinatura Apple antes de confiar no payload
@@ -178,6 +184,7 @@ serve(async (req) => {
       }
 
       planoTipo = pid === SKU_ANUAL ? 'annual' : 'monthly'
+      originalTransactionId = (payload.originalTransactionId as string | number | undefined)?.toString() ?? null
       console.log(`JWS valido: produto=${pid}, expira=${new Date(expiresMs).toISOString()}`)
 
     } else {
@@ -233,6 +240,7 @@ serve(async (req) => {
       }
 
       planoTipo = activeSub.product_id === SKU_ANUAL ? 'annual' : 'monthly'
+      originalTransactionId = activeSub.original_transaction_id ?? null
     }
 
     // Lê módulos atuais para fazer merge
@@ -247,9 +255,18 @@ serve(async (req) => {
       equipe: true,
     }
 
+    // ATENÇÃO na hora de publicar: `apple_original_transaction_id` só pode entrar
+    // no payload DEPOIS que a migration apple_original_transaction_id.sql for
+    // aplicada -- se essa coluna não existir ainda, o update abaixo falha por
+    // inteiro (coluna inexistente) e QUEBRA toda ativação de compra, não só o
+    // campo novo. Ordem obrigatória: 1) aplicar a migration, 2) só então publicar
+    // esta function.
+    const updatePayload: Record<string, unknown> = { plano: 'pro', modulos: modulosAtualizados }
+    if (originalTransactionId) updatePayload.apple_original_transaction_id = originalTransactionId
+
     const { error: updateError } = await supabase
       .from('perfis')
-      .update({ plano: 'pro', modulos: modulosAtualizados })
+      .update(updatePayload)
       .eq('id', user.id)
 
     if (updateError) {
