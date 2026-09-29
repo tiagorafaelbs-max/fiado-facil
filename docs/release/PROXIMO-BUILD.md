@@ -191,7 +191,7 @@ Contas de teste e todos os dados criados (cliente, vendas, pagamento, vínculo d
 - `tenant_id_atual()` (função antiga, já em produção) não tem `REVOKE FROM PUBLIC` como as funções mais novas — impacto baixo (pra `anon`, `auth.uid()` é null), mas fica pra uma limpeza futura.
 - Adicionar `raise exception` explícito na RPC `reconciliar_pago_cliente` se `tenant_id_atual()` vier nulo (hoje, se `v_tenant` for null, a comparação `v_dono_cliente <> v_tenant` já é null e o `if` entra por `v_dono_cliente is null` só se o cliente também não existir — vale um raise dedicado pra esse caso ficar explícito, não implícito).
 
-**Pendente:** testes via API direta (não só pela tela) com 2 contas de TESTE (dono + funcionário, nunca contas de clientes) depois desta migration aplicada — cobrindo cada permissão ligada/desligada, editar lançamento de outra pessoa, editar de ontem, excluir cliente, ler perfil do dono, isolamento entre lojas diferentes, e o cenário específico "funcionário registra pagamento que quita venda antiga do dono → venda fica `pago=true` e some de Cobranças". `convidar-funcionario` só publica no dia do lançamento, com aprovação do Tiago.
+Testes concluídos (tabela acima, 11/11 ✅) — usaram 3 contas de teste, não 2: além de dono + funcionário, uma terceira conta ("outro dono") foi necessária pra testar isolamento entre lojas de verdade (um cliente de tenant genuinamente não relacionado, não dava pra simular só com dono+funcionário). `convidar-funcionario` só publica no dia do lançamento, com aprovação do Tiago.
 
 ## Backlog 1.0.13 (não implementar agora — só registrar)
 - Aviso de operação presa por permissão (funcionário desativado / outro usuário logado no aparelho) enquanto uma operação fica na fila offline sem conseguir sincronizar.
