@@ -193,6 +193,18 @@ Contas de teste e todos os dados criados (cliente, vendas, pagamento, vínculo d
 
 Testes concluídos (tabela acima, 11/11 ✅) — usaram 3 contas de teste, não 2: além de dono + funcionário, uma terceira conta ("outro dono") foi necessária pra testar isolamento entre lojas de verdade (um cliente de tenant genuinamente não relacionado, não dava pra simular só com dono+funcionário). `convidar-funcionario` só publica no dia do lançamento, com aprovação do Tiago.
 
+## Lote 29/09 (5) — convite de funcionário não funcionava
+
+**Achado do Tiago, revisando antes de publicar `convidar-funcionario`:** `inviteUserByEmail(email)` era chamado sem `redirectTo` — o link do e-mail caía no Site URL padrão do projeto (não é o esquema do app), então o funcionário nunca conseguia abrir o FiadoApp pra criar a senha. Faltava também tratar `type=invite` no deep link (só `recovery` era tratado) e avisar o dono sobre abrir o e-mail no celular com o app instalado.
+
+**Corrigido:**
+- `supabase/functions/convidar-funcionario/index.ts` (ainda não publicada): `inviteUserByEmail(email, { redirectTo: 'fiadofacil://nova-senha', data: { nome_negocio } })` — mesmo `redirectTo` que `resetPasswordForEmail` já usa (`hooks/useAuth.ts`), então já está na allowlist de redirect URLs do projeto, sem precisar mexer no dashboard.
+- `app/_layout.tsx` (`DeepLinkHandler`): trata `type === 'invite'` igual a `'recovery'` (nos dois fluxos, PKCE `code=` e implícito `#access_token=`), e passa `tipo` como param de rota pra `nova-senha`.
+- `app/(auth)/nova-senha.tsx`: com `tipo=invite`, título vira "Crie sua senha para entrar no FiadoApp", texto do botão vira "Criar senha e entrar", e depois de salvar entra direto em `/(tabs)` como funcionário (a sessão já é válida desde o `setSession` do deep link — não precisa passar pelo login de novo). Sem o param (recovery normal), comportamento inalterado.
+- `app/equipe.tsx`: aviso no formulário de convite e no alerta de sucesso — "abrir o e-mail no celular com o FiadoApp instalado" + checar spam.
+
+**Pendente (só o Tiago pode fazer):** teste real no aparelho via TestFlight com e-mail de teste — convite → e-mail → toque no link no celular → cria senha → entra como funcionário → confere permissões. Também confirmar o comportamento esperado de abrir o link sem o app instalado (não funciona; o aviso do item acima cobre esse caso, mas vale conferir a mensagem de erro do navegador não fica confusa).
+
 ## Backlog 1.0.13 (não implementar agora — só registrar)
 - Aviso de operação presa por permissão (funcionário desativado / outro usuário logado no aparelho) enquanto uma operação fica na fila offline sem conseguir sincronizar.
 - Confirmação de pagamento repetido: mesmo cliente, mesmo valor, lançado por outra pessoa, nos últimos 30 minutos — hoje não há nenhum aviso, só a decisão consciente do comerciante evita duplicidade.

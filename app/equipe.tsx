@@ -71,7 +71,10 @@ export default function EquipeScreen() {
 
       setModalAberto(false)
       setNome(''); setEmail('')
-      Alert.alert('Convite enviado', `${nome} vai receber um e-mail para criar a senha e acessar o app.`)
+      Alert.alert(
+        'Convite enviado',
+        `${nome} vai receber um e-mail para criar a senha. Ele precisa abrir esse e-mail no celular com o FiadoApp instalado (e checar a caixa de spam, se não chegar).`,
+      )
       await buscar()
     } catch (e: any) {
       setErro(e.message ?? 'Erro ao convidar funcionário')
@@ -181,6 +184,9 @@ export default function EquipeScreen() {
         <View style={estilos.formConvite}>
           <Campo label="Nome do funcionário" value={nome} onChangeText={setNome} placeholder="Ex: Donizetti" />
           <Campo label="E-mail" value={email} onChangeText={setEmail} placeholder="email@exemplo.com" autoCapitalize="none" keyboardType="email-address" />
+          <Text style={estilos.avisoConvite}>
+            O funcionário deve abrir o e-mail no celular com o FiadoApp instalado pra criar a senha. Avise ele pra checar também a caixa de spam.
+          </Text>
           {erro ? <Text style={estilos.erro}>{erro}</Text> : null}
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
             <Botao titulo="Cancelar" variante="secundario" onPress={() => { setModalAberto(false); setErro('') }} estilo={{ flex: 1 }} />
@@ -228,4 +234,5 @@ const estilos = StyleSheet.create({
     borderWidth: 1, borderColor: C.border,
   },
   erro: { fontSize: 13, color: C.red, marginTop: 4, marginBottom: 4 },
+  avisoConvite: { fontSize: 12, color: C.text3, lineHeight: 17, marginTop: -4, marginBottom: 4 },
 })

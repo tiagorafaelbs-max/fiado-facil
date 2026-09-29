@@ -46,7 +46,7 @@ serve(async (req) => {
     }
 
     // Só dono com plano Pro convida — nunca um funcionário convidando outro.
-    const { data: perfil } = await supabase.from('perfis').select('plano').eq('id', dono.id).single()
+    const { data: perfil } = await supabase.from('perfis').select('plano, nome_negocio').eq('id', dono.id).single()
     if (perfil?.plano !== 'pro') {
       return new Response(JSON.stringify({ error: 'Convidar funcionários é exclusivo do plano Pro' }), {
         status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -64,7 +64,13 @@ serve(async (req) => {
       })
     }
 
-    const { data: convite, error: inviteError } = await supabase.auth.admin.inviteUserByEmail(email.trim())
+    // redirectTo obrigatório -- sem ele, o link do e-mail cai no Site URL padrão do
+    // projeto (não é o esquema do app), e o convite nunca abre o FiadoApp pra criar
+    // a senha (achado do Tiago, 29/09: convite não funcionava por isso).
+    const { data: convite, error: inviteError } = await supabase.auth.admin.inviteUserByEmail(email.trim(), {
+      redirectTo: 'fiadofacil://nova-senha',
+      data: { nome_negocio: perfil?.nome_negocio ?? null },
+    })
     if (inviteError || !convite?.user) {
       return new Response(JSON.stringify({ error: inviteError?.message ?? 'Erro ao convidar usuário' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },

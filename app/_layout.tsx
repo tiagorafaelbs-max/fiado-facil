@@ -91,7 +91,10 @@ function DeepLinkHandler() {
         if (code) {
           const { error } = await supabase.auth.exchangeCodeForSession(code)
           if (!error) {
-            router.replace('/(auth)/nova-senha')
+            // type=invite (convite de funcionário) ou type=recovery (esqueci a senha) --
+            // a tela de nova senha muda o texto e o destino pós-salvar conforme a origem.
+            const tipo = queryParams.get('type') === 'invite' ? 'invite' : 'recovery'
+            router.replace({ pathname: '/(auth)/nova-senha', params: { tipo } })
           }
           return
         }
@@ -104,9 +107,9 @@ function DeepLinkHandler() {
       const accessToken = params.get('access_token')
       const refreshToken = params.get('refresh_token')
       const type = params.get('type')
-      if (accessToken && type === 'recovery') {
+      if (accessToken && (type === 'recovery' || type === 'invite')) {
         await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken ?? '' })
-        router.replace('/(auth)/nova-senha')
+        router.replace({ pathname: '/(auth)/nova-senha', params: { tipo: type } })
       }
     }
 

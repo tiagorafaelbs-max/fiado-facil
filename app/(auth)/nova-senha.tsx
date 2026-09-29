@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native'
-import { useRouter } from 'expo-router'
+import { useRouter, useLocalSearchParams } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '../../lib/supabase'
 import { Campo } from '../../components/ui/Campo'
@@ -8,6 +8,8 @@ import { Botao } from '../../components/ui/Botao'
 
 export default function NovaSenhaScreen() {
   const router = useRouter()
+  const { tipo } = useLocalSearchParams<{ tipo?: string }>()
+  const veioDeConvite = tipo === 'invite'
   const [senha, setSenha] = useState('')
   const [confirmar, setConfirmar] = useState('')
   const [erro, setErro] = useState('')
@@ -28,6 +30,12 @@ export default function NovaSenhaScreen() {
     try {
       const { error } = await supabase.auth.updateUser({ password: senha })
       if (error) throw error
+      // Convite: a sessão já é válida (setSession no deep link) -- entra direto no
+      // app como funcionário em vez de mandar pro login de novo.
+      if (veioDeConvite) {
+        router.replace('/(tabs)')
+        return
+      }
       setSucesso(true)
     } catch (e: any) {
       const msg = e.message ?? ''
@@ -63,20 +71,22 @@ export default function NovaSenhaScreen() {
           <View style={estilos.logoBox}>
             <Ionicons name="lock-closed" size={32} color="#1a56db" />
           </View>
-          <Text style={estilos.titulo}>Nova senha</Text>
-          <Text style={estilos.subtitulo}>Digite sua nova senha abaixo</Text>
+          <Text style={estilos.titulo}>{veioDeConvite ? 'Crie sua senha para entrar no FiadoApp' : 'Nova senha'}</Text>
+          <Text style={estilos.subtitulo}>
+            {veioDeConvite ? 'Você foi convidado como funcionário — defina uma senha para acessar' : 'Digite sua nova senha abaixo'}
+          </Text>
         </View>
 
         <View style={estilos.card}>
           <Campo
-            label="Nova senha"
+            label={veioDeConvite ? 'Senha' : 'Nova senha'}
             value={senha}
             onChangeText={setSenha}
             secureTextEntry
             placeholder="Mínimo 6 caracteres"
           />
           <Campo
-            label="Confirmar nova senha"
+            label={veioDeConvite ? 'Confirmar senha' : 'Confirmar nova senha'}
             value={confirmar}
             onChangeText={setConfirmar}
             secureTextEntry
@@ -90,7 +100,7 @@ export default function NovaSenhaScreen() {
             </View>
           ) : null}
 
-          <Botao titulo="Salvar nova senha" onPress={handleSalvar} carregando={carregando} />
+          <Botao titulo={veioDeConvite ? 'Criar senha e entrar' : 'Salvar nova senha'} onPress={handleSalvar} carregando={carregando} />
         </View>
       </View>
     </ScrollView>
