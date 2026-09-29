@@ -1,0 +1,11 @@
+# Config das Edge Functions do projeto. Hoje só existe pra fixar verify_jwt = false
+# em apple-server-notifications -- a Apple manda o webhook sem JWT (App Store Server
+# Notifications V2 assina o corpo com um JWS próprio, não usa Authorization Bearer),
+# então a function precisa aceitar chamadas sem token. O deploy publicado em 29/09 usou
+# a flag --no-verify-jwt manualmente; sem isto aqui, um `supabase functions deploy`
+# futuro sem lembrar da flag republicaria com verify_jwt = true (padrão) e quebraria
+# o recebimento de notificações da Apple silenciosamente (a Apple recebe 401, não
+# tenta de novo pra sempre, e cancelamento/expiração de assinatura para de ser
+# processado até alguém notar).
+[functions.apple-server-notifications]
+verify_jwt = false

@@ -34,13 +34,17 @@ Decisão do Tiago (29/09) sobre o relatório da Growth Fase 1: aprovou o pacote 
 | 18 | Banner "Pagamento confirmado, ativando seu Pro…" durante a chamada ao backend após a compra | `app/planos.tsx` | JS |
 | 19 | **Item 6 (aprovado)** — checklist "1º cliente · 1ª venda · 2º cliente · 2ª venda" no dashboard, visível só nos 2 primeiros dias da conta, dispensável, some sozinho quando completo. `checklist_dia0_completado_em` grava quando (e de qual conta) completou, pra medir ativação | migration `checklist_dia0.sql`, `hooks/useChecklistDia0.ts` (novo), `components/ui/ChecklistDia0.tsx` (novo), `app/(tabs)/index.tsx` | JS + banco (não aplicada) |
 
-**Ordem de publicação obrigatória do Urgente 2 (pedida pelo Tiago, só depois da aprovação dele):**
-1. `apple_original_transaction_id.sql` (já escrita, item 13 do lote anterior)
-2. `apple_eventos_nao_conciliados.sql` (novo, item 16 acima)
-3. `apple-iap-verify` (já tem a gravação do campo, pronta desde o lote anterior)
-4. `apple-server-notifications` (fallback + log, item 15/16 acima)
+**Ordem de publicação do Urgente 2 — CONCLUÍDA em 29/09:**
+1. ✅ `apple_original_transaction_id.sql` — aplicada
+2. ✅ `apple_eventos_nao_conciliados.sql` — aplicada
+3. ✅ `apple-iap-verify` — publicada (versão com gravação de `apple_original_transaction_id`)
+4. ✅ `apple-server-notifications` — publicada pelo Tiago com `--no-verify-jwt` (a Apple não manda JWT)
 
-**Não publicado/aplicado ainda** — aguardando aprovação explícita do Tiago pra cada passo, conforme pedido dele.
+**Fixado em `supabase/config.toml`:** `[functions.apple-server-notifications] verify_jwt = false` — sem isso, um `supabase functions deploy apple-server-notifications` futuro sem lembrar da flag `--no-verify-jwt` republicaria com `verify_jwt = true` (padrão) e quebraria silenciosamente o recebimento de notificações da Apple (401, sem retry infinito da Apple). O comando correto a partir de agora, com o config.toml valendo:
+```
+npx supabase functions deploy apple-server-notifications --project-ref eyipcpwmwtajrywouxub
+```
+(sem precisar mais da flag manual).
 
 ## Já aplicado no servidor (edge functions — não depende de build do app)
 - 26/09: **Vulnerabilidade crítica corrigida** em `apple-iap-verify` — recibos JWS (StoreKit 2) não validavam a cadeia de certificado até a Root CA da Apple, permitindo forjar um recibo e ganhar Pro sem pagar. Corrigido com validação de cadeia completa (`@peculiar/x509`), testado localmente com ataque simulado antes do deploy. **Correção do relatório de 26/09:** o caso "Mimos Da Suely" (Oseas) NÃO foi exploração da falha — é cliente legítimo (sessão do app oficial, 127 clientes/129 vendas lançados, contatou o suporte). Decisão do Tiago: manter o Pro dela, não alterar nada.
@@ -121,12 +125,17 @@ Arquivos a tocar:
 
 **O problema (achado do Tiago):** `useOffline()` está montado em 4 telas (`index`, `nova-venda`, `cliente/[id]`, `configuracoes`). Cada uma dispara `sincronizarFila()` ao ficar online → várias sincronizações concorrentes processando a mesma fila. Pior: `sincronizarFila` lia a fila, processava (com `await` de rede no meio) e no final fazia `setItem(restantes)` a partir do snapshot do início — qualquer operação enfileirada **durante** a sincronização (ex: usuário lança uma venda nova enquanto o app ainda está sincronizando o que estava pendente) era sobrescrita e **perdida** nesse `setItem` final.
 
-**Corrigido em `hooks/useOffline.ts`:**
+**Corrigido em `hooks/useOffline.ts` (v1):**
 - (a) Trava global (`comTravaDaFila`, uma fila de promises) — uma sincronização por vez no app inteiro; chamadas concorrentes de `sincronizarFila()` recebem a mesma promise em vez de rodar em paralelo.
 - (b) `sincronizarFila` agora relê a fila atual no final e remove só os ids que sincronizaram com sucesso (`idsSincronizados`), em vez de sobrescrever com o snapshot do início — preserva tanto o que falhou quanto o que entrou no meio.
 - (c) `enfileirarOperacao` passa pela mesma trava — leitura+escrita da fila nunca intercala com a sincronização nem com outro enfileiramento concorrente.
 
-Testado com uma simulação isolada (sem depender de AsyncStorage/Supabase reais): 3 chamadas concorrentes de `sincronizarFila()` + 1 `enfileirarOperacao()` disparado no meio → nenhuma duplicata, nenhuma perda, a operação enfileirada no meio sobrevive na fila. `tsc` 0 erros.
+**Ajuste (v2, mesmo dia, achado do Fiscal/Tiago revisando o commit da v1):** a trava da v1 cobria a sincronização INTEIRA, inclusive as chamadas de rede — um `enfileirarOperacao()` durante uma sincronização ficava esperando a rede terminar, e com conexão ruim o "Salvar" de uma venda offline podia travar dezenas de segundos ou indefinidamente (`fetch` sem timeout). Corrigido:
+- A trava agora cobre só as duas seções que de fato leem+escrevem no AsyncStorage (o `enfileirar` inteiro, e a releitura+remoção final da sincronização) — as chamadas ao Supabase durante o loop de processamento ficam **fora** da trava.
+- Timeout de 15s por requisição (`abortSignal`) em cada `upsert`/`update`/`delete` da sincronização — antes não tinha nenhum, uma operação podia ficar pendurada indefinidamente numa rede ruim.
+- `try/catch` ao redor de `sincronizarFila()` em `useOffline()` (observação do Fiscal na v1) — não deixa mais uma falha inesperada virar promise rejeitada sem dono.
+
+Testado com simulação isolada: sincronização de 4s de rede simulada + `enfileirarOperacao()` disparado no meio → responde em ~0ms (não espera a rede), e a fila final preserva corretamente o que entrou durante a sincronização. `tsc` 0 erros.
 
 ## Backlog 1.0.13 (não implementar agora — só registrar)
 - Aviso de operação presa por permissão (funcionário desativado / outro usuário logado no aparelho) enquanto uma operação fica na fila offline sem conseguir sincronizar.
