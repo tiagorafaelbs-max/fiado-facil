@@ -1,46 +1,19 @@
 import { supabase } from './supabase'
 
 // Reconcilia a flag `vendas.pago` de um cliente por alocação FIFO dos pagamentos
-// (mesma ordem da view clientes_com_saldo: vencimento, depois data da venda).
-// Fecha vendas cobertas pelo crédito e REABRE vendas que deixaram de estar
-// cobertas (ex.: após excluir um pagamento ou editar valor). Mantém a flag
-// coerente com o status calculado pela view.
+// (mesma ordem da view clientes_com_saldo: vencimento, depois data da venda) via
+// RPC SECURITY DEFINER -- o update direto daqui (antes) tocava vendas.pago de
+// vendas de QUALQUER dia/autor do cliente, o que a nova RLS de funcionário passou
+// a recusar em silêncio (só edita venda própria, do mesmo dia): uma venda antiga
+// do dono, quitada por um pagamento que o funcionário registrou, ficava presa em
+// pago=false e continuava aparecendo como "em aberto" em Cobranças, notificações,
+// painel, ranking e no extrato do WhatsApp -- risco de cobrar quem já pagou
+// (achado do Tiago, 29/09). A RPC roda como o dono da função, então recalcula e
+// grava pra qualquer papel (dono ou funcionário) que tenha acesso ao cliente.
 //
 // Vive em módulo próprio (não em useVendas.ts) porque também é chamada por
 // useOffline.ts após sincronizar a fila — evita import circular entre os dois hooks.
-export async function reconciliarPagoCliente(clienteId: string, uid: string) {
-  const [{ data: vendas }, { data: pagamentos }] = await Promise.all([
-    supabase
-      .from('vendas')
-      .select('id, valor, pago')
-      .eq('cliente_id', clienteId)
-      .eq('usuario_id', uid)
-      .order('data_vencimento', { ascending: true, nullsFirst: false })
-      .order('data_venda', { ascending: true })
-      .order('id', { ascending: true }),
-    supabase
-      .from('pagamentos')
-      .select('valor')
-      .eq('cliente_id', clienteId)
-      .eq('usuario_id', uid),
-  ])
-  if (!vendas) return
-
-  let credito = (pagamentos ?? []).reduce((s: number, p: { valor: number }) => s + p.valor, 0)
-  const fechar: string[] = []
-  const reabrir: string[] = []
-  // Prefixo FIFO: assim que uma venda não couber no crédito, todas as seguintes
-  // ficam descobertas (mesma semântica de `acumulado <= total_pago` da view).
-  let coberto = true
-  for (const v of vendas as Array<{ id: string; valor: number; pago: boolean }>) {
-    coberto = coberto && credito >= v.valor
-    if (coberto) {
-      credito -= v.valor
-      if (!v.pago) fechar.push(v.id)
-    } else if (v.pago) {
-      reabrir.push(v.id)
-    }
-  }
-  if (fechar.length) await supabase.from('vendas').update({ pago: true }).in('id', fechar).eq('usuario_id', uid)
-  if (reabrir.length) await supabase.from('vendas').update({ pago: false }).in('id', reabrir).eq('usuario_id', uid)
+export async function reconciliarPagoCliente(clienteId: string) {
+  const { error } = await supabase.rpc('reconciliar_pago_cliente', { p_cliente_id: clienteId })
+  if (error) throw error
 }

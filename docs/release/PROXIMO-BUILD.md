@@ -141,7 +141,7 @@ Testado com simulação isolada: sincronização de 4s de rede simulada + `enfil
 
 **Achado do Tiago:** as policies de `clientes`/`vendas`/`pagamentos` são `FOR ALL` por tenant — qualquer funcionário ativo edita ou apaga qualquer venda, pagamento ou cliente do negócio, mesmo lançado por outra pessoa há meses. O trigger `checar_permissao_venda_trigger` (existente) só checa a flag `editar_venda`/`excluir_venda` em `vendas`, não tem a exigência de autoria/mesmo dia, e **`pagamentos` não tem nenhuma checagem** — funcionário edita/apaga qualquer pagamento livremente.
 
-**Migration proposta (`equipe_permissoes_granulares.sql`) — NÃO aplicada, aguardando aprovação do Tiago:**
+**Migration `equipe_permissoes_granulares.sql` — APLICADA em produção em 29/09** (0 membros ativos em `membros_equipe` no momento da aplicação → nenhum usuário real afetado; dono ficou equivalente ao comportamento anterior). Confirmado no banco: as policies antigas (`clientes_tenant`, `vendas_tenant`, `pagamentos_tenant`) sumiram, as 14 novas existem, e o trigger/função antigos (`checar_permissao_venda_trigger`/`checar_permissao_venda()`) foram removidos. Revisão do Fiscal: reprovou a primeira versão (o `WITH CHECK` do UPDATE de funcionário não impedia adiantar `criado_em` pra reabrir a janela de edição — corrigido repetindo a checagem de mesmo dia também no `WITH CHECK`), aprovou a versão corrigida.
 - `tem_permissao(chave text)`: função `SECURITY DEFINER`, `search_path` fixo, sem `EXECUTE` pra `anon`, lê `membros_equipe.permissoes` do membro ativo.
 - `clientes`: SELECT/INSERT por tenant (como hoje); UPDATE/DELETE só `usuario_id = auth.uid()` — nunca funcionário.
 - `vendas`/`pagamentos`: SELECT/INSERT por tenant; UPDATE do dono sem restrição; UPDATE do funcionário só com `tem_permissao('editar_venda')` **e** `criado_por = auth.uid()` **e** lançado no mesmo dia (fuso America/Sao_Paulo); DELETE do dono sem restrição; DELETE do funcionário só com `tem_permissao('excluir_venda')` (sem exigência de autoria/data, conforme pedido).
@@ -157,7 +157,23 @@ Testado com simulação isolada: sincronização de 4s de rede simulada + `enfil
 - `app/planos.tsx`: tela inteira substituída por um aviso ("Assinatura gerenciada pelo dono") pra funcionário — centraliza a restrição num só lugar em vez de esconder cada botão que leva lá.
 - `app/(tabs)/configuracoes.tsx`: botões "Editar" de Dados do negócio e Pix/Cobranças escondidos; "Exportar dados (CSV)" e "Excluir conta" escondidos; banner de upgrade escondido pra funcionário no plano gratuito. Card "Equipe & funcionários" já era escondido pra funcionário (feature anterior).
 
-**Pendente:** testes via API direta (não só pela tela) com 2 contas reais de teste (dono + funcionário) depois da migration aplicada — cobrindo cada permissão ligada/desligada, editar lançamento de outra pessoa, editar de ontem, excluir cliente, ler perfil do dono, e isolamento entre lojas diferentes. `convidar-funcionario` só publica no dia do lançamento, com aprovação do Tiago.
+## Lote 29/09 (4) — bloqueante: reconciliação de `pago` quebrava com funcionário
+
+**Achado do Tiago, ao revisar a migration aplicada:** `lib/reconciliacao.ts` fazia `UPDATE vendas.pago` diretamente do cliente, tocando vendas de **qualquer dia/autor** do cliente. Com a nova RLS de funcionário (só edita venda própria, do mesmo dia), esse update passou a ser recusado em silêncio pra vendas que não são do funcionário — uma venda antiga do dono, quitada por um pagamento que o funcionário registrou, ficava presa em `pago=false` e continuava aparecendo como "em aberto" em `cobrancas.tsx`, `useNotificacoes.ts`, painel, ranking, clientes e no extrato do WhatsApp. Risco real: cobrar de novo quem já pagou.
+
+**Migration `reconciliar_pago_cliente_rpc.sql` — PROPOSTA, NÃO aplicada, aguardando aprovação do Tiago:**
+- RPC `reconciliar_pago_cliente(p_cliente_id uuid)`, `SECURITY DEFINER`, `search_path` fixo: confere que o cliente pertence a `tenant_id_atual()` (senão lança exceção), recalcula FIFO na mesma ordem da view `clientes_com_saldo` (vencimento → data da venda → id), atualiza só a coluna `pago` num único `UPDATE ... FROM` atômico.
+- `REVOKE` de `public`/`anon`, `GRANT` só pra `authenticated` — mesmo padrão de `tem_permissao()`.
+
+**App (feito, aguardando a migration):**
+- `lib/reconciliacao.ts`: `reconciliarPagoCliente(clienteId)` agora só chama a RPC via `supabase.rpc(...)` — perdeu o segundo parâmetro `uid` (a RPC deriva o tenant sozinha via `tenant_id_atual()`, não precisa mais receber de fora).
+- `hooks/useVendas.ts` e `hooks/useOffline.ts`: os 6 call sites atualizados pra chamar com um argumento só; `clientesParaReconciliar` virou `Set<string>` (não precisa mais guardar o `usuario_id` junto).
+
+**Notas do Tiago, não bloqueantes, registradas pra depois:**
+- INSERT de funcionário aceita `criado_por` de outra pessoa no payload — considerar exigir `criado_por = auth.uid()` também no `WITH CHECK` do INSERT de funcionário numa limpeza futura.
+- `tenant_id_atual()` (função antiga, já em produção) não tem `REVOKE FROM PUBLIC` como as funções mais novas — impacto baixo (pra `anon`, `auth.uid()` é null), mas fica pra uma limpeza futura.
+
+**Pendente:** testes via API direta (não só pela tela) com 2 contas de TESTE (dono + funcionário, nunca contas de clientes) depois desta migration aplicada — cobrindo cada permissão ligada/desligada, editar lançamento de outra pessoa, editar de ontem, excluir cliente, ler perfil do dono, isolamento entre lojas diferentes, e o cenário específico "funcionário registra pagamento que quita venda antiga do dono → venda fica `pago=true` e some de Cobranças". `convidar-funcionario` só publica no dia do lançamento, com aprovação do Tiago.
 
 ## Backlog 1.0.13 (não implementar agora — só registrar)
 - Aviso de operação presa por permissão (funcionário desativado / outro usuário logado no aparelho) enquanto uma operação fica na fila offline sem conseguir sincronizar.

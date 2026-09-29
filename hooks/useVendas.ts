@@ -90,7 +90,7 @@ export function useVendas(clienteId?: string) {
 
     if (error) throw new Error(traduzErroBanco(error.message))
     // Cliente pode ter crédito sobrando (pagou adiantado) que cobre esta venda nova.
-    await reconciliarPagoCliente(dados.cliente_id, tenantId)
+    await reconciliarPagoCliente(dados.cliente_id)
     await buscar()
     return data
   }, [buscar])
@@ -132,7 +132,7 @@ export function useVendas(clienteId?: string) {
     if (error) throw error
 
     // Reconcilia a flag `pago` das vendas do cliente por alocação FIFO.
-    await reconciliarPagoCliente(params.cliente_id, tenantId)
+    await reconciliarPagoCliente(params.cliente_id)
 
     await buscar()
   }, [buscar])
@@ -149,7 +149,7 @@ export function useVendas(clienteId?: string) {
     const { data: apagada, error } = await supabase.from('vendas').delete().eq('id', id).eq('usuario_id', uid).select().maybeSingle()
     if (error) throw new Error(traduzErroBanco(error.message))
     if (!apagada) throw new Error('Você não tem permissão para excluir esta venda.')
-    if (alvo?.cliente_id) await reconciliarPagoCliente(alvo.cliente_id, uid)
+    if (alvo?.cliente_id) await reconciliarPagoCliente(alvo.cliente_id)
     await buscar()
   }, [buscar])
 
@@ -164,7 +164,7 @@ export function useVendas(clienteId?: string) {
     if (error) throw new Error(traduzErroBanco(error.message))
     if (!atualizada) throw new Error('Você não tem permissão para editar esta venda.')
     const { data: alvo } = await supabase.from('vendas').select('cliente_id').eq('id', id).eq('usuario_id', uid).single()
-    if (alvo?.cliente_id) await reconciliarPagoCliente(alvo.cliente_id, uid)
+    if (alvo?.cliente_id) await reconciliarPagoCliente(alvo.cliente_id)
     await buscar()
   }, [buscar])
 
@@ -178,7 +178,7 @@ export function useVendas(clienteId?: string) {
     const { data: apagado, error } = await supabase.from('pagamentos').delete().eq('id', id).eq('usuario_id', uid).select().maybeSingle()
     if (error) throw error
     if (!apagado) throw new Error('Você não tem permissão para excluir este pagamento.')
-    if (alvo?.cliente_id) await reconciliarPagoCliente(alvo.cliente_id, uid)
+    if (alvo?.cliente_id) await reconciliarPagoCliente(alvo.cliente_id)
     await buscar()
   }, [buscar])
 

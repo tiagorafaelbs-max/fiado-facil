@@ -73,7 +73,7 @@ async function sincronizarFilaInterno(): Promise<number> {
   // Clientes afetados por venda/pagamento sincronizado com sucesso — precisam
   // ter a flag `pago` recalculada (FIFO) contra o estado real do banco, algo
   // que não dava para fazer enquanto a operação só existia na fila local.
-  const clientesParaReconciliar = new Map<string, string>() // cliente_id -> usuario_id
+  const clientesParaReconciliar = new Set<string>()
 
   for (const op of fila) {
     try {
@@ -91,8 +91,8 @@ async function sincronizarFilaInterno(): Promise<number> {
           .upsert(payload, { onConflict: 'client_op_id', ignoreDuplicates: true })
           .abortSignal(sinalComTimeout())
         if (error) throw error
-        if ((op.tabela === 'vendas' || op.tabela === 'pagamentos') && payload.cliente_id && payload.usuario_id) {
-          clientesParaReconciliar.set(payload.cliente_id, payload.usuario_id)
+        if ((op.tabela === 'vendas' || op.tabela === 'pagamentos') && payload.cliente_id) {
+          clientesParaReconciliar.add(payload.cliente_id)
         }
       } else if (op.operacao === 'update') {
         const { id, ...dados } = op.dados
@@ -119,9 +119,9 @@ async function sincronizarFilaInterno(): Promise<number> {
     await AsyncStorage.setItem(FILA_KEY, JSON.stringify(restantes))
   })
 
-  for (const [clienteId, usuarioId] of clientesParaReconciliar) {
+  for (const clienteId of clientesParaReconciliar) {
     try {
-      await reconciliarPagoCliente(clienteId, usuarioId)
+      await reconciliarPagoCliente(clienteId)
     } catch {
       // Reconciliação falhou (ex: rede caiu de novo) — o próximo ajuste de
       // pagamento no app recalcula tudo de novo, não é uma perda permanente.
