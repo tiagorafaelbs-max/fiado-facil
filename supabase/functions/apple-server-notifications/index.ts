@@ -186,11 +186,21 @@ Deno.serve(async (req) => {
       case 'DID_FAIL_TO_RENEW':
         if (subtype === 'GRACE_PERIOD' && (gracePeriodExpiresMs === null || Date.now() < gracePeriodExpiresMs)) {
           // Apple ainda está tentando cobrar de novo e o app deve manter acesso
-          // durante a carência -- não rebaixa.
+          // durante a carência -- não rebaixa. A Apple manda um evento SEPARADO
+          // (GRACE_PERIOD_EXPIRED, tratado abaixo) quando a carência de fato acaba
+          // sem o pagamento ser resolvido -- não é este mesmo evento que expira.
           console.log(`[apple-server-notifications] Falha ao renovar em carência para ${perfil.id}, mantendo Pro`)
         } else {
           await revogarPro(`DID_FAIL_TO_RENEW${subtype ? '/' + subtype : ''}`)
         }
+        break
+
+      case 'GRACE_PERIOD_EXPIRED':
+        // A carência do DID_FAIL_TO_RENEW/GRACE_PERIOD terminou sem o pagamento
+        // ser resolvido -- SEM tratar este evento, a conta ficaria com Pro pra
+        // sempre depois da carência expirar, reabrindo exatamente o bug que esta
+        // function existe pra fechar (achado do Agente Fiscal, 29/09).
+        await revogarPro('GRACE_PERIOD_EXPIRED')
         break
 
       default:
