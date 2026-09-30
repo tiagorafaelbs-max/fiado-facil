@@ -23,7 +23,7 @@ export default function NovoPagamentoScreen() {
   const router = useRouter()
   const { usuario } = useAuth()
   const { tenantId } = useTenant()
-  const { clientes, buscar } = useClientes()
+  const { clientes, buscar, offline } = useClientes()
   const { tocar } = useBeep()
 
   const [busca, setBusca] = useState('')
@@ -185,9 +185,20 @@ export default function NovoPagamentoScreen() {
                 </TouchableOpacity>
               ))}
 
+              {offline && (
+                <View style={s.offlineBanner}>
+                  <Ionicons name="cloud-offline-outline" size={14} color={C.red} />
+                  <Text style={s.offlineBannerTexto}>
+                    {clientes.length > 0 ? 'Sem conexão — mostrando dados salvos' : 'Sem conexão — dados indisponíveis'}
+                  </Text>
+                </View>
+              )}
+
               {busca.length === 0 && (
                 <Text style={s.dica}>
-                  {clientes.filter(c => (c.saldo_devedor ?? 0) > 0).length === 0
+                  {offline && clientes.length === 0
+                    ? 'Verifique sua internet e tente novamente.'
+                    : clientes.filter(c => (c.saldo_devedor ?? 0) > 0).length === 0
                     ? 'Nenhum cliente com saldo em aberto.'
                     : 'Digite o nome do cliente para buscar.'}
                 </Text>
@@ -356,6 +367,12 @@ const s = StyleSheet.create({
   clienteSaldo: { fontSize: 12, color: C.red, fontWeight: '500', marginTop: 2 },
   vazio: { fontSize: 13, color: C.text3, textAlign: 'center', paddingVertical: 16 },
   dica: { fontSize: 13, color: C.text3, textAlign: 'center', paddingVertical: 12 },
+  offlineBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: C.redLight, borderRadius: 10, padding: 10, marginTop: 8,
+    borderWidth: 1, borderColor: C.redBorder,
+  },
+  offlineBannerTexto: { flex: 1, fontSize: 12, color: C.red, fontWeight: '500' },
   clienteCard: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   clienteNomeSel: { fontSize: 16, fontWeight: '700', color: C.text, marginBottom: 2 },
   saldoLabel: { fontSize: 11, color: C.text3, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },

@@ -1,12 +1,19 @@
 import { useState, useCallback } from 'react'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { supabase } from '../lib/supabase'
 import { resolverTenantId } from '../lib/tenant'
 import type { Cliente } from '../types'
+
+const CLIENTES_CACHE_KEY = '@fiado_clientes_cache'
 
 export function useClientes() {
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [carregando, setCarregando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
+  // true quando a lista atual veio do cache local (falha de rede), não do
+  // servidor -- achado do Tiago: sem conexão, a lista virava "Nenhum cliente
+  // ainda" em vez de mostrar os clientes já conhecidos.
+  const [offline, setOffline] = useState(false)
 
   const buscar = useCallback(async () => {
     setCarregando(true)
@@ -30,7 +37,15 @@ export function useClientes() {
         return 0
       })
       setClientes(sorted)
+      setOffline(false)
+      AsyncStorage.setItem(CLIENTES_CACHE_KEY, JSON.stringify(sorted)).catch(() => {})
     } catch (e: any) {
+      // Falha de rede: mostra o último cache salvo em vez de esvaziar a lista.
+      try {
+        const cache = await AsyncStorage.getItem(CLIENTES_CACHE_KEY)
+        if (cache) setClientes(JSON.parse(cache))
+      } catch { /* cache indisponível -- mantém a lista como estava */ }
+      setOffline(true)
       setErro(e.message)
     } finally {
       setCarregando(false)
@@ -101,5 +116,5 @@ export function useClientes() {
     await buscar()
   }, [buscar])
 
-  return { clientes, carregando, erro, buscar, criar, atualizar, arquivar, excluir }
+  return { clientes, carregando, erro, offline, buscar, criar, atualizar, arquivar, excluir }
 }

@@ -22,7 +22,7 @@ import { C } from '../../constants/colors'
 import { useCategorias } from '../../hooks/useCategorias'
 import { useOffline } from '../../hooks/useOffline'
 import { useBeep } from '../../hooks/useBeep'
-import { solicitarPermissaoNotificacoes, agendarNotificacoesVencimento } from '../../hooks/useNotificacoes'
+import { solicitarPermissaoNotificacoesUmaVez, agendarNotificacoesVencimento } from '../../hooks/useNotificacoes'
 import { KeyboardToolbar, KEYBOARD_TOOLBAR_ID } from '../../components/ui/KeyboardToolbar'
 import type { Cliente } from '../../types'
 
@@ -325,7 +325,7 @@ export default function NovaVendaScreen() {
       setPrimeiraVenda(ehPrimeira)
       setSucesso(true)
       tocar()
-      solicitarPermissaoNotificacoes().then(ok => { if (ok) agendarNotificacoesVencimento() })
+      solicitarPermissaoNotificacoesUmaVez().then(ok => { if (ok) agendarNotificacoesVencimento() })
       // Volta para o início automaticamente após 2s
       redirectTimer.current = setTimeout(() => router.replace('/(tabs)'), 2000)
       setClienteId(''); setBuscaCliente(''); setDescricao(''); setValor(''); setDataVenda(''); setDataVencimento(''); setCategoria('Mercadoria'); setErros({}); setFotoUri(null); setTipoPagamento('fiado'); setNumParcelas(2)

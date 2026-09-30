@@ -92,6 +92,7 @@ export default function DetalheClienteScreen() {
   const { excluir: excluirCliente, atualizar: atualizarCliente } = useClientes()
 
   const [cliente, setCliente] = useState<Cliente | null>(null)
+  const [erroCarregamento, setErroCarregamento] = useState(false)
   const [pagamentos, setPagamentos] = useState<Pagamento[]>([])
   const [nomesEquipe, setNomesEquipe] = useState<Record<string, string>>({})
   const [modalPagamento, setModalPagamento] = useState(false)
@@ -169,10 +170,25 @@ export default function DetalheClienteScreen() {
     setPagamentos(data ?? [])
   }, [id, tenantId])
 
+  // Bug achado no Android (build 50): o efeito dependia de [id, usuario?.id], mas
+  // carregarCliente/carregarPagamentos retornam cedo enquanto tenantId ainda não
+  // resolveu (useTenant() é assíncrono) -- como tenantId não estava nas dependências,
+  // o efeito nunca disparava de novo quando ele ficava disponível, e a tela ficava
+  // em loading infinito (a query pra clientes_com_saldo nunca era nem enviada).
   useEffect(() => {
+    if (!tenantId) return
     setCliente(null)
+    setErroCarregamento(false)
     carregarCliente(); buscar(); carregarPagamentos()
-  }, [id, usuario?.id])
+  }, [id, tenantId])
+
+  // Rede de segurança: se ainda assim não carregar em ~15s (ex: sem conexão e sem
+  // cache), mostra erro com "Tentar novamente" em vez de ActivityIndicator eterno.
+  useEffect(() => {
+    if (cliente || !tenantId) return
+    const t = setTimeout(() => setErroCarregamento(true), 15000)
+    return () => clearTimeout(t)
+  }, [cliente, tenantId])
 
   useEffect(() => {
     if (!tenantId) return
@@ -452,7 +468,27 @@ export default function DetalheClienteScreen() {
     }
   }
 
-  if (!cliente) return <ActivityIndicator color={C.green} style={{ flex: 1 }} />
+  if (!cliente) {
+    if (erroCarregamento) {
+      return (
+        <View style={estilos.centroErro}>
+          <Ionicons name="cloud-offline-outline" size={32} color={C.red} />
+          <Text style={estilos.centroErroTitulo}>Não foi possível carregar o cliente</Text>
+          <Text style={estilos.centroErroTexto}>Verifique sua conexão e tente novamente.</Text>
+          <TouchableOpacity
+            style={estilos.centroErroBtn}
+            onPress={() => {
+              setErroCarregamento(false)
+              carregarCliente(); buscar(); carregarPagamentos()
+            }}
+          >
+            <Text style={estilos.centroErroBtnTexto}>Tentar novamente</Text>
+          </TouchableOpacity>
+        </View>
+      )
+    }
+    return <ActivityIndicator color={C.green} style={{ flex: 1 }} />
+  }
 
   const temSaldo = parseFloat(String(cliente.saldo_devedor ?? 0)) > 0
   const temLimite = modulos.limite_credito && (cliente.limite_credito ?? 0) > 0
@@ -1026,6 +1062,11 @@ export default function DetalheClienteScreen() {
 
 const estilos = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
+  centroErro: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, backgroundColor: C.bg, gap: 6 },
+  centroErroTitulo: { fontSize: 16, fontWeight: '700', color: C.text, marginTop: 8, textAlign: 'center' },
+  centroErroTexto: { fontSize: 13, color: C.text2, textAlign: 'center' },
+  centroErroBtn: { marginTop: 16, backgroundColor: C.green, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
+  centroErroBtnTexto: { color: C.white, fontWeight: '700', fontSize: 14 },
   content: { padding: 16, paddingBottom: 40 },
   contentTablet: { maxWidth: 720, alignSelf: 'center', width: '100%' },
   clienteCard: {

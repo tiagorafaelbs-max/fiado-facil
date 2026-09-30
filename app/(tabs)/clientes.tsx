@@ -94,7 +94,7 @@ export default function ClientesScreen() {
   const router = useRouter()
   const { novo } = useLocalSearchParams<{ novo?: string }>()
   const { usuario } = useAuth()
-  const { clientes, carregando, criar, buscar } = useClientes()
+  const { clientes, carregando, offline, criar, buscar } = useClientes()
   const { tenantId, souFuncionario } = useTenant()
   const { modulos } = useModulos(tenantId || usuario?.id)
 
@@ -453,6 +453,14 @@ export default function ClientesScreen() {
               </TouchableOpacity>
             )
           })()}
+          {offline && (
+            <View style={estilos.offlineBanner}>
+              <Ionicons name="cloud-offline-outline" size={15} color={C.red} />
+              <Text style={estilos.offlineBannerTexto}>
+                {clientes.length > 0 ? 'Sem conexão — mostrando dados salvos' : 'Sem conexão — dados indisponíveis'}
+              </Text>
+            </View>
+          )}
           {clientes.length > 0 && (
             <Text style={estilos.contagem}>
               {clientesFiltrados.length} {clientesFiltrados.length === 1 ? 'cliente' : 'clientes'}
@@ -464,13 +472,21 @@ export default function ClientesScreen() {
             renderItem={renderCliente}
             refreshControl={<RefreshControl refreshing={carregando} onRefresh={buscar} tintColor={C.green} />}
             ListEmptyComponent={
-              !carregando ? (
+              carregando ? (
+                <ActivityIndicator color={C.green} style={{ marginTop: 40 }} />
+              ) : offline ? (
+                <View style={estilos.vazio}>
+                  <View style={estilos.vazioIcone}><Ionicons name="cloud-offline-outline" size={36} color={C.text3} /></View>
+                  <Text style={estilos.vazioTitulo}>Sem conexão</Text>
+                  <Text style={estilos.vazioTexto}>Não foi possível carregar os clientes. Verifique sua internet.</Text>
+                </View>
+              ) : (
                 <View style={estilos.vazio}>
                   <View style={estilos.vazioIcone}><Text style={{ fontSize: 36 }}>👥</Text></View>
                   <Text style={estilos.vazioTitulo}>Nenhum cliente ainda</Text>
                   <Text style={estilos.vazioTexto}>Toque em + para adicionar seu primeiro cliente.</Text>
                 </View>
-              ) : <ActivityIndicator color={C.green} style={{ marginTop: 40 }} />
+              )
             }
             contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100, paddingTop: 4 }}
           />
@@ -876,6 +892,12 @@ const estilos = StyleSheet.create({
   btnAdicionar: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: C.green, borderRadius: 12, paddingHorizontal: 14, height: 44, shadowColor: C.green, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 },
   btnAdicionarTexto: { color: C.white, fontSize: 14, fontWeight: '700' },
   contagem: { fontSize: 12, color: C.text2, fontWeight: '500', paddingHorizontal: 16, marginBottom: 4 },
+  offlineBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: C.redLight, borderRadius: 10, padding: 10, marginHorizontal: 16, marginBottom: 8,
+    borderWidth: 1, borderColor: C.redBorder,
+  },
+  offlineBannerTexto: { flex: 1, fontSize: 12, color: C.red, fontWeight: '500' },
 
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.card, borderRadius: 18, marginBottom: 8, borderWidth: 1, borderColor: C.border, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
   rowVencido: { backgroundColor: '#FFF5F5', borderColor: '#FFCDD2' },
