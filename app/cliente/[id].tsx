@@ -93,6 +93,7 @@ export default function DetalheClienteScreen() {
 
   const [cliente, setCliente] = useState<Cliente | null>(null)
   const [erroCarregamento, setErroCarregamento] = useState(false)
+  const [tentativa, setTentativa] = useState(0)
   const [pagamentos, setPagamentos] = useState<Pagamento[]>([])
   const [nomesEquipe, setNomesEquipe] = useState<Record<string, string>>({})
   const [modalPagamento, setModalPagamento] = useState(false)
@@ -180,15 +181,19 @@ export default function DetalheClienteScreen() {
     setCliente(null)
     setErroCarregamento(false)
     carregarCliente(); buscar(); carregarPagamentos()
-  }, [id, tenantId])
+  }, [id, tenantId, tentativa])
 
   // Rede de segurança: se ainda assim não carregar em ~15s (ex: sem conexão e sem
   // cache), mostra erro com "Tentar novamente" em vez de ActivityIndicator eterno.
+  // Depende de `tentativa` (não só de `cliente`/`tenantId`) -- achado do Fiscal: sem
+  // isso, tocar em "Tentar novamente" não rearma o watchdog (cliente permanece null,
+  // tenantId não muda, então o efeito não dispara de novo e uma segunda falha de
+  // rede volta a cair no ActivityIndicator eterno, o mesmo bug original).
   useEffect(() => {
     if (cliente || !tenantId) return
     const t = setTimeout(() => setErroCarregamento(true), 15000)
     return () => clearTimeout(t)
-  }, [cliente, tenantId])
+  }, [cliente, tenantId, tentativa])
 
   useEffect(() => {
     if (!tenantId) return
@@ -479,7 +484,7 @@ export default function DetalheClienteScreen() {
             style={estilos.centroErroBtn}
             onPress={() => {
               setErroCarregamento(false)
-              carregarCliente(); buscar(); carregarPagamentos()
+              setTentativa(t => t + 1)
             }}
           >
             <Text style={estilos.centroErroBtnTexto}>Tentar novamente</Text>

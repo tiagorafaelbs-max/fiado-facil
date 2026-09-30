@@ -4,7 +4,11 @@ import { supabase } from '../lib/supabase'
 import { resolverTenantId } from '../lib/tenant'
 import type { Cliente } from '../types'
 
-const CLIENTES_CACHE_KEY = '@fiado_clientes_cache'
+// Prefixo, não chave fixa: isolado por session.user.id (quem está logado agora,
+// dono ou funcionário) -- achado do Fiscal: uma chave global vazaria os clientes da
+// conta ANTERIOR pra quem trocar de conta no mesmo aparelho e abrir offline antes
+// do primeiro buscar() bem-sucedido da nova sessão.
+const CLIENTES_CACHE_PREFIX = '@fiado_clientes_cache:'
 
 export function useClientes() {
   const [clientes, setClientes] = useState<Cliente[]>([])
@@ -18,9 +22,12 @@ export function useClientes() {
   const buscar = useCallback(async () => {
     setCarregando(true)
     setErro(null)
+    // getSession() é local (não depende de rede) -- dá pra isolar o cache por quem
+    // está logado mesmo se o resto da função falhar por falta de conexão.
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.user) { setCarregando(false); return }
+    const cacheKey = CLIENTES_CACHE_PREFIX + session.user.id
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.user) { setCarregando(false); return }
       const tenantId = await resolverTenantId(session.user.id)
       const { data, error } = await supabase
         .from('clientes_com_saldo')
@@ -38,11 +45,12 @@ export function useClientes() {
       })
       setClientes(sorted)
       setOffline(false)
-      AsyncStorage.setItem(CLIENTES_CACHE_KEY, JSON.stringify(sorted)).catch(() => {})
+      AsyncStorage.setItem(cacheKey, JSON.stringify(sorted)).catch(() => {})
     } catch (e: any) {
-      // Falha de rede: mostra o último cache salvo em vez de esvaziar a lista.
+      // Falha de rede: mostra o último cache salvo (desta mesma conta) em vez de
+      // esvaziar a lista.
       try {
-        const cache = await AsyncStorage.getItem(CLIENTES_CACHE_KEY)
+        const cache = await AsyncStorage.getItem(cacheKey)
         if (cache) setClientes(JSON.parse(cache))
       } catch { /* cache indisponível -- mantém a lista como estava */ }
       setOffline(true)
