@@ -27,6 +27,7 @@
     },
     "production": {
       "autoIncrement": true,
+      "channel": "production",
       "ios": {
         "buildConfiguration": "Release",
         "image": "latest"
