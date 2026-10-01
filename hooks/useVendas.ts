@@ -84,24 +84,37 @@ export function useVendas(clienteId?: string) {
 
     const online = await estaOnlineRapido()
     if (online) {
+      let data: Venda | undefined
       try {
-        const { data, error } = await supabase
+        const resp = await supabase
           .from('vendas')
           .insert(payload)
           .select()
           .abortSignal(sinalComTimeoutDeEscrita())
           .single()
-        if (error) throw error
-        // Cliente pode ter crédito sobrando (pagou adiantado) que cobre esta venda nova.
-        await reconciliarPagoCliente(dados.cliente_id)
-        await buscar()
-        return data
+        if (resp.error) throw resp.error
+        data = resp.data
       } catch (e: any) {
         // Erro de verdade do banco (RLS, validação, constraint) -- repassa pro
         // usuário, não faz sentido enfileirar algo que nunca vai conseguir
         // sincronizar. Qualquer outra coisa (timeout do abortSignal acima,
         // AbortError, rede caiu no meio) cai pro mesmo caminho do offline.
         if (erroDeServidor(e)) throw new Error(traduzErroBanco(e.message))
+      }
+      if (data) {
+        // O lançamento JÁ ESTÁ salvo neste ponto -- uma falha aqui embaixo nunca
+        // pode cair no enfileiramento abaixo, ou geraria um client_op_id novo e
+        // duplicaria o que já foi salvo (achado do Fiscal, mesma classe do bug
+        // das "Dívida anterior" duplicadas). Falha vira só um aviso; a
+        // reconciliação roda de novo na próxima operação deste cliente.
+        try {
+          // Cliente pode ter crédito sobrando (pagou adiantado) que cobre esta venda nova.
+          await reconciliarPagoCliente(dados.cliente_id)
+          await buscar()
+        } catch (e: any) {
+          console.warn('[useVendas] pós-insert de venda falhou (reconciliar/buscar):', e?.message ?? e)
+        }
+        return data
       }
     }
 
@@ -119,6 +132,7 @@ export function useVendas(clienteId?: string) {
     venda_id?: string
     observacao?: string
     data_pagamento?: string
+    forma_pagamento?: string
   }) => {
     const { data: { session } } = await supabase.auth.getSession()
     const user = session?.user
@@ -139,17 +153,28 @@ export function useVendas(clienteId?: string) {
 
     const online = await estaOnlineRapido()
     if (online) {
+      let salvo = false
       try {
         const { error } = await supabase.from('pagamentos').insert(payload).abortSignal(sinalComTimeoutDeEscrita())
         if (error) throw error
-        // Reconcilia a flag `pago` das vendas do cliente por alocação FIFO.
-        await reconciliarPagoCliente(params.cliente_id)
-        await buscar()
-        return
+        salvo = true
       } catch (e: any) {
         // Mesmo critério do criar() acima: erro de servidor repassa pro usuário,
         // falha de rede/timeout cai pra fila.
         if (erroDeServidor(e)) throw e
+      }
+      if (salvo) {
+        // Mesmo motivo do criar() acima: o pagamento JÁ ESTÁ salvo, então uma
+        // falha na reconciliação/refresh nunca pode empurrar pro enfileiramento
+        // abaixo (duplicaria com um client_op_id novo).
+        try {
+          // Reconcilia a flag `pago` das vendas do cliente por alocação FIFO.
+          await reconciliarPagoCliente(params.cliente_id)
+          await buscar()
+        } catch (e: any) {
+          console.warn('[useVendas] pós-insert de pagamento falhou (reconciliar/buscar):', e?.message ?? e)
+        }
+        return
       }
     }
 

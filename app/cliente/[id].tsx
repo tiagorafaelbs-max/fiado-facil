@@ -88,7 +88,7 @@ export default function DetalheClienteScreen() {
   const navigation = useNavigation()
   const router = useRouter()
   const { usuario } = useAuth()
-  const { vendas, carregando, buscar, registrarPagamento, excluirVenda, editarVenda, excluirPagamento } = useVendas(id)
+  const { vendas, carregando, buscar, criar, registrarPagamento, excluirVenda, editarVenda, excluirPagamento } = useVendas(id)
   const { width } = useWindowDimensions()
   const isTablet = width >= 768
   const { tenantId, souFuncionario, permissoes } = useTenant()
@@ -450,6 +450,7 @@ export default function DetalheClienteScreen() {
   }
 
   async function handleAdicionarDividaAnterior() {
+    if (salvandoDivida) return // reforço -- o Botao abaixo já desabilita via carregando={salvandoDivida}
     const valor = parseFloat(dividaValor.replace(',', '.'))
     setDividaErro('')
     if (isNaN(valor) || valor <= 0) { setDividaErro('Informe um valor válido.'); return }
@@ -457,28 +458,26 @@ export default function DetalheClienteScreen() {
     if (!cData.valida) { setDividaErro(cData.mensagem!); return }
     setSalvandoDivida(true)
     try {
-      const { data: { session } } = await (await import('../../lib/supabase')).supabase.auth.getSession()
-      if (!session?.user) throw new Error('Sessão expirada.')
-      if (!tenantId) throw new Error('Sessão expirada. Faça login novamente.')
       // converte DD/MM/AAAA → AAAA-MM-DD, ou usa hoje
       let dataISO = new Date().toISOString().split('T')[0]
       if (dividaData.length === 10 && dividaData.includes('/')) {
         const [dd, mm, aaaa] = dividaData.split('/')
         if (dd && mm && aaaa) dataISO = `${aaaa}-${mm}-${dd}`
       }
-      const { supabase } = await import('../../lib/supabase')
-      const { error } = await supabase.from('vendas').insert({
+      // Usa useVendas().criar() em vez de insert direto -- achado em produção (5
+      // "Dívida anterior" duplicadas em 29-30/09): o insert direto não tinha
+      // client_op_id nem timeout nem fila offline, então um timeout/retry (app
+      // fechado e reaberto, rede caindo no meio do insert) duplicava o
+      // lançamento sem nenhuma rede de segurança. Duplo toque é coberto pelo
+      // Botao desabilitando via carregando={salvandoDivida}, não pelo client_op_id.
+      await criar({
         cliente_id: id,
-        usuario_id: tenantId,
-        criado_por: session.user.id,
         descricao: dividaDescricao.trim() || 'Dívida anterior',
         valor,
         data_venda: dataISO,
         categoria: 'Dívida anterior',
-        pago: false,
       })
-      if (error) throw error
-      await Promise.all([carregarCliente(), buscar()])
+      await carregarCliente()
       setModalDividaAnterior(false)
       setDividaValor(''); setDividaDescricao(''); setDividaData('')
       tocar()

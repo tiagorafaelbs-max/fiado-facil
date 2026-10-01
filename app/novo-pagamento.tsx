@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useClientes } from '../hooks/useClientes'
+import { useVendas } from '../hooks/useVendas'
 import { useTenant } from '../hooks/useTenant'
 import { useBeep } from '../hooks/useBeep'
 import { agendarNotificacoesVencimento } from '../hooks/useNotificacoes'
@@ -28,6 +29,10 @@ export default function NovoPagamentoScreen() {
 
   const [busca, setBusca] = useState('')
   const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null)
+  // clienteId passado pro hook pra evitar que o buscar() interno dele (disparado
+  // depois do registrarPagamento) traga TODAS as vendas do negócio à toa --
+  // achado do Fiscal, esta tela nem usa a lista de vendas.
+  const { registrarPagamento } = useVendas(clienteSelecionado?.id)
   const [saldo, setSaldo] = useState(0)
   const [valor, setValor] = useState('')
   const [observacao, setObservacao] = useState('')
@@ -71,6 +76,7 @@ export default function NovoPagamentoScreen() {
   }
 
   async function handleSalvar() {
+    if (salvando) return // reforço -- o Botao abaixo já desabilita via carregando={salvando}
     if (!clienteSelecionado || !usuario?.id || !tenantId) return
     const valorNum = parseFloat(valor.replace(',', '.'))
     setErroValor('')
@@ -92,16 +98,18 @@ export default function NovoPagamentoScreen() {
         if (dd && mm && aaaa) dataPagISO = `${aaaa}-${mm}-${dd}`
       }
 
-      const { error } = await supabase.from('pagamentos').insert({
+      // Usa useVendas().registrarPagamento() em vez de insert direto -- achado em
+      // produção: o insert direto não tinha client_op_id, não caía pra fila
+      // offline, e sobretudo nunca chamava reconciliarPagoCliente(), deixando as
+      // vendas com pago=false mesmo depois do pagamento (apareciam "em aberto"
+      // em Cobranças indefinidamente).
+      await registrarPagamento({
         cliente_id: clienteSelecionado.id,
-        usuario_id: tenantId,
-        criado_por: usuario.id,
         valor: valorNum,
         data_pagamento: dataPagISO,
-        observacao: observacao.trim() || null,
+        observacao: observacao.trim() || undefined,
         forma_pagamento: formaPagamento,
       })
-      if (error) throw error
 
       await tocar()
       agendarNotificacoesVencimento() // reagenda notificações refletindo o novo estado de dívidas
