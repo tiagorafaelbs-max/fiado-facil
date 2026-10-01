@@ -238,6 +238,19 @@ Testes concluídos (tabela acima, 11/11 ✅) — usaram 3 contas de teste, não 
 
 **Próximo passo:** com tudo validado (Fiscal + Tiago), um novo build pras duas plataformas (iOS 87 / Android 52) — só com autorização explícita, uma vez cada.
 
+## Lote 01/10 — Android 52 falhou de novo (fingerprint) + regra nova: nunca builds em paralelo
+
+**O que aconteceu:** iOS 87 e Android 52 foram disparados **em paralelo** (dois processos `eas-cli` rodando ao mesmo tempo, mesma pasta local). iOS 87 passou e foi pro TestFlight sem problema. **Android 52 falhou de novo**, mesmo erro de antes (`CONFIGURE_EXPO_UPDATES`, runtime version local ≠ build) — mesmo já com o `.easignore` corrigido e o alinhamento mínimo (`expo`/`expo-updates`) aplicados no lote anterior.
+
+**Diagnóstico novo (o log desta vez trouxe o diff exato entre fingerprint local e o recalculado pela EAS, algo que o log do build 51 não tinha):**
+1. Uma pasta `android` aparece como fonte nova **só do lado do servidor EAS** (motivo interno do `@expo/fingerprint`: `bareNativeDir`). No projeto local não existe pasta `android/` (confirmado antes, managed workflow). Hipótese: o build Android gera essa pasta via `expo prebuild` **antes** de recalcular o fingerprint no servidor, e esse recálculo passa a contar a pasta nativa como fonte — o fingerprint calculado localmente (antes do upload, sem prebuild) nunca viu isso. Pode ser um comportamento estrutural do `@expo/fingerprint` em projeto managed + Android + `runtimeVersion: fingerprint`, não dependente de versão de pacote.
+2. A única outra diferença do diff: `expoConfig.ios.buildNumber` — local = `87`, lado EAS = `86`. Isso não devia nem importar pra um build Android. Explicação mais provável: os dois `eas-cli` (iOS e Android) escreveram no **mesmo `app.json` local ao mesmo tempo** (cada um bumpando seu próprio campo via `autoIncrement`) — condição de corrida entre os dois processos, não um problema de dependência nem do `.easignore`.
+
+**Decisão do Tiago (01/10):**
+- **Regra nova, permanente: nunca mais disparar `eas build` pra iOS e Android em paralelo.** Sempre sequencial — esperar um terminar (e comitar o autoincrement, deixando `app.json` limpo) antes de disparar o outro. Elimina a hipótese (2) de vez.
+- Depois do iOS 87 confirmado no TestFlight e do commit do autoincrement, rodar o **Android sozinho** (versionCode 53), uma vez.
+- Se falhar de novo por fingerprint: **não tentar mais nada sozinho** — trazer o log pro Tiago e preparar (sem aplicar) a proposta de trocar `runtimeVersion` pra `{ "policy": "appVersion" }`, com análise de impacto em OTA (updates já publicados, builds 1.0.11/1.0.12 já instalados) e plano de rebuild das duas plataformas.
+
 ## Backlog 1.0.13 (não implementar agora — só registrar)
 - Aviso de operação presa por permissão (funcionário desativado / outro usuário logado no aparelho) enquanto uma operação fica na fila offline sem conseguir sincronizar.
 - Confirmação de pagamento repetido: mesmo cliente, mesmo valor, lançado por outra pessoa, nos últimos 30 minutos — hoje não há nenhum aviso, só a decisão consciente do comerciante evita duplicidade.
