@@ -251,6 +251,8 @@ Testes concluídos (tabela acima, 11/11 ✅) — usaram 3 contas de teste, não 
 - Depois do iOS 87 confirmado no TestFlight e do commit do autoincrement, rodar o **Android sozinho** (versionCode 53), uma vez.
 - Se falhar de novo por fingerprint: **não tentar mais nada sozinho** — trazer o log pro Tiago e preparar (sem aplicar) a proposta de trocar `runtimeVersion` pra `{ "policy": "appVersion" }`, com análise de impacto em OTA (updates já publicados, builds 1.0.11/1.0.12 já instalados) e plano de rebuild das duas plataformas.
 
+**Resultado:** Android 53 rodado sozinho (sem iOS em paralelo) — **passou de primeira**. Confirma que a causa real da falha do 52 foi a condição de corrida no `app.json` compartilhado entre os dois processos `eas-cli`, não o `.easignore`/dependências (que já estavam corretos desde o lote anterior) nem a hipótese do `android`/`bareNativeDir` (ou essa fonte não causa falha por si só quando o resto do fingerprint está consistente). Build 1.0.12 completo: iOS 87 + Android 53, ambos no ar (TestFlight / faixa internal).
+
 ## Backlog 1.0.13 (não implementar agora — só registrar)
 - Aviso de operação presa por permissão (funcionário desativado / outro usuário logado no aparelho) enquanto uma operação fica na fila offline sem conseguir sincronizar.
 - Confirmação de pagamento repetido: mesmo cliente, mesmo valor, lançado por outra pessoa, nos últimos 30 minutos — hoje não há nenhum aviso, só a decisão consciente do comerciante evita duplicidade.
