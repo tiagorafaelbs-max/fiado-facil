@@ -6,6 +6,7 @@ import {
 } from 'react-native'
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import QRCode from 'react-native-qrcode-svg'
 import { supabase } from '../../lib/supabase'
 import { useVendas } from '../../hooks/useVendas'
@@ -37,6 +38,11 @@ interface Pagamento {
 }
 
 const FUSO_NEGOCIO = 'America/Sao_Paulo'
+
+// Chaveado pelo id do cliente (UUID já único globalmente) -- sem risco de vazar
+// entre contas como o cache de lista tinha, então não precisa isolar por sessão.
+const CLIENTE_CACHE_PREFIX = '@fiado_cliente_cache:'
+const PAGAMENTOS_CACHE_PREFIX = '@fiado_pagamentos_cliente_cache:'
 
 // "Lançado hoje" pro fuso do negócio, não o fuso do aparelho -- é o critério que a
 // policy de UPDATE de funcionário usa no banco (RLS é quem decide de verdade; isto
@@ -155,20 +161,53 @@ export default function DetalheClienteScreen() {
 
   const carregarCliente = useCallback(async () => {
     if (!tenantId) return
-    const { data } = await supabase.from('clientes_com_saldo').select('*')
-      .eq('id', id).eq('usuario_id', tenantId).single()
-    if (data) {
-      setCliente(data)
-      navigation.setOptions({ title: data.nome })
+    const cacheKey = CLIENTE_CACHE_PREFIX + id
+    try {
+      const { data, error } = await supabase.from('clientes_com_saldo').select('*')
+        .eq('id', id).eq('usuario_id', tenantId).single()
+      if (error) throw error
+      if (data) {
+        setCliente(data)
+        navigation.setOptions({ title: data.nome })
+        AsyncStorage.setItem(cacheKey, JSON.stringify(data)).catch(() => {})
+      }
+    } catch (e: any) {
+      // Erro confirmado pelo servidor (ex: PGRST116 -- cliente não existe mais
+      // ou não é deste tenant) não deve mostrar um cache antigo como se ainda
+      // fosse válido -- cai no watchdog normalmente. Só falha de rede (sem
+      // `.code`, ou dispositivo sabidamente offline) usa o cache.
+      if (typeof e?.code === 'string' && e.code.length > 0) return
+      try {
+        const cache = await AsyncStorage.getItem(cacheKey)
+        if (cache) {
+          const cached = JSON.parse(cache)
+          if (cached.usuario_id === tenantId) {
+            setCliente(cached)
+            navigation.setOptions({ title: cached.nome })
+          }
+        }
+      } catch { /* cache indisponível -- cai no watchdog normalmente */ }
     }
   }, [id, tenantId])
 
   const carregarPagamentos = useCallback(async () => {
     if (!tenantId) return
-    const { data } = await supabase.from('pagamentos')
-      .select('id, valor, data_pagamento, observacao, criado_por, criado_em')
-      .eq('cliente_id', id).eq('usuario_id', tenantId).order('data_pagamento', { ascending: false })
-    setPagamentos(data ?? [])
+    const cacheKey = PAGAMENTOS_CACHE_PREFIX + id
+    try {
+      const { data, error } = await supabase.from('pagamentos')
+        .select('id, valor, data_pagamento, observacao, criado_por, criado_em')
+        .eq('cliente_id', id).eq('usuario_id', tenantId).order('data_pagamento', { ascending: false })
+      if (error) throw error
+      setPagamentos(data ?? [])
+      AsyncStorage.setItem(cacheKey, JSON.stringify(data ?? [])).catch(() => {})
+    } catch {
+      // Falha de rede: mantém os pagamentos já carregados em vez de esvaziar a
+      // lista; se a tela nunca carregou nada ainda, tenta o cache.
+      try {
+        const cache = await AsyncStorage.getItem(cacheKey)
+        if (cache) setPagamentos(JSON.parse(cache))
+      } catch { /* sem cache -- mantém o estado atual (pode já estar vazio) */ }
+    }
   }, [id, tenantId])
 
   // Bug achado no Android (build 50): o efeito dependia de [id, usuario?.id], mas
@@ -225,10 +264,16 @@ export default function DetalheClienteScreen() {
       } else {
         await registrarPagamento({ cliente_id: id, valor, observacao: observacaoPagamento || undefined })
       }
-      agendarNotificacoesVencimento() // reagenda notificações refletindo o novo estado de dívidas
-      await Promise.all([carregarCliente(), carregarPagamentos()])
+      // Fecha e limpa a tela na hora -- o pagamento já está salvo (direto ou na
+      // fila offline) neste ponto. Recarregar cliente/pagamentos continua em
+      // segundo plano, sem travar o modal: achado do Tiago, offline essas duas
+      // chamadas de rede sem timeout prendiam o spinner por 10-15s mesmo já com
+      // o pagamento salvo, e se o app fosse fechado nesse meio-tempo passava a
+      // impressão de que o pagamento tinha se perdido (não tinha).
       setModalPagamento(false); setValorPagamento(''); setObservacaoPagamento(''); setFormaPagamento(''); setTipoPagamento('total'); setNumParcelas(2)
       tocar()
+      agendarNotificacoesVencimento() // reagenda notificações refletindo o novo estado de dívidas
+      carregarCliente(); carregarPagamentos()
     } catch (e: any) {
       setErroPagamento(e.message)
     } finally {
@@ -497,7 +542,13 @@ export default function DetalheClienteScreen() {
 
   const temSaldo = parseFloat(String(cliente.saldo_devedor ?? 0)) > 0
   const temLimite = modulos.limite_credito && (cliente.limite_credito ?? 0) > 0
-  const percentualLimite = temLimite ? Math.min(((cliente.saldo_devedor ?? 0) / cliente.limite_credito!) * 100, 100) : 0
+  // Sem o Math.min, um saldo bem maior que o limite (ex: R$30 de saldo com R$1 de
+  // limite) voltaria uma porcentagem de centenas -- usada só pra decidir o rótulo
+  // abaixo, nunca pra desenhar a barra (que continua limitada a 100%).
+  const percentualLimiteReal = temLimite ? ((cliente.saldo_devedor ?? 0) / cliente.limite_credito!) * 100 : 0
+  const percentualLimite = Math.min(percentualLimiteReal, 100)
+  const limiteUltrapassado = temLimite && percentualLimiteReal > 100
+  const limiteQuaseAtingido = temLimite && !limiteUltrapassado && percentualLimiteReal >= 80
   const score = modulos.score_cliente ? calcularScore(vendas, pagamentos) : null
   const pixPayload = modulos.qr_pix && perfil?.chave_pix ? gerarPayloadPix(perfil.chave_pix, perfil.nome_negocio, cliente.saldo_devedor ?? 0) : null
 
@@ -517,6 +568,13 @@ export default function DetalheClienteScreen() {
     <>
     <KeyboardToolbar />
     <ScrollView style={estilos.container} contentContainerStyle={[estilos.content, isTablet && estilos.contentTablet]}>
+
+      {!online && (
+        <View style={estilos.offlineBannerTopo}>
+          <Ionicons name="cloud-offline-outline" size={15} color={C.red} />
+          <Text style={estilos.offlineBannerTopoTexto}>Sem conexão — mostrando dados salvos</Text>
+        </View>
+      )}
 
       {/* Header cliente */}
       <View style={estilos.clienteCard}>
@@ -606,8 +664,11 @@ export default function DetalheClienteScreen() {
                 backgroundColor: percentualLimite >= 90 ? C.red : percentualLimite >= 70 ? C.yellow : C.green,
               }]} />
             </View>
-            {percentualLimite >= 90 && (
-              <Text style={estilos.limiteAviso}>⚠ Limite quase atingido</Text>
+            {limiteUltrapassado && (
+              <Text style={estilos.limiteAviso}>⚠ Limite ultrapassado</Text>
+            )}
+            {limiteQuaseAtingido && (
+              <Text style={estilos.limiteAvisoAtencao}>⚠ Limite quase atingido</Text>
             )}
           </View>
         )}
@@ -769,13 +830,6 @@ export default function DetalheClienteScreen() {
                 <Ionicons name="close" size={20} color={C.text2} />
               </TouchableOpacity>
             </View>
-
-            {!online && (
-              <View style={estilos.offlineBanner}>
-                <Ionicons name="cloud-offline-outline" size={15} color="#7a5c00" />
-                <Text style={estilos.offlineBannerTexto}>Sem conexão — conecte-se para registrar pagamentos</Text>
-              </View>
-            )}
 
             {/* Seletor à vista / parcelado */}
             <View style={estilos.tipoPagRow}>
@@ -1122,6 +1176,13 @@ const estilos = StyleSheet.create({
   limiteBarra: { height: 6, backgroundColor: 'rgba(0,0,0,0.08)', borderRadius: 99, overflow: 'hidden' },
   limitePreenchido: { height: 6, borderRadius: 99 },
   limiteAviso: { fontSize: 11, color: C.red, fontWeight: '600', marginTop: 6, textAlign: 'center' },
+  limiteAvisoAtencao: { fontSize: 11, color: C.yellow, fontWeight: '600', marginTop: 6, textAlign: 'center' },
+  offlineBannerTopo: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: C.redLight, borderRadius: 10, padding: 10, marginBottom: 12,
+    borderWidth: 1, borderColor: C.redBorder,
+  },
+  offlineBannerTopoTexto: { flex: 1, fontSize: 12, color: C.red, fontWeight: '500' },
   acoesContainer: { gap: 8, marginBottom: 12 },
   acoesTier: { flexDirection: 'row', gap: 8 },
   btnPagar: {
@@ -1179,12 +1240,6 @@ const estilos = StyleSheet.create({
   vazio: { alignItems: 'center', gap: 8, paddingVertical: 24 },
   vazioTexto: { fontSize: 14, color: C.text2 },
   modal: { flex: 1, padding: 24, paddingTop: 12, backgroundColor: C.bg },
-  offlineBanner: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#FFF8E1', borderWidth: 1, borderColor: '#FFE082',
-    borderRadius: 12, padding: 12, marginBottom: 16,
-  },
-  offlineBannerTexto: { color: '#7a5c00', fontSize: 13, fontWeight: '500', flex: 1 },
   modalHandle: { width: 40, height: 4, borderRadius: 99, backgroundColor: C.border, alignSelf: 'center', marginBottom: 20 },
   formaBox: { marginBottom: 12 },
   formaLabel: { fontSize: 13, fontWeight: '600', color: C.text2, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },

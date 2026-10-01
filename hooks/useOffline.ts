@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import NetInfo from '@react-native-community/netinfo'
 import { Platform } from 'react-native'
 import { supabase } from '../lib/supabase'
 import { reconciliarPagoCliente } from '../lib/reconciliacao'
@@ -56,10 +57,18 @@ async function carregarFila(): Promise<OperacaoOffline[]> {
 
 const TIMEOUT_SYNC_MS = 15000
 
-function sinalComTimeout(): AbortSignal {
+function sinalComTimeout(ms: number = TIMEOUT_SYNC_MS): AbortSignal {
   const controller = new AbortController()
-  setTimeout(() => controller.abort(), TIMEOUT_SYNC_MS)
+  setTimeout(() => controller.abort(), ms)
   return controller.signal
+}
+
+// Exportado pro caminho "online" de criar()/registrarPagamento() em
+// useVendas.ts -- achado do Fiscal: sem timeout nenhum, um wifi conectado mas
+// sem internet de verdade travava o insert por dezenas de segundos (timeout de
+// TCP do sistema) em vez de cair pra fila offline.
+export function sinalComTimeoutDeEscrita(): AbortSignal {
+  return sinalComTimeout(8000)
 }
 
 async function sincronizarFilaInterno(): Promise<number> {
@@ -144,6 +153,28 @@ export function sincronizarFila(): Promise<number> {
     sincronizacaoEmAndamento = null
   })
   return sincronizacaoEmAndamento
+}
+
+// Checagem local (NetInfo lê o estado que o SO já mantém, sem round-trip de
+// rede) -- usada nos pontos que decidem "enfileira ou tenta direto" ANTES de
+// qualquer chamada de rede, ao contrário de verificarConectividade() abaixo
+// (que faz um fetch real e pode demorar vários segundos quando a rede está
+// instável, não só totalmente desligada). Achado do Tiago: pagamento/venda
+// offline demorava 10-15s e se perdia se o app fosse fechado nesse meio-tempo
+// -- a demora era ANTES de enfileirar, então nada tinha sido salvo ainda.
+export async function estaOnlineRapido(): Promise<boolean> {
+  try {
+    const estado = await NetInfo.fetch()
+    // isInternetReachable também entra: isConnected só diz se há uma interface
+    // de rede (ex: wifi conectado sem internet de verdade) -- achado do Fiscal,
+    // sem isso o caminho "direto" (sem timeout) seria tentado num wifi morto.
+    if (estado.isConnected === false || estado.isInternetReachable === false) return false
+    return true
+  } catch {
+    // NetInfo indisponível por algum motivo -- assume online e deixa a
+    // tentativa de rede real decidir (comportamento de antes desta função existir).
+    return true
+  }
 }
 
 export async function verificarConectividade(): Promise<boolean> {

@@ -26,13 +26,24 @@ export function useChecklistDia0(tenantId: string | undefined) {
 
   const carregar = useCallback(async () => {
     if (!tenantId) return
-    const [{ data: perfil }, { count: totalClientes }, { count: totalVendas }] = await Promise.all([
+    const [
+      { data: perfil, error: erroPerfil },
+      { count: totalClientes, error: erroClientes },
+      { count: totalVendas, error: erroVendas },
+    ] = await Promise.all([
       supabase.from('perfis')
         .select('criado_em, checklist_dia0_completado_em, checklist_dia0_dispensado')
         .eq('id', tenantId).single(),
       supabase.from('clientes').select('id', { count: 'exact', head: true }).eq('usuario_id', tenantId),
       supabase.from('vendas').select('id', { count: 'exact', head: true }).eq('usuario_id', tenantId),
     ])
+    // Falha de rede: mantém o estado (visível ou não) como estava, em vez de
+    // recalcular com contagens zeradas por falha e mostrar "primeiros passos"
+    // pra uma conta que já tem clientes/vendas de verdade (achado do Tiago).
+    if (erroPerfil || erroClientes || erroVendas) {
+      setEstado(prev => ({ ...prev, carregando: false }))
+      return
+    }
 
     const clientes = totalClientes ?? 0
     const vendas = totalVendas ?? 0

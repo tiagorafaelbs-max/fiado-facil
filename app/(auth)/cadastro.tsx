@@ -1,5 +1,6 @@
 ﻿import { useState } from 'react'
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useAuth } from '../../hooks/useAuth'
@@ -10,6 +11,7 @@ import { C } from '../../constants/colors'
 
 export default function CadastroScreen() {
   const router = useRouter()
+  const insets = useSafeAreaInsets()
   const { cadastrar } = useAuth()
   const [nomeNegocio, setNomeNegocio] = useState('')
   const [email, setEmail] = useState('')
@@ -66,7 +68,7 @@ export default function CadastroScreen() {
 
   return (
     <ScrollView contentContainerStyle={estilos.scroll} keyboardShouldPersistTaps="handled">
-      <View style={estilos.container}>
+      <View style={[estilos.container, { paddingBottom: 24 + insets.bottom }]}>
 
         <View style={estilos.header}>
           <TouchableOpacity onPress={() => router.back()} style={estilos.voltarBtn}>

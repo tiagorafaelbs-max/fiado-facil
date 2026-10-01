@@ -31,7 +31,7 @@ export default function DashboardScreen() {
   const router = useRouter()
   const { usuario } = useAuth()
   const insets = useSafeAreaInsets()
-  const { resumo, topDevedores, carregando, buscar, plano } = useDashboard()
+  const { resumo, topDevedores, carregando, buscar, plano, offline: dashboardOffline } = useDashboard()
   const { online, pendentes } = useOffline()
   const { tenantId } = useTenant()
   const { modulos } = useModulos(tenantId || usuario?.id)
@@ -144,12 +144,37 @@ export default function DashboardScreen() {
 
   useFocusEffect(useCallback(() => { buscar(); checklistDia0.recarregar() }, [buscar, checklistDia0.recarregar]))
 
+  // Lê o nome salvo da última vez que carregou com sucesso -- evita a saudação
+  // sem nome ("Bom dia 👋") quando o app abre offline antes da query abaixo
+  // conseguir rodar (achado do Tiago: Início fica com cara de conta nova offline).
+  useEffect(() => {
+    if (!tenantId) return
+    AsyncStorage.getItem('@fiado_nome_negocio:' + tenantId).then(nome => {
+      if (nome) setNomeNegocio(nome)
+    }).catch(() => {})
+  }, [tenantId])
+
+  // Ao reconectar, recarrega sozinho em vez de esperar o usuário sair e voltar
+  // pra tela ou arrastar pra atualizar (achado do Tiago: Início ficava zerado
+  // "por mais de 30s" depois da internet voltar).
+  const estavaOnlineRef = useRef(online)
+  useEffect(() => {
+    if (!estavaOnlineRef.current && online) {
+      buscar()
+      checklistDia0.recarregar()
+    }
+    estavaOnlineRef.current = online
+  }, [online, buscar, checklistDia0.recarregar])
+
   useEffect(() => {
     if (!tenantId) return
     supabase.from('perfis').select('dia_cobranca, nome_negocio, cobranca_auto_tipo').eq('id', tenantId).single()
       .then(({ data }) => {
         if (!data) return
-        if (data.nome_negocio) setNomeNegocio(data.nome_negocio)
+        if (data.nome_negocio) {
+          setNomeNegocio(data.nome_negocio)
+          AsyncStorage.setItem('@fiado_nome_negocio:' + tenantId, data.nome_negocio).catch(() => {})
+        }
         if (!data.dia_cobranca) return
         const agora = new Date()
         const hoje = agora.getDate()
@@ -319,7 +344,7 @@ export default function DashboardScreen() {
               </View>
             )}
 
-            {checklistDia0.visivel && (
+            {checklistDia0.visivel && !dashboardOffline && (
               <ChecklistDia0
                 primeiroCliente={checklistDia0.primeiroCliente}
                 primeiraVenda={checklistDia0.primeiraVenda}
@@ -468,7 +493,19 @@ export default function DashboardScreen() {
         }
         ListEmptyComponent={
           !carregando ? (
-            resumo.clientes_ativos === 0 ? (
+            dashboardOffline && resumo.clientes_ativos === 0 ? (
+              // Offline e sem nenhum cache salvo ainda -- NÃO é uma conta nova,
+              // é falta de conexão (achado do Tiago: sem isto, abrir o app já
+              // offline mostrava a tela de boas-vindas como se fosse a primeira
+              // vez, mesmo numa conta com clientes cadastrados).
+              <View style={estilos.vazio}>
+                <View style={estilos.vazioIcone}>
+                  <Ionicons name="cloud-offline-outline" size={42} color={C.red} />
+                </View>
+                <Text style={estilos.vazioTitulo}>Sem conexão</Text>
+                <Text style={estilos.vazioTexto}>Ainda não há dados salvos neste aparelho. Conecte-se à internet para carregar seus clientes.</Text>
+              </View>
+            ) : resumo.clientes_ativos === 0 ? (
               // Usuário novo — sem nenhum cliente ainda
               <View style={estilos.vazio}>
                 <View style={estilos.vazioIcone}>

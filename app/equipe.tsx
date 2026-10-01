@@ -116,7 +116,12 @@ export default function EquipeScreen() {
   const ativos = membros.filter(m => m.status === 'ativo')
 
   return (
-    <ScrollView style={estilos.container} contentContainerStyle={{ padding: 20, paddingBottom: 60 }}>
+    <ScrollView
+      style={estilos.container}
+      contentContainerStyle={{ padding: 20, paddingBottom: 60 }}
+      keyboardShouldPersistTaps="handled"
+      automaticallyAdjustKeyboardInsets
+    >
       <TouchableOpacity onPress={() => router.back()} style={estilos.voltar}>
         <Ionicons name="chevron-back" size={22} color={C.text} />
         <Text style={estilos.voltarTexto}>Configurações</Text>

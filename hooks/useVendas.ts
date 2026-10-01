@@ -1,10 +1,19 @@
 import { useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
-import { enfileirarOperacao, verificarConectividade } from './useOffline'
+import { enfileirarOperacao, estaOnlineRapido, sinalComTimeoutDeEscrita } from './useOffline'
 import { resolverTenantId } from '../lib/tenant'
 import { reconciliarPagoCliente } from '../lib/reconciliacao'
 import { gerarUUID } from '../lib/uuid'
 import type { Venda, Pagamento } from '../types'
+
+// Erro do Postgres/PostgREST sempre vem com `.code` preenchido (ex: "23505",
+// "PGRST116"). Falha de rede/timeout/abort (AbortError, TypeError de fetch)
+// não tem -- é essa diferença que decide se repassa o erro pro usuário ou
+// cai pra fila offline (achado do Fiscal: sem isso, um wifi "conectado mas
+// sem internet" ficava preso no insert direto sem timeout nem fallback).
+function erroDeServidor(e: any): boolean {
+  return typeof e?.code === 'string' && e.code.length > 0
+}
 
 // Traduz erros crus do Postgres para mensagens em português.
 function traduzErroBanco(msg: string): string {
@@ -73,26 +82,35 @@ export function useVendas(clienteId?: string) {
     if (dados.data_vencimento) payload.data_vencimento = dados.data_vencimento
     if (dados.foto_url) payload.foto_url = dados.foto_url
 
-    const online = await verificarConectividade()
-    if (!online) {
-      // Sem internet: gera UUID local e enfileira para sincronização automática
-      const idLocal = `local_${Date.now()}_${Math.random().toString(36).slice(2)}`
-      await enfileirarOperacao({ tabela: 'vendas', operacao: 'insert', dados: { ...payload, id: idLocal } })
-      // Retorna placeholder — UI mostrará sucesso e sincronizará ao reconectar
-      return { id: idLocal, ...payload } as unknown as Venda
+    const online = await estaOnlineRapido()
+    if (online) {
+      try {
+        const { data, error } = await supabase
+          .from('vendas')
+          .insert(payload)
+          .select()
+          .abortSignal(sinalComTimeoutDeEscrita())
+          .single()
+        if (error) throw error
+        // Cliente pode ter crédito sobrando (pagou adiantado) que cobre esta venda nova.
+        await reconciliarPagoCliente(dados.cliente_id)
+        await buscar()
+        return data
+      } catch (e: any) {
+        // Erro de verdade do banco (RLS, validação, constraint) -- repassa pro
+        // usuário, não faz sentido enfileirar algo que nunca vai conseguir
+        // sincronizar. Qualquer outra coisa (timeout do abortSignal acima,
+        // AbortError, rede caiu no meio) cai pro mesmo caminho do offline.
+        if (erroDeServidor(e)) throw new Error(traduzErroBanco(e.message))
+      }
     }
 
-    const { data, error } = await supabase
-      .from('vendas')
-      .insert(payload)
-      .select()
-      .single()
-
-    if (error) throw new Error(traduzErroBanco(error.message))
-    // Cliente pode ter crédito sobrando (pagou adiantado) que cobre esta venda nova.
-    await reconciliarPagoCliente(dados.cliente_id)
-    await buscar()
-    return data
+    // Sem internet (ou a tentativa online acima falhou por rede/timeout): gera
+    // UUID local e enfileira para sincronização automática.
+    const idLocal = `local_${Date.now()}_${Math.random().toString(36).slice(2)}`
+    await enfileirarOperacao({ tabela: 'vendas', operacao: 'insert', dados: { ...payload, id: idLocal } })
+    // Retorna placeholder — UI mostrará sucesso e sincronizará ao reconectar
+    return { id: idLocal, ...payload } as unknown as Venda
   }, [buscar])
 
   const registrarPagamento = useCallback(async (params: {
@@ -119,22 +137,27 @@ export function useVendas(clienteId?: string) {
       data_pagamento: data_pagamento ?? new Date().toISOString().split('T')[0],
     }
 
-    const online = await verificarConectividade()
-    if (!online) {
-      // Sem internet: enfileira e sincroniza ao reconectar. A reconciliação do
-      // FIFO (flag `pago`) acontece em useOffline.ts logo após sincronizar,
-      // não aqui — offline não há como recalcular contra o estado real do banco.
-      await enfileirarOperacao({ tabela: 'pagamentos', operacao: 'insert', dados: payload })
-      return
+    const online = await estaOnlineRapido()
+    if (online) {
+      try {
+        const { error } = await supabase.from('pagamentos').insert(payload).abortSignal(sinalComTimeoutDeEscrita())
+        if (error) throw error
+        // Reconcilia a flag `pago` das vendas do cliente por alocação FIFO.
+        await reconciliarPagoCliente(params.cliente_id)
+        await buscar()
+        return
+      } catch (e: any) {
+        // Mesmo critério do criar() acima: erro de servidor repassa pro usuário,
+        // falha de rede/timeout cai pra fila.
+        if (erroDeServidor(e)) throw e
+      }
     }
 
-    const { error } = await supabase.from('pagamentos').insert(payload)
-    if (error) throw error
-
-    // Reconcilia a flag `pago` das vendas do cliente por alocação FIFO.
-    await reconciliarPagoCliente(params.cliente_id)
-
-    await buscar()
+    // Sem internet (ou a tentativa online acima falhou por rede/timeout):
+    // enfileira e sincroniza ao reconectar. A reconciliação do FIFO (flag
+    // `pago`) acontece em useOffline.ts logo após sincronizar, não aqui —
+    // offline não há como recalcular contra o estado real do banco.
+    await enfileirarOperacao({ tabela: 'pagamentos', operacao: 'insert', dados: payload })
   }, [buscar])
 
   const excluirVenda = useCallback(async (id: string) => {

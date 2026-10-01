@@ -6,6 +6,7 @@ import {
 import { useRouter } from 'expo-router'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Ionicons } from '@expo/vector-icons'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 const { width } = Dimensions.get('window')
 
@@ -36,6 +37,7 @@ const PASSOS = [
 
 export default function OnboardingScreen() {
   const router = useRouter()
+  const insets = useSafeAreaInsets()
   const [passo, setPasso] = useState(-1)   // -1 = hero
   const fadeAnim  = useRef(new Animated.Value(1)).current
   const slideAnim = useRef(new Animated.Value(0)).current
@@ -70,7 +72,7 @@ export default function OnboardingScreen() {
   // ─── HERO ────────────────────────────────────────────────────────────────────
   if (passo === -1) {
     return (
-      <View style={s.container}>
+      <View style={[s.container, { paddingBottom: s.container.paddingBottom + insets.bottom }]}>
         <StatusBar barStyle="light-content" backgroundColor={VERDE} />
 
         {/* Linha âmbar no topo — assinatura visual do app */}
@@ -130,7 +132,7 @@ export default function OnboardingScreen() {
   const ultimo  = passo === PASSOS.length - 1
 
   return (
-    <View style={s.container}>
+    <View style={[s.container, { paddingBottom: s.container.paddingBottom + insets.bottom }]}>
       <StatusBar barStyle="light-content" backgroundColor={VERDE} />
       <View style={s.topBar} />
 

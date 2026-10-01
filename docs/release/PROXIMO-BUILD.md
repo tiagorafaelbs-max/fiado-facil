@@ -253,11 +253,36 @@ Testes concluídos (tabela acima, 11/11 ✅) — usaram 3 contas de teste, não 
 
 **Resultado:** Android 53 rodado sozinho (sem iOS em paralelo) — **passou de primeira**. Confirma que a causa real da falha do 52 foi a condição de corrida no `app.json` compartilhado entre os dois processos `eas-cli`, não o `.easignore`/dependências (que já estavam corretos desde o lote anterior) nem a hipótese do `android`/`bareNativeDir` (ou essa fonte não causa falha por si só quando o resto do fingerprint está consistente). Build 1.0.12 completo: iOS 87 + Android 53, ambos no ar (TestFlight / faixa internal).
 
+## Lote 01/10 (2) — 8 bugs do teste real em Android (build 53) + iPhone (build 87)
+
+Tiago testou a 1.0.12 num Samsung Galaxy A51 físico (Android 13, navegação por 3 botões) e no iPhone. Reportou 8 bugs (3 bloqueantes pra produção Android + 1 bloqueante de UX iOS). Revisão em 3 rodadas pelo Agente Fiscal (2 reprovações corrigidas no meio, detalhes nos itens 2/3/4 abaixo) — todos os 8 aprovados. `tsc --noEmit` limpo. **Nenhum teste em dispositivo/emulador real foi feito nesta correção** — só revisão de código e tipos; Tiago precisa validar nos aparelhos antes de autorizar um novo build.
+
+| # | Bug | Causa raiz | Arquivo:linha | Criticidade |
+|---|---|---|---|---|
+| 1 | "Já tenho conta"/"Entrar" atrás da barra de navegação Android | Nenhuma tela usava `useSafeAreaInsets().bottom` — SDK 56 passou a desenhar edge-to-edge no Android, e o rodapé fixo ficava parcialmente sob a barra de 3 botões | `app/onboarding.tsx:40,75,135`, `app/(auth)/cadastro.tsx:14,71` | BLOQUEANTE |
+| 2 | Pagamento offline demora 10-15s e se perde se o app fechar em ~4s | Duas chamadas de rede SEM timeout rodavam antes de decidir enfileirar: o teste de conectividade ao vivo (`verificarConectividade`, até 3s) e a resolução do tenant (`resolverTenantId`→`obterContextoEquipe`, sem timeout nenhum, com retry automático do postgrest-js de até 7s em GET) | `lib/tenant.ts:33-72` (NetInfo + `abortSignal` 4.5s + cache), `hooks/useOffline.ts:70,165` (`estaOnlineRapido`/`sinalComTimeoutDeEscrita`), `hooks/useVendas.ts:14,85-116,140-163` (`criar`/`registrarPagamento`), `app/cliente/[id].tsx:260-273` (modal fecha antes do refresh em background) | BLOQUEANTE |
+| 3 | Início zerado offline, continua zerado >30s após reconectar, checklist de conta nova aparece indevido | `useDashboard.ts` zerava o resumo ANTES de saber se a busca ia falhar, sem try/catch nem cache; `useChecklistDia0.ts` não checava erro nas queries e tratava contagem zerada por falha de rede como "conta vazia de verdade" | `hooks/useDashboard.ts:7-112` (cache + `requisicaoRef`), `hooks/useChecklistDia0.ts:27-50` (checagem de erro), `app/(tabs)/index.tsx:34,150-166,347,496` (gate do checklist, cache do nome, auto-refetch ao reconectar) | BLOQUEANTE |
+| 4 | Teclado cobre o e-mail no convite de funcionário (iOS) | Formulário de convite renderizado sem nenhum `KeyboardAvoidingView`/ajuste de teclado | `app/equipe.tsx:119-123` (`automaticallyAdjustKeyboardInsets` no ScrollView) | Bloqueante de UX (iOS) |
+| 5 | Botão "Salvar cliente" colado na barra de navegação Android | Mesma causa do item 1, no modal "Novo cliente" | `app/(tabs)/clientes.tsx:96,669` | BLOQUEANTE |
+| 6 | Tela do cliente offline mostra erro em vez do cache | `carregarCliente`/`carregarPagamentos` não tinham cache (só a lista de clientes tinha) | `app/cliente/[id].tsx:44-45,162-205,571-576` | Recomendação |
+| 7 | Mensagens contraditórias no modal de pagamento offline | Banner do topo dizia "conecte-se pra registrar" (errado — funciona offline), banner de baixo dizia o certo | `app/cliente/[id].tsx` (banner do topo removido) | Recomendação |
+| 8 | Rótulo "Limite quase atingido" com saldo bem maior que o limite | O percentual usado pra decidir o texto já vinha limitado a 100% (`Math.min`), nunca disparava a diferenciação "ultrapassado" vs "quase atingido" | `app/cliente/[id].tsx:548-551,667-672` | Recomendação |
+
+**Pendências que o Fiscal registrou como não-bloqueantes mas valem acompanhar:**
+- Pior caso ainda existe: numa rede que o aparelho ainda não percebeu que caiu, o pagamento pode esperar até ~12,5s (4,5s resolução do tenant + 8s tentativa de insert) antes de cair na fila — menor que os 10-15s originais, mas não zero.
+- Pagamento offline não aparece na tela do cliente até sincronizar (fica só na fila).
+- Funcionário desativado continua enfileirando operações que a RLS recusa na sincronização, sem aviso.
+- Caches novos (contexto de equipe, dashboard, cliente) não são apagados no logout — mesmo padrão que já existia no app.
+
+**Teste pendente (Tiago, antes de autorizar build):** item 4 num iPhone real; item 2 em dois cenários — modo avião E wifi conectado sem internet; itens 1/5 num Android com navegação por 3 botões.
+
 ## Backlog 1.0.13 (não implementar agora — só registrar)
 - Aviso de operação presa por permissão (funcionário desativado / outro usuário logado no aparelho) enquanto uma operação fica na fila offline sem conseguir sincronizar.
 - Confirmação de pagamento repetido: mesmo cliente, mesmo valor, lançado por outra pessoa, nos últimos 30 minutos — hoje não há nenhum aviso, só a decisão consciente do comerciante evita duplicidade.
 - Lixeira com restaurar (clientes/vendas/pagamentos excluídos ficam recuperáveis por um período antes de apagar de vez).
 - Permissões finas por funcionário para relatórios, exportação e cobrança em massa (hoje é tudo-ou-nada: dono vê, funcionário não vê nada disso).
+- Pagamento offline não aparece na tela do cliente até sincronizar (aviso "1 pagamento aguardando sincronizar").
+- Apagar os caches locais (equipe, dashboard, cliente) no logout — ponto de atenção LGPD.
 
 ## Pendências fora do lote
 - Foto de comprovante (`nova-venda.tsx:188`): o bucket `comprovantes` **não existe**, e o upload falha sem avisar. Se for ativar: bucket privado + URL assinada. Decisão de produto.

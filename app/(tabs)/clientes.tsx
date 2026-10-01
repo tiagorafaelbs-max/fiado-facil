@@ -4,6 +4,7 @@ import {
   StyleSheet, RefreshControl, ActivityIndicator, Modal, ScrollView, Platform,
   KeyboardAvoidingView, Alert,
 } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Contacts from 'expo-contacts'
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
@@ -92,6 +93,7 @@ function abrirWhatsApp(nome: string, saldo: number, telefone: string) {
 
 export default function ClientesScreen() {
   const router = useRouter()
+  const insets = useSafeAreaInsets()
   const { novo } = useLocalSearchParams<{ novo?: string }>()
   const { usuario } = useAuth()
   const { clientes, carregando, offline, criar, buscar } = useClientes()
@@ -664,7 +666,7 @@ export default function ClientesScreen() {
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={estilos.modalContainer}>
             <View style={estilos.modalHandle} />
-            <ScrollView contentContainerStyle={estilos.modal} keyboardShouldPersistTaps="handled">
+            <ScrollView contentContainerStyle={[estilos.modal, { paddingBottom: estilos.modal.padding + insets.bottom }]} keyboardShouldPersistTaps="handled">
               <View style={estilos.modalHeader}>
                 <View>
                   <Text style={estilos.modalTitulo}>Novo cliente</Text>
