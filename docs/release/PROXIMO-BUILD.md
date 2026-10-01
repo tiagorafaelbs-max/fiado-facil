@@ -276,6 +276,8 @@ Tiago testou a 1.0.12 num Samsung Galaxy A51 físico (Android 13, navegação po
 
 **Teste pendente (Tiago, antes de autorizar build):** item 4 num iPhone real; item 2 em dois cenários — modo avião E wifi conectado sem internet; itens 1/5 num Android com navegação por 3 botões.
 
+**Atualização 01/10 (3):** Tiago autorizou o build antes do reteste (outra sessão, Opus 5.5, verificou e aprovou o lote + adicionou `"channel": "production"` ao `eas.json` em paralelo — commit `172e10d`, sem conflito). Sequência executada: `git push` (commits `0377473` + `172e10d`) → **Android sozinho, versionCode 54, `--auto-submit`** → só depois dele terminar, **iOS sozinho, build 88** → `eas submit` manual pro TestFlight. Ambos confirmados com `channel: production` via `eas build:view --json`. Nenhum promovido pra produção/revisão. Autoincrement comitado localmente (`d757b24`), sem push ainda. **Falta:** Tiago retestar os 8 itens no Samsung (Android 54) e no iPhone (iOS 88, após processar no TestFlight) antes de promover.
+
 ## Backlog 1.0.13 (não implementar agora — só registrar)
 - Aviso de operação presa por permissão (funcionário desativado / outro usuário logado no aparelho) enquanto uma operação fica na fila offline sem conseguir sincronizar.
 - Confirmação de pagamento repetido: mesmo cliente, mesmo valor, lançado por outra pessoa, nos últimos 30 minutos — hoje não há nenhum aviso, só a decisão consciente do comerciante evita duplicidade.
