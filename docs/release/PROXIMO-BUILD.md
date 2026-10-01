@@ -219,6 +219,25 @@ Testes concluídos (tabela acima, 11/11 ✅) — usaram 3 contas de teste, não 
 
 **Este lote exige um build novo** (1.0.12, iOS build 86 / Android versionCode 51) — só com autorização do Tiago. O build 85/50 já enviado ao TestFlight/faixa internal tem esses 3 bugs.
 
+## Lote 30/09 (2) — Android 51 falhou no build (fingerprint) + alinhamento mínimo de dependências
+
+**O que aconteceu:** depois do build 86/51 ser autorizado e disparado, o **Android falhou** (`CONFIGURE_EXPO_UPDATES`, `"Runtime version calculated on local machine not equal to runtime version calculated during build"`). O **iOS 86 passou** e foi enviado ao TestFlight normalmente.
+
+**Diagnóstico (só leitura, antes de qualquer mudança):**
+- `eas fingerprint:compare --build-id <build Android>`: hash local e hash do build **idênticos** (`2909d347...`, 157 fontes, caminhos iguais). A divergência não é entre "meu upload" e "o build" — acontece **dentro do servidor**, na fase `CONFIGURE_EXPO_UPDATES`, entre o `@expo/fingerprint` (usado pelo `eas-cli`) e o plugin Gradle do `expo-updates` **instalado**, que recalcula o runtime version com sua própria lógica bundled.
+- Hipótese do Tiago sobre `.easignore`/`.gitignore` não explicou ESTA falha (os ~157 arquivos hasheados pelo fingerprint não incluem nada dos arquivos soltos do projeto), **mas confirmou um problema de segurança real e independente**: com `.easignore` presente, o `.gitignore` é totalmente ignorado pra decidir o que sobe no build — e o `.easignore` antigo não excluía `.env` nem `google-service-account.json`.
+- `expo-doctor`/`expo install --check` (só leitura): **18 pacotes desalinhados** da SDK 56, incluindo `expo` (56.0.11, esperado ~56.0.23) e `expo-updates` (56.0.22, esperado ~56.0.28) — a causa raiz real. `@expo/fingerprint` em si também estava desatualizado (0.19.4, a versão nova do `expo`/`@expo/cli` traz 0.19.10) — confirma que o algoritmo de fingerprint do lado do CLI tinha mudado desde a versão instalada.
+- Confirmado: as variáveis `EXPO_PUBLIC_*` vêm do ambiente **"production" configurado na EAS**, não do `.env` local (log do build) — excluir `.env`/`google-service-account.json` do upload não quebra nada.
+
+**Aplicado (aprovado pelo Tiago):**
+- **`.easignore` reescrito**: agora espelha o `.gitignore` inteiro + mantém as exclusões de build que já existiam (`android/.gradle`, `ios/Pods`, `*.map`, etc.). Passa a excluir `node_modules/` por completo (antes só a subpasta `.cache`) — prática recomendada pela Expo; o servidor instala um `node_modules` limpo a partir do lockfile. Testado com a lib `ignore` (simulação local, sem precisar de um build real): `.env` e `google-service-account.json` confirmados excluídos do upload; `app/`, `package.json` etc. confirmados incluídos (nada essencial quebra).
+- **Alinhamento MÍNIMO de dependências**: só `npx expo install expo expo-updates` (`expo` 56.0.11→56.0.23, `expo-updates` 56.0.22→56.0.28). Nada mais foi tocado — confirmei no diff do `package-lock.json` que nenhum dos pacotes que o Tiago pediu pra não tocar (`async-storage`, `gesture-handler`, `reanimated`, `worklets`, `expo-router`, `screens`, `safe-area-context`, `react-native`) mudou de versão; as ~100 entradas que mudaram no lockfile são só o `expo`/`expo-updates` em si, dependências diretas deles (`expo-asset`, `expo-constants`, `expo-file-system`, `expo-font`, `expo-modules-*`, `expo-server`) e ferramentas de build/CLI que nunca entram no app final (`@expo/cli`, `@expo/metro*`, `babel-*`, `lightningcss`).
+- `expo-doctor` depois do alinhamento: caiu de 18 pacotes pra 14 — `expo`/`expo-updates` saíram da lista, como esperado. `tsc --noEmit`: 0 erros.
+
+**Backlog (anotado, não implementado agora):** os outros 14 pacotes desalinhados ficam pra uma tarefa própria pós-lançamento — inclui 2 saltos de versão MAIOR (`@react-native-async-storage/async-storage` 3.1.1 instalado vs 2.2.0 esperado; `react-native-gesture-handler` 3.0.1 vs ~2.31.1 esperado) que merecem teste cuidadoso isolado, não misturado com outro lote. Também fora do lote: `app.json` tem `newArchEnabled` não reconhecido pelo schema do SDK atual; falta a peer dependency `expo-font` como dependência DIRETA (hoje só transitiva, exigida por `@expo/vector-icons`); `@react-navigation/native` instalado direto, incompatível com `expo-router` desde a SDK 56.
+
+**Próximo passo:** com tudo validado (Fiscal + Tiago), um novo build pras duas plataformas (iOS 87 / Android 52) — só com autorização explícita, uma vez cada.
+
 ## Backlog 1.0.13 (não implementar agora — só registrar)
 - Aviso de operação presa por permissão (funcionário desativado / outro usuário logado no aparelho) enquanto uma operação fica na fila offline sem conseguir sincronizar.
 - Confirmação de pagamento repetido: mesmo cliente, mesmo valor, lançado por outra pessoa, nos últimos 30 minutos — hoje não há nenhum aviso, só a decisão consciente do comerciante evita duplicidade.

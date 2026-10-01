@@ -1,11 +1,49 @@
-.git
-node_modules/.cache
-android/.gradle
-android/build
-android/app/build
-ios/build
-ios/Pods
-landing
+# Espelha .gitignore -- com .easignore presente, o .gitignore é TOTALMENTE
+# ignorado pra decidir o que sobe no build da EAS. Sem isto, .env e
+# google-service-account.json subiam pro servidor mesmo não estando no git
+# (achado do Tiago, 30/09).
+node_modules/
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+.metro-health-check*
+
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+.DS_Store
+*.pem
+
+.env*.local
+.env
+
+google-service-account.json
+*-service-account.json
+service-account*.json
+*.keystore
+
 *.aab
 *.apk
+
+supabase/.temp/
+*.tsbuildinfo
+
+/ios
+/android
+
+# Extras que já existiam no .easignore, sem equivalente no .gitignore
+.git
+node_modules/.cache
+landing
 *.map
