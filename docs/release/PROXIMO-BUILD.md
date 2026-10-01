@@ -286,6 +286,18 @@ Tiago testou a 1.0.12 num Samsung Galaxy A51 físico (Android 13, navegação po
 - Pagamento offline não aparece na tela do cliente até sincronizar (aviso "1 pagamento aguardando sincronizar").
 - Apagar os caches locais (equipe, dashboard, cliente) no logout — ponto de atenção LGPD.
 
+## Lote 01/10 (4) — duplicação de "Dívida anterior" em produção (correção OTA, sem native)
+
+**O que aconteceu:** 5 registros de "Dívida anterior" duplicados em produção (29-30/09, 10-36s de diferença). Causa: dois pontos do app gravavam venda/pagamento com `supabase.insert()` direto, sem passar pelo `hooks/useVendas.ts` — então sem `client_op_id`, sem timeout, sem fila offline, nenhuma rede de segurança contra um timeout seguido de retry.
+
+**Correção (commit `6019771`):**
+- `app/cliente/[id].tsx` (`handleAdicionarDividaAnterior`, ~linha 452): trocado o insert direto por `criar()` do `useVendas(id)`.
+- `app/novo-pagamento.tsx` (`handleSalvar`, ~linha 75): trocado o insert direto por `registrarPagamento()` do `useVendas()`; esse hook ganhou `forma_pagamento?: string` no tipo pra aceitar o campo que esse fluxo já usava. Bônus: agora chama `reconciliarPagoCliente()`, que o insert direto nunca chamava — vendas ficavam `pago=false` mesmo pagas, aparecendo "em aberto" em Cobranças.
+- Varredura (`grep` em `app/`, `hooks/`, `lib/`, `components/`, `supabase/functions/`): confirmado que não sobra nenhum outro `.from('vendas'|'pagamentos').insert` fora de `hooks/useVendas.ts`.
+- `hooks/useVendas.ts`: achado do Fiscal na revisão — `reconciliarPagoCliente()`/`buscar()` estavam dentro do mesmo `try` do insert. Se o insert tivesse sucesso mas a reconciliação falhasse com erro de servidor, o hook relançava o erro mesmo com o lançamento já salvo; o usuário tocaria de novo e duplicaria (a mesma classe de bug que estava sendo corrigida). Movido pra um try/catch próprio que nunca relança — falha vira só um aviso, reconciliação roda de novo na próxima operação.
+
+**Teste:** `tsc --noEmit` limpo, revisado pelo Agente Fiscal (aprovado). **Sem teste em dispositivo** — é mudança 100% JS, sem campo nativo, elegível para `eas update --channel production` (os builds 1.0.12 54/88 já têm o channel configurado). Nenhum build/update/push rodado — Tiago decide quando publicar.
+
 ## Pendências fora do lote
 - Foto de comprovante (`nova-venda.tsx:188`): o bucket `comprovantes` **não existe**, e o upload falha sem avisar. Se for ativar: bucket privado + URL assinada. Decisão de produto.
 - Testes automatizados e lint: backlog de adequação (`docs/adequacao-fabrica.md`, a criar).
