@@ -50,7 +50,7 @@ export default function TermosScreen() {
       />
       <Secao
         titulo="9. Contato"
-        texto="Dúvidas sobre os termos? Entre em contato: contato.fiadoapp@gmail.com"
+        texto="Dúvidas sobre os termos? Entre em contato: fiadoapp.contato@gmail.com"
       />
     </ScrollView>
   )

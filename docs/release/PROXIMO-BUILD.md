@@ -306,13 +306,13 @@ Reteste do Tiago: os 8 bugs do pacote anterior estão APROVADOS, e funcionário 
 | 1 | [SEGURANÇA] Convite/recuperação trocavam a senha da conta ERRADA (dono teve a senha trocada em 02/10) | O link falhava em silêncio (provável token consumido: volta `#error=...otp_expired`), o expo-router abria `/nova-senha` pela própria URL e `updateUser()` agia sobre a sessão ativa do dono | `lib/linkAuth.ts` (novo), `app/_layout.tsx`, `app/(auth)/nova-senha.tsx`, `docs/release/supabase-templates-convite.md` |
 | 2 | Inserts diretos sem anti-duplicação | Já corrigido (commits `6019771`/`00d3246`, lote 01/10 (4)); varredura reconfirmada | `hooks/useVendas.ts`, `app/cliente/[id].tsx`, `app/novo-pagamento.tsx` |
 | 3 | Tela do cliente não atualizava após a fila offline sincronizar | Nada avisava as telas quando a fila sincronizava; lançamento offline não aparecia | `hooks/useOffline.ts` (eventos da fila), `app/cliente/[id].tsx`, `app/(tabs)/index.tsx`, `app/(tabs)/clientes.tsx` |
-| 4 | E-mail de contato inexistente | `contato.fiadoapp@gmail.com` recusado pelo servidor | **Preparado, NÃO aplicado**: `docs/release/PENDENTE-email-contato.patch` |
+| 4 | E-mail de contato inexistente | `contato.fiadoapp@gmail.com` recusado pelo servidor | **Aplicado em 02/10** (e-mail oficial = `fiadoapp.contato@gmail.com`, confirmado pelo Tiago): `configuracoes.tsx` (2x), `termos.tsx`, `privacidade.tsx` |
 
 Item 1 — o que mudou: a tela só troca a senha com link validado (`token_hash` via `verifyOtp`, `?code=` ou `#access_token`) e compara `session.user.id` com o usuário do link; Alert "Trocar de conta?" quando já há sessão (Cancelar não altera nada); mostra o e-mail da conta do link; erros do link aparecem na tela; access_token vencido nem chama `setSession` (evita deslogar a conta atual). **Rollout e ajustes no painel do Supabase: `docs/release/supabase-templates-convite.md`** (OTA primeiro; Android precisa de `ios.buildNumber="87"` temporário no `eas update` por causa do fingerprint — verificado só leitura).
 
 Item 3 — o que mudou: `assinarEventosDaFila('enfileirou'|'sincronizou')`; cliente/Início/lista recarregam no 'sincronizou'; bloco "Aguardando sincronização" com selo Pendente; `saldoComPendentes()` agora valida o valor do pagamento (fecha a pendência "dois pagamentos offline passam do saldo").
 
-Item 4 — pendência de decisão: o `prompt-melhorias-testers-community.md` cita `suporte@fiadofacil.com.br` e diz que `fiadoapp.contato@gmail.com` é só do Instagram. O site (`docs/`, `site-live-mirror/`) também usa o endereço antigo.
+Item 4 — decisão do Tiago: o e-mail oficial é `fiadoapp.contato@gmail.com` (conta Google real do Search Console/Analytics; a nota antiga do `prompt-melhorias-testers-community.md` sobre `suporte@fiadofacil.com.br` está desatualizada). Site (`docs/`, `site-live-mirror/`) e fichas das lojas o Tiago corrige por fora.
 
 **Teste:** `tsc --noEmit` limpo no app; Fiscal aprovou os 4 itens (2 rodadas no item 1: achou setSession com token vencido deslogando a conta, e o e-mail da conta do link). **Sem teste em aparelho** — roteiro de teste no doc do Supabase.
 

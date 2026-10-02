@@ -203,7 +203,7 @@ export default function ConfiguracoesScreen() {
 
       await supabase.auth.signOut()
     } catch (e: any) {
-      Alert.alert('Erro', 'Não foi possível excluir a conta. Tente novamente ou contate contato.fiadoapp@gmail.com')
+      Alert.alert('Erro', 'Não foi possível excluir a conta. Tente novamente ou contate fiadoapp.contato@gmail.com')
     }
   }
 
@@ -676,7 +676,7 @@ export default function ConfiguracoesScreen() {
           onPress={() => {
             const msg = encodeURIComponent('Olá! Quero enviar uma sugestão/reclamação sobre o FiadoApp:\n\n')
             Linking.openURL(`https://wa.me/5531995515045?text=${msg}`).catch(() => {
-              Linking.openURL(`mailto:contato.fiadoapp@gmail.com?subject=${encodeURIComponent('Sugestão/reclamação - FiadoApp')}`).catch(() => {})
+              Linking.openURL(`mailto:fiadoapp.contato@gmail.com?subject=${encodeURIComponent('Sugestão/reclamação - FiadoApp')}`).catch(() => {})
             })
           }}
           ultimo />
