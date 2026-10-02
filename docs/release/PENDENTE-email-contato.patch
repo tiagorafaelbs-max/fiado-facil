@@ -1,0 +1,45 @@
+diff -ru a/app/(tabs)/configuracoes.tsx b/app/(tabs)/configuracoes.tsx
+--- a/app/(tabs)/configuracoes.tsx	2026-10-02 13:04:16.965233000 -0300
++++ b/app/(tabs)/configuracoes.tsx	2026-10-02 13:04:25.115249900 -0300
+@@ -203,7 +203,7 @@
+ 
+       await supabase.auth.signOut()
+     } catch (e: any) {
+-      Alert.alert('Erro', 'Não foi possível excluir a conta. Tente novamente ou contate contato.fiadoapp@gmail.com')
++      Alert.alert('Erro', 'Não foi possível excluir a conta. Tente novamente ou contate fiadoapp.contato@gmail.com')
+     }
+   }
+ 
+@@ -676,7 +676,7 @@
+           onPress={() => {
+             const msg = encodeURIComponent('Olá! Quero enviar uma sugestão/reclamação sobre o FiadoApp:\n\n')
+             Linking.openURL(`https://wa.me/5531995515045?text=${msg}`).catch(() => {
+-              Linking.openURL(`mailto:contato.fiadoapp@gmail.com?subject=${encodeURIComponent('Sugestão/reclamação - FiadoApp')}`).catch(() => {})
++              Linking.openURL(`mailto:fiadoapp.contato@gmail.com?subject=${encodeURIComponent('Sugestão/reclamação - FiadoApp')}`).catch(() => {})
+             })
+           }}
+           ultimo />
+diff -ru a/app/privacidade.tsx b/app/privacidade.tsx
+--- a/app/privacidade.tsx	2026-10-02 13:04:17.282607900 -0300
++++ b/app/privacidade.tsx	2026-10-02 13:04:25.262168800 -0300
+@@ -42,7 +42,7 @@
+       />
+       <Secao
+         titulo="7. Contato"
+-        texto="Dúvidas sobre privacidade? Entre em contato: contato.fiadoapp@gmail.com"
++        texto="Dúvidas sobre privacidade? Entre em contato: fiadoapp.contato@gmail.com"
+       />
+     </ScrollView>
+   )
+diff -ru a/app/termos.tsx b/app/termos.tsx
+--- a/app/termos.tsx	2026-10-02 13:04:17.127585800 -0300
++++ b/app/termos.tsx	2026-10-02 13:04:25.193868400 -0300
+@@ -50,7 +50,7 @@
+       />
+       <Secao
+         titulo="9. Contato"
+-        texto="Dúvidas sobre os termos? Entre em contato: contato.fiadoapp@gmail.com"
++        texto="Dúvidas sobre os termos? Entre em contato: fiadoapp.contato@gmail.com"
+       />
+     </ScrollView>
+   )

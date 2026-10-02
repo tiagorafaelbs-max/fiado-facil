@@ -10,6 +10,7 @@ import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '../../lib/supabase'
 import { useClientes } from '../../hooks/useClientes'
+import { assinarEventosDaFila } from '../../hooks/useOffline'
 import { useModulos } from '../../hooks/useModulos'
 import { useContadorWhatsApp } from '../../hooks/useContadorWhatsApp'
 import { useAuth } from '../../hooks/useAuth'
@@ -193,6 +194,11 @@ export default function ClientesScreen() {
         .then(({ data }) => { if (data) setPlano(data.plano) })
     }
   }, [buscar, tenantId]))
+
+  // Fila offline sincronizou: os saldos da lista mudaram no banco.
+  useEffect(() => assinarEventosDaFila(evento => {
+    if (evento === 'sincronizou') buscar()
+  }), [buscar])
 
   // ── filtro e agrupamento ────────────────────────────────────────────────────
 

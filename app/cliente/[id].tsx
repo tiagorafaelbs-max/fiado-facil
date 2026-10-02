@@ -24,7 +24,7 @@ import { gerarPayloadPix } from '../../lib/pix'
 import { useModulos } from '../../hooks/useModulos'
 import { useContadorWhatsApp } from '../../hooks/useContadorWhatsApp'
 import { useTenant } from '../../hooks/useTenant'
-import { useOffline } from '../../hooks/useOffline'
+import { useOffline, assinarEventosDaFila, listarLancamentosPendentes, type OperacaoOffline } from '../../hooks/useOffline'
 import { formatarMoeda, formatarInputMoeda, validarDataBR } from '../../lib/validacao'
 import { C } from '../../constants/colors'
 import { useBeep } from '../../hooks/useBeep'
@@ -222,6 +222,26 @@ export default function DetalheClienteScreen() {
     carregarCliente(); buscar(); carregarPagamentos()
   }, [id, tenantId, tentativa])
 
+  // Lançamentos feitos offline que ainda só existem na fila local. Recarrega quando
+  // a fila muda (acabou de enfileirar) e quando sincroniza (some daqui e passa a vir
+  // do banco) -- achado do Tiago: depois da fila sincronizar, saldo e histórico
+  // ficavam velhos até sair e voltar na tela.
+  const [pendentes, setPendentes] = useState<OperacaoOffline[]>([])
+  useEffect(() => {
+    let ativo = true
+    const recarregarPendentes = () => {
+      listarLancamentosPendentes(id).then(lista => { if (ativo) setPendentes(lista) }).catch(() => {})
+    }
+    recarregarPendentes()
+    const cancelar = assinarEventosDaFila(evento => {
+      recarregarPendentes()
+      if (evento === 'sincronizou' && tenantId) {
+        carregarCliente(); buscar(); carregarPagamentos()
+      }
+    })
+    return () => { ativo = false; cancelar() }
+  }, [id, tenantId, carregarCliente, carregarPagamentos, buscar])
+
   // Rede de segurança: se ainda assim não carregar em ~15s (ex: sem conexão e sem
   // cache), mostra erro com "Tentar novamente" em vez de ActivityIndicator eterno.
   // Depende de `tentativa` (não só de `cliente`/`tenantId`) -- achado do Fiscal: sem
@@ -244,11 +264,19 @@ export default function DetalheClienteScreen() {
       })
   }, [tenantId])
 
+  // Saldo do servidor + o que está só na fila (venda soma, pagamento subtrai) --
+  // sem isso dois pagamentos offline seguidos passavam da checagem de saldo.
+  function saldoComPendentes(): number {
+    const base = cliente?.saldo_devedor ?? 0
+    const delta = pendentes.reduce((acc, op) => acc + (op.tabela === 'vendas' ? 1 : -1) * Number(op.dados.valor ?? 0), 0)
+    return Math.max(0, Math.round((base + delta) * 100) / 100)
+  }
+
   async function handlePagamento() {
     const valor = parseFloat(valorPagamento.replace(',', '.'))
     setErroPagamento('')
     if (isNaN(valor) || valor <= 0) { setErroPagamento('Informe um valor válido.'); return }
-    if (cliente && valor > (cliente.saldo_devedor ?? 0)) { setErroPagamento('Valor maior que o saldo devedor.'); return }
+    if (cliente && valor > saldoComPendentes()) { setErroPagamento('Valor maior que o saldo devedor.'); return }
     setSalvando(true)
     try {
       if (tipoPagamento === 'parcelado') {
@@ -649,6 +677,9 @@ export default function DetalheClienteScreen() {
           {formatarMoeda(cliente.saldo_devedor ?? 0)}
         </Text>
         {!temSaldo && <Text style={estilos.saldoEmDia}>✓ Em dia</Text>}
+        {pendentes.length > 0 && (
+          <Text style={estilos.saldoPendenteAviso}>Com os lançamentos pendentes: {formatarMoeda(saldoComPendentes())}</Text>
+        )}
 
         {/* Barra de limite de crédito */}
         {temLimite && (
@@ -719,6 +750,32 @@ export default function DetalheClienteScreen() {
           <Text style={estilos.btnDividaAnteriorTexto}>Registrar dívida anterior</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Lançamentos feitos offline, ainda só na fila local */}
+      {pendentes.length > 0 && (
+        <View style={estilos.pendentesCard}>
+          <View style={estilos.pendentesHeader}>
+            <Ionicons name="time-outline" size={15} color={C.yellow} />
+            <Text style={estilos.pendentesTitulo}>Aguardando sincronização ({pendentes.length})</Text>
+          </View>
+          {pendentes.map(op => {
+            const ehPagamento = op.tabela === 'pagamentos'
+            const dataISO: string | undefined = ehPagamento ? op.dados.data_pagamento : op.dados.data_venda
+            return (
+              <View key={op.id} style={estilos.pendenteLinha}>
+                <View style={{ flex: 1 }}>
+                  <Text style={estilos.lancDesc}>{ehPagamento ? (op.dados.observacao || 'Pagamento recebido') : op.dados.descricao}</Text>
+                  {dataISO && <Text style={estilos.lancData}>{format(new Date(dataISO + 'T12:00:00'), "d MMM yyyy", { locale: ptBR })}</Text>}
+                </View>
+                <View style={estilos.pendenteBadge}><Text style={estilos.pendenteBadgeTexto}>Pendente</Text></View>
+                <Text style={[estilos.lancValor, { color: ehPagamento ? C.green : C.red }]}>
+                  {ehPagamento ? '+ ' : '- '}{formatarMoeda(Number(op.dados.valor ?? 0))}
+                </Text>
+              </View>
+            )
+          })}
+        </View>
+      )}
 
       {/* Histórico unificado */}
       <View style={estilos.historicoCard}>
@@ -1182,6 +1239,16 @@ const estilos = StyleSheet.create({
     borderWidth: 1, borderColor: C.redBorder,
   },
   offlineBannerTopoTexto: { flex: 1, fontSize: 12, color: C.red, fontWeight: '500' },
+  pendentesCard: {
+    backgroundColor: '#FFF8E1', borderRadius: 14, padding: 14, marginBottom: 12,
+    borderWidth: 1, borderColor: '#FFE082',
+  },
+  pendentesHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
+  pendentesTitulo: { fontSize: 12, fontWeight: '700', color: '#7a5c00' },
+  pendenteLinha: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 },
+  pendenteBadge: { backgroundColor: '#FFE082', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+  pendenteBadgeTexto: { fontSize: 10, fontWeight: '800', color: '#7a5c00', textTransform: 'uppercase' },
+  saldoPendenteAviso: { fontSize: 11, color: C.text3, marginTop: 6, textAlign: 'center' },
   acoesContainer: { gap: 8, marginBottom: 12 },
   acoesTier: { flexDirection: 'row', gap: 8 },
   btnPagar: {

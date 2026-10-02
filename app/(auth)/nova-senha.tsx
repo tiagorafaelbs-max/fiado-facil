@@ -1,22 +1,42 @@
-import { useState } from 'react'
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native'
-import { useRouter, useLocalSearchParams } from 'expo-router'
+import { useEffect, useState } from 'react'
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native'
+import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '../../lib/supabase'
+import { useEstadoLink, definirEstadoLink, MENSAGEM_LINK_INVALIDO } from '../../lib/linkAuth'
 import { Campo } from '../../components/ui/Campo'
 import { Botao } from '../../components/ui/Botao'
 
 export default function NovaSenhaScreen() {
   const router = useRouter()
-  const { tipo } = useLocalSearchParams<{ tipo?: string }>()
-  const veioDeConvite = tipo === 'invite'
+  const estadoLink = useEstadoLink()
+  const veioDeConvite = estadoLink.status === 'ok' && estadoLink.tipo === 'invite'
   const [senha, setSenha] = useState('')
   const [confirmar, setConfirmar] = useState('')
   const [erro, setErro] = useState('')
   const [carregando, setCarregando] = useState(false)
   const [sucesso, setSucesso] = useState(false)
+  const [esperaEsgotada, setEsperaEsgotada] = useState(false)
+
+  // O DeepLinkHandler (app/_layout.tsx) valida o link e grava o resultado em
+  // lib/linkAuth. Quando esta tela abre antes dele terminar, espera um instante;
+  // se nenhum link validado aparecer, trata como link inválido (ex: alguém abrir
+  // fiadofacil://nova-senha sem token).
+  useEffect(() => {
+    if (estadoLink.status !== 'nenhum') { setEsperaEsgotada(false); return }
+    const t = setTimeout(() => setEsperaEsgotada(true), 3000)
+    return () => clearTimeout(t)
+  }, [estadoLink.status])
+
+  async function destinoSeguro() {
+    const { data: { session } } = await supabase.auth.getSession()
+    router.replace(session ? '/(tabs)' : '/(auth)/login')
+  }
 
   async function handleSalvar() {
+    // Nunca troca senha sem um link validado: updateUser() age sobre QUALQUER sessão
+    // ativa, inclusive a do dono logado no aparelho.
+    if (estadoLink.status !== 'ok') return
     if (senha.length < 6) {
       setErro('Senha deve ter pelo menos 6 caracteres.')
       return
@@ -28,9 +48,17 @@ export default function NovaSenhaScreen() {
     setErro('')
     setCarregando(true)
     try {
+      // A sessão atual tem que ser exatamente a do usuário do link.
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.user.id !== estadoLink.userId) {
+        definirEstadoLink({ status: 'erro', mensagem: MENSAGEM_LINK_INVALIDO })
+        return
+      }
       const { error } = await supabase.auth.updateUser({ password: senha })
       if (error) throw error
-      // Convite: a sessão já é válida (setSession no deep link) -- entra direto no
+      // Link de uso único: não pode ser reutilizado para uma segunda troca.
+      definirEstadoLink({ status: 'nenhum' })
+      // Convite: a sessão já é válida (verifyOtp no deep link) -- entra direto no
       // app como funcionário em vez de mandar pro login de novo.
       if (veioDeConvite) {
         router.replace('/(tabs)')
@@ -64,6 +92,36 @@ export default function NovaSenhaScreen() {
     )
   }
 
+  if (estadoLink.status === 'processando' || (estadoLink.status === 'nenhum' && !esperaEsgotada)) {
+    return (
+      <View style={estilos.centro}>
+        <ActivityIndicator color="#1a56db" />
+        <Text style={estilos.aguardandoTexto}>Validando o link…</Text>
+      </View>
+    )
+  }
+
+  if (estadoLink.status !== 'ok') {
+    const mensagem =
+      estadoLink.status === 'erro' ? estadoLink.mensagem
+      : estadoLink.status === 'cancelado' ? 'Operação cancelada. Nenhuma conta foi alterada.'
+      : MENSAGEM_LINK_INVALIDO
+    return (
+      <View style={estilos.centro}>
+        <View style={estilos.iconeBox}>
+          <Ionicons name="alert-circle-outline" size={40} color="#dc2626" />
+        </View>
+        <Text style={estilos.aguardandoTitulo}>
+          {estadoLink.status === 'cancelado' ? 'Cancelado' : 'Não foi possível abrir o link'}
+        </Text>
+        <Text style={estilos.sucessoTexto}>{mensagem}</Text>
+        <TouchableOpacity style={estilos.btnLogin} onPress={destinoSeguro}>
+          <Text style={estilos.btnLoginTexto}>Voltar</Text>
+        </TouchableOpacity>
+      </View>
+    )
+  }
+
   return (
     <ScrollView contentContainerStyle={estilos.scroll} keyboardShouldPersistTaps="handled">
       <View style={estilos.container}>
@@ -75,6 +133,9 @@ export default function NovaSenhaScreen() {
           <Text style={estilos.subtitulo}>
             {veioDeConvite ? 'Você foi convidado como funcionário — defina uma senha para acessar' : 'Digite sua nova senha abaixo'}
           </Text>
+          {estadoLink.email ? (
+            <Text style={estilos.contaDoLink}>Conta: {estadoLink.email}</Text>
+          ) : null}
         </View>
 
         <View style={estilos.card}>
@@ -118,6 +179,7 @@ const estilos = StyleSheet.create({
   },
   titulo: { fontSize: 24, fontWeight: '800', color: '#111827', letterSpacing: -0.5 },
   subtitulo: { fontSize: 14, color: '#9CA3AF', marginTop: 4 },
+  contaDoLink: { fontSize: 13, color: '#111827', fontWeight: '700', marginTop: 8 },
   card: {
     backgroundColor: '#fff', borderRadius: 20, padding: 24,
     borderWidth: 1, borderColor: '#F0F0F0',

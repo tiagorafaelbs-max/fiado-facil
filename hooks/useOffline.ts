@@ -7,7 +7,7 @@ import { reconciliarPagoCliente } from '../lib/reconciliacao'
 
 const FILA_KEY = '@fiado_fila_offline'
 
-interface OperacaoOffline {
+export interface OperacaoOffline {
   id: string
   tabela: string
   operacao: 'insert' | 'update' | 'delete'
@@ -34,6 +34,24 @@ function comTravaDaFila<T>(tarefa: () => Promise<T>): Promise<T> {
   return resultado
 }
 
+// Avisa as telas quando a fila muda: 'enfileirou' (nova operação local, a tela
+// pode mostrar o lançamento como pendente) e 'sincronizou' (itens foram pro banco,
+// a tela precisa recarregar saldo/histórico -- achado do Tiago: depois de religar a
+// internet a fila sincronizava, mas a tela do cliente ficava com o saldo antigo).
+export type EventoFila = 'enfileirou' | 'sincronizou'
+const ouvintesDaFila = new Set<(evento: EventoFila) => void>()
+
+export function assinarEventosDaFila(ouvinte: (evento: EventoFila) => void): () => void {
+  ouvintesDaFila.add(ouvinte)
+  return () => { ouvintesDaFila.delete(ouvinte) }
+}
+
+function emitirEventoDaFila(evento: EventoFila) {
+  ouvintesDaFila.forEach(ouvinte => {
+    try { ouvinte(evento) } catch { /* um ouvinte quebrado não pode travar os outros */ }
+  })
+}
+
 export function enfileirarOperacao(op: Omit<OperacaoOffline, 'id' | 'criado_em'>): Promise<void> {
   return comTravaDaFila(async () => {
     const fila = await carregarFila()
@@ -43,7 +61,17 @@ export function enfileirarOperacao(op: Omit<OperacaoOffline, 'id' | 'criado_em'>
       criado_em: new Date().toISOString(),
     }
     await AsyncStorage.setItem(FILA_KEY, JSON.stringify([...fila, nova]))
-  })
+  }).then(() => emitirEventoDaFila('enfileirou'))
+}
+
+// Lançamentos (venda/pagamento) deste cliente que ainda estão só na fila local.
+export async function listarLancamentosPendentes(clienteId: string): Promise<OperacaoOffline[]> {
+  const fila = await carregarFila()
+  return fila.filter(op =>
+    op.operacao === 'insert' &&
+    (op.tabela === 'vendas' || op.tabela === 'pagamentos') &&
+    op.dados.cliente_id === clienteId
+  )
 }
 
 async function carregarFila(): Promise<OperacaoOffline[]> {
@@ -149,9 +177,17 @@ let sincronizacaoEmAndamento: Promise<number> | null = null
 
 export function sincronizarFila(): Promise<number> {
   if (sincronizacaoEmAndamento) return sincronizacaoEmAndamento
-  sincronizacaoEmAndamento = sincronizarFilaInterno().finally(() => {
-    sincronizacaoEmAndamento = null
-  })
+  // O evento sai UMA vez por sincronização real (aqui, não por chamador) e só depois
+  // da reconciliação do `pago` dentro de sincronizarFilaInterno -- as telas que
+  // recarregam já enxergam saldo e histórico finais.
+  sincronizacaoEmAndamento = sincronizarFilaInterno()
+    .then(qtd => {
+      if (qtd > 0) emitirEventoDaFila('sincronizou')
+      return qtd
+    })
+    .finally(() => {
+      sincronizacaoEmAndamento = null
+    })
   return sincronizacaoEmAndamento
 }
 

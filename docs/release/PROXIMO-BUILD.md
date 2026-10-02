@@ -283,7 +283,6 @@ Tiago testou a 1.0.12 num Samsung Galaxy A51 físico (Android 13, navegação po
 - Confirmação de pagamento repetido: mesmo cliente, mesmo valor, lançado por outra pessoa, nos últimos 30 minutos — hoje não há nenhum aviso, só a decisão consciente do comerciante evita duplicidade.
 - Lixeira com restaurar (clientes/vendas/pagamentos excluídos ficam recuperáveis por um período antes de apagar de vez).
 - Permissões finas por funcionário para relatórios, exportação e cobrança em massa (hoje é tudo-ou-nada: dono vê, funcionário não vê nada disso).
-- Pagamento offline não aparece na tela do cliente até sincronizar (aviso "1 pagamento aguardando sincronizar").
 - Apagar os caches locais (equipe, dashboard, cliente) no logout — ponto de atenção LGPD.
 
 ## Lote 01/10 (4) — duplicação de "Dívida anterior" em produção (correção OTA, sem native)
@@ -297,6 +296,25 @@ Tiago testou a 1.0.12 num Samsung Galaxy A51 físico (Android 13, navegação po
 - `hooks/useVendas.ts`: achado do Fiscal na revisão — `reconciliarPagoCliente()`/`buscar()` estavam dentro do mesmo `try` do insert. Se o insert tivesse sucesso mas a reconciliação falhasse com erro de servidor, o hook relançava o erro mesmo com o lançamento já salvo; o usuário tocaria de novo e duplicaria (a mesma classe de bug que estava sendo corrigida). Movido pra um try/catch próprio que nunca relança — falha vira só um aviso, reconciliação roda de novo na próxima operação.
 
 **Teste:** `tsc --noEmit` limpo, revisado pelo Agente Fiscal (aprovado). **Sem teste em dispositivo** — é mudança 100% JS, sem campo nativo, elegível para `eas update --channel production` (os builds 1.0.12 54/88 já têm o channel configurado). Nenhum build/update/push rodado — Tiago decide quando publicar.
+
+## Lote 02/10 — retorno do reteste (54/88 aprovados) + pacote de 4 itens (OTA, sem native)
+
+Reteste do Tiago: os 8 bugs do pacote anterior estão APROVADOS, e funcionário offline (venda/pagamento sem internet, app fechado no meio, rede 4x) gravou 1 única vez com `criado_por` e `client_op_id` corretos; permissões OK.
+
+| # | Item | Causa | Arquivos |
+|---|---|---|---|
+| 1 | [SEGURANÇA] Convite/recuperação trocavam a senha da conta ERRADA (dono teve a senha trocada em 02/10) | O link falhava em silêncio (provável token consumido: volta `#error=...otp_expired`), o expo-router abria `/nova-senha` pela própria URL e `updateUser()` agia sobre a sessão ativa do dono | `lib/linkAuth.ts` (novo), `app/_layout.tsx`, `app/(auth)/nova-senha.tsx`, `docs/release/supabase-templates-convite.md` |
+| 2 | Inserts diretos sem anti-duplicação | Já corrigido (commits `6019771`/`00d3246`, lote 01/10 (4)); varredura reconfirmada | `hooks/useVendas.ts`, `app/cliente/[id].tsx`, `app/novo-pagamento.tsx` |
+| 3 | Tela do cliente não atualizava após a fila offline sincronizar | Nada avisava as telas quando a fila sincronizava; lançamento offline não aparecia | `hooks/useOffline.ts` (eventos da fila), `app/cliente/[id].tsx`, `app/(tabs)/index.tsx`, `app/(tabs)/clientes.tsx` |
+| 4 | E-mail de contato inexistente | `contato.fiadoapp@gmail.com` recusado pelo servidor | **Preparado, NÃO aplicado**: `docs/release/PENDENTE-email-contato.patch` |
+
+Item 1 — o que mudou: a tela só troca a senha com link validado (`token_hash` via `verifyOtp`, `?code=` ou `#access_token`) e compara `session.user.id` com o usuário do link; Alert "Trocar de conta?" quando já há sessão (Cancelar não altera nada); mostra o e-mail da conta do link; erros do link aparecem na tela; access_token vencido nem chama `setSession` (evita deslogar a conta atual). **Rollout e ajustes no painel do Supabase: `docs/release/supabase-templates-convite.md`** (OTA primeiro; Android precisa de `ios.buildNumber="87"` temporário no `eas update` por causa do fingerprint — verificado só leitura).
+
+Item 3 — o que mudou: `assinarEventosDaFila('enfileirou'|'sincronizou')`; cliente/Início/lista recarregam no 'sincronizou'; bloco "Aguardando sincronização" com selo Pendente; `saldoComPendentes()` agora valida o valor do pagamento (fecha a pendência "dois pagamentos offline passam do saldo").
+
+Item 4 — pendência de decisão: o `prompt-melhorias-testers-community.md` cita `suporte@fiadofacil.com.br` e diz que `fiadoapp.contato@gmail.com` é só do Instagram. O site (`docs/`, `site-live-mirror/`) também usa o endereço antigo.
+
+**Teste:** `tsc --noEmit` limpo no app; Fiscal aprovou os 4 itens (2 rodadas no item 1: achou setSession com token vencido deslogando a conta, e o e-mail da conta do link). **Sem teste em aparelho** — roteiro de teste no doc do Supabase.
 
 ## Pendências fora do lote
 - Foto de comprovante (`nova-venda.tsx:188`): o bucket `comprovantes` **não existe**, e o upload falha sem avisar. Se for ativar: bucket privado + URL assinada. Decisão de produto.

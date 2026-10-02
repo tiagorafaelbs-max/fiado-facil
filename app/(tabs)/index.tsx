@@ -11,7 +11,7 @@ import { useFocusEffect } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useDashboard } from '../../hooks/useDashboard'
-import { useOffline } from '../../hooks/useOffline'
+import { useOffline, assinarEventosDaFila } from '../../hooks/useOffline'
 import { useNotificacoes } from '../../hooks/useNotificacoes'
 import { useAvaliacaoApp } from '../../hooks/useAvaliacaoApp'
 import { useModulos } from '../../hooks/useModulos'
@@ -153,6 +153,11 @@ export default function DashboardScreen() {
       if (nome) setNomeNegocio(nome)
     }).catch(() => {})
   }, [tenantId])
+
+  // Fila offline sincronizou: saldo/contagens do Início mudaram no banco.
+  useEffect(() => assinarEventosDaFila(evento => {
+    if (evento === 'sincronizou') { buscar(); checklistDia0.recarregar() }
+  }), [buscar, checklistDia0.recarregar])
 
   // Ao reconectar, recarrega sozinho em vez de esperar o usuário sair e voltar
   // pra tela ou arrastar pra atualizar (achado do Tiago: Início ficava zerado

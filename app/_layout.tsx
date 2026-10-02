@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar'
 import { Component, ReactNode, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { verificarComprasApplePendentes } from '../lib/appleIAP'
+import { ehLinkDeAuth, processarLinkAuth } from '../lib/linkAuth'
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { erro: string | null; stack: string | null }> {
   constructor(props: any) {
@@ -81,36 +82,14 @@ function DeepLinkHandler() {
 
   useEffect(() => {
     async function handleUrl(url: string) {
-      if (!url.includes('nova-senha') && !url.includes('access_token') && !url.includes('code=')) return
-
-      // PKCE flow: ?code=XXX na query string
-      const queryString = url.split('?')[1]?.split('#')[0]
-      if (queryString) {
-        const queryParams = new URLSearchParams(queryString)
-        const code = queryParams.get('code')
-        if (code) {
-          const { error } = await supabase.auth.exchangeCodeForSession(code)
-          if (!error) {
-            // type=invite (convite de funcionário) ou type=recovery (esqueci a senha) --
-            // a tela de nova senha muda o texto e o destino pós-salvar conforme a origem.
-            const tipo = queryParams.get('type') === 'invite' ? 'invite' : 'recovery'
-            router.replace({ pathname: '/(auth)/nova-senha', params: { tipo } })
-          }
-          return
-        }
-      }
-
-      // Implicit flow: #access_token=XXX no fragmento
-      const fragment = url.split('#')[1]
-      if (!fragment) return
-      const params = new URLSearchParams(fragment)
-      const accessToken = params.get('access_token')
-      const refreshToken = params.get('refresh_token')
-      const type = params.get('type')
-      if (accessToken && (type === 'recovery' || type === 'invite')) {
-        await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken ?? '' })
-        router.replace({ pathname: '/(auth)/nova-senha', params: { tipo: type } })
-      }
+      if (!ehLinkDeAuth(url)) return
+      // Valida o link (token_hash / code / access_token), confirma troca de conta se
+      // já houver alguém logado e guarda o resultado em lib/linkAuth. A tela
+      // nova-senha lê esse resultado e SÓ troca a senha se o link foi validado --
+      // antes, um link que falhava em silêncio deixava a tela trocar a senha de
+      // quem estivesse logado (dono teve a senha trocada em 02/10).
+      const tipo = await processarLinkAuth(url)
+      router.replace({ pathname: '/(auth)/nova-senha', params: { tipo } })
     }
 
     Linking.getInitialURL().then((url) => { if (url) handleUrl(url) })
