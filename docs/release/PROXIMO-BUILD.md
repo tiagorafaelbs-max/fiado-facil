@@ -318,6 +318,12 @@ Item 4 — decisão do Tiago: o e-mail oficial é `fiadoapp.contato@gmail.com` (
 
 **Teste:** `tsc --noEmit` limpo no app; Fiscal aprovou os 4 itens (2 rodadas no item 1: achou setSession com token vencido deslogando a conta, e o e-mail da conta do link). **Sem teste em aparelho** — roteiro de teste no doc do Supabase.
 
+## Lote 02/10 (2) — "TOTAL EM ABERTO" só para o dono (OTA, sem native)
+
+`app/(tabs)/index.tsx`: o bloco do valor do Hero (label, total, olho, dica) só renderiza para o dono (`!carregando && !souFuncionario` do `useTenant`); enquanto o papel carrega mostra só um espaçador (sem piscar valor); o toque no Hero (abre o Relatório de Vendas, que mostra o agregado "Em aberto") fica inativo para funcionário; o passo "Total em aberto" do tour é omitido para funcionário. Saudação, contador de clientes, "Nova venda" e as métricas continuam. Fiscal: aprovado com ressalvas.
+
+**Ressalvas do Fiscal (decisão do Tiago, NÃO feitas):** (a) `app/cobrancas.tsx` (~327 e 428-435): a aba "Em aberto" mostra o mesmo total ao funcionário (2 toques a partir do Início); (b) `hooks/useNotificacoes.ts`: funcionário recebe notificação com total em atraso; (c) `lib/tenant.ts`: sem cache e com falha de rede o papel cai em "dono" (fail-open) — afeta todos os gates de `souFuncionario`; só ocorre se o funcionário nunca resolveu o papel online naquele aparelho; (d) o total continua calculado/guardado em cache para o funcionário (proteção é só de interface; a RLS permite ler o saldo dos clientes).
+
 ## Pendências fora do lote
 - Foto de comprovante (`nova-venda.tsx:188`): o bucket `comprovantes` **não existe**, e o upload falha sem avisar. Se for ativar: bucket privado + URL assinada. Decisão de produto.
 - Testes automatizados e lint: backlog de adequação (`docs/adequacao-fabrica.md`, a criar).

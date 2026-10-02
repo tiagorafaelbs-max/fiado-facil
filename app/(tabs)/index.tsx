@@ -33,7 +33,11 @@ export default function DashboardScreen() {
   const insets = useSafeAreaInsets()
   const { resumo, topDevedores, carregando, buscar, plano, offline: dashboardOffline } = useDashboard()
   const { online, pendentes } = useOffline()
-  const { tenantId } = useTenant()
+  const { tenantId, souFuncionario, carregando: carregandoPapel } = useTenant()
+  // O total em aberto é do dono. Enquanto o papel ainda carrega NÃO mostra (o valor
+  // não pode piscar na tela do funcionário na abertura) -- usa o mesmo critério de
+  // dono/funcionário do resto do app (useTenant), sem permissão nova.
+  const mostrarTotal = !carregandoPapel && !souFuncionario
   const { modulos } = useModulos(tenantId || usuario?.id)
   const checklistDia0 = useChecklistDia0(tenantId)
   const { width } = useWindowDimensions()
@@ -89,7 +93,8 @@ export default function DashboardScreen() {
     ])
     setTourSteps([
       { titulo: '👋 Bem-vindo ao FiadoApp!', texto: 'Este é seu painel principal. Vamos te mostrar cada parte do app.', posicao: null },
-      { titulo: '💰 Total em aberto', texto: 'Aqui você vê o valor total que seus clientes devem.', posicao: hero, tooltipLado: 'baixo' },
+      // Funcionário não tem o card de total em aberto -- o passo não pode apontar pra ele.
+      ...(mostrarTotal ? [{ titulo: '💰 Total em aberto', texto: 'Aqui você vê o valor total que seus clientes devem.', posicao: hero, tooltipLado: 'baixo' as const }] : []),
       { titulo: '📊 Métricas do dia', texto: 'Veja quanto você recebeu hoje e quantos clientes estão vencidos.', posicao: cards, tooltipLado: 'baixo' },
       { titulo: '🔍 Busca rápida', texto: 'Toque aqui para buscar qualquer cliente rapidamente.', posicao: busca, tooltipLado: 'baixo' },
       { titulo: '👥 Lista de devedores', texto: 'Clientes com maior saldo. Toque para ver histórico completo.', posicao: secao, tooltipLado: 'cima' },
@@ -389,7 +394,8 @@ export default function DashboardScreen() {
             )}
 
             {/* Hero */}
-            <TouchableOpacity ref={refHero} style={estilos.hero} onPress={abrirRelatorioVendas} activeOpacity={0.88}>
+            {/* O toque abre o relatório de vendas, que também mostra o total "Em aberto" -- só o dono. */}
+            <TouchableOpacity ref={refHero} style={estilos.hero} onPress={mostrarTotal ? abrirRelatorioVendas : undefined} activeOpacity={mostrarTotal ? 0.88 : 1}>
               {/* Círculos decorativos */}
               <View style={estilos.heroCirculo1} />
               <View style={estilos.heroCirculo2} />
@@ -397,22 +403,28 @@ export default function DashboardScreen() {
               {/* Saudação */}
               <Text style={estilos.heroSaudacao}>{saudacao}{nomeNegocio ? `, ${nomeNegocio}` : ''} 👋</Text>
 
-              {/* Valor */}
-              <View style={estilos.heroValorRow}>
-                <View>
-                  <Text style={estilos.heroLabelPrincipal}>TOTAL EM ABERTO</Text>
-                  <Text style={estilos.heroValor}>
-                    {saldoOculto ? '••••••' : formatarMoeda(resumo.total_em_aberto)}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  onPress={alternarSaldoOculto}
-                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                >
-                  <Ionicons name={saldoOculto ? 'eye-off-outline' : 'eye-outline'} size={22} color="rgba(255,255,255,0.75)" />
-                </TouchableOpacity>
-              </View>
-              <Text style={estilos.heroRelatorioHint}>Toque para ver relatório de vendas</Text>
+              {/* Valor -- só o dono; carregando o papel, só reserva o espaço (sem piscar valor) */}
+              {carregandoPapel ? (
+                <View style={estilos.heroTotalReservado} />
+              ) : mostrarTotal ? (
+                <>
+                  <View style={estilos.heroValorRow}>
+                    <View>
+                      <Text style={estilos.heroLabelPrincipal}>TOTAL EM ABERTO</Text>
+                      <Text style={estilos.heroValor}>
+                        {saldoOculto ? '••••••' : formatarMoeda(resumo.total_em_aberto)}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={alternarSaldoOculto}
+                      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                    >
+                      <Ionicons name={saldoOculto ? 'eye-off-outline' : 'eye-outline'} size={22} color="rgba(255,255,255,0.75)" />
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={estilos.heroRelatorioHint}>Toque para ver relatório de vendas</Text>
+                </>
+              ) : null}
 
               {/* Rodapé hero */}
               <View style={estilos.heroRodape}>
@@ -622,6 +634,7 @@ const estilos = StyleSheet.create({
     fontSize: 42, fontWeight: '900', color: C.white,
     letterSpacing: -1.5,
   },
+  heroTotalReservado: { height: 100 },
   heroRelatorioHint: {
     fontSize: 11, color: 'rgba(255,255,255,0.5)', fontWeight: '500',
     marginTop: 6, marginBottom: 16,
