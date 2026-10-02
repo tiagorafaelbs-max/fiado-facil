@@ -40,7 +40,7 @@ export default function CobrancasScreen() {
   const router = useRouter()
   const { aba: abaParam } = useLocalSearchParams<{ aba?: string }>()
   const { usuario } = useAuth()
-  const { tenantId, souFuncionario } = useTenant()
+  const { tenantId, souFuncionario, podeVerTotais } = useTenant()
   const { modulos } = useModulos(tenantId || usuario?.id)
   const [aba, setAba] = useState<Aba>(abaParam === 'aberto' ? 'aberto' : 'vencidos')
   const [vencidos, setVencidos] = useState<ClienteVencido[]>([])
@@ -426,14 +426,18 @@ export default function CobrancasScreen() {
               {aba === 'vencidos' ? 'clientes vencidos' : 'com saldo aberto'}
             </Text>
           </View>
-          <View style={[estilos.resumoEsq, { alignItems: 'center' }]}>
-            <Text style={[estilos.resumoNum, { color: aba === 'vencidos' ? C.red : C.text }]}>
-              {formatarMoeda(totalAba)}
-            </Text>
-            <Text style={estilos.resumoLabel}>
-              {aba === 'vencidos' ? 'total em atraso' : 'total em aberto'}
-            </Text>
-          </View>
+          {/* Total agregado só para o dono (papel confirmado); a lista por cliente, com o
+              saldo de cada um, continua visível pra quem cobra. */}
+          {podeVerTotais && (
+            <View style={[estilos.resumoEsq, { alignItems: 'center' }]}>
+              <Text style={[estilos.resumoNum, { color: aba === 'vencidos' ? C.red : C.text }]}>
+                {formatarMoeda(totalAba)}
+              </Text>
+              <Text style={estilos.resumoLabel}>
+                {aba === 'vencidos' ? 'total em atraso' : 'total em aberto'}
+              </Text>
+            </View>
+          )}
           {/* Cobrança em massa é só do dono */}
           {aba === 'vencidos' && !souFuncionario && (
             <TouchableOpacity

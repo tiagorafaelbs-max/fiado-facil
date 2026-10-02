@@ -74,7 +74,7 @@ function parseDDMMYYYY(val: string): string | null {
 export default function RelatoriosScreen() {
   const router = useRouter()
   const { usuario } = useAuth()
-  const { tenantId, souFuncionario } = useTenant()
+  const { tenantId, souFuncionario, carregando: carregandoPapel, podeVerTotais } = useTenant()
   const { modulos } = useModulos(tenantId || usuario?.id)
   const [plano, setPlano] = useState<'gratuito' | 'pro'>('gratuito')
   const { registrarUso: registrarUsoWpp, reverterUso: reverterUsoWpp, limite: limiteWpp } = useContadorWhatsApp(plano, tenantId || usuario?.id)
@@ -236,22 +236,33 @@ export default function RelatoriosScreen() {
   }
 
   useFocusEffect(useCallback(() => {
-    if (souFuncionario) return // relatórios e totais do negócio são só do dono
+    if (!podeVerTotais) return // relatórios e totais do negócio são só do dono (papel confirmado)
     if (periodo !== 'personalizado') buscar()
     if (tenantId) {
       supabase.from('perfis').select('plano').eq('id', tenantId).single()
         .then(({ data }) => { if (data?.plano) setPlano(data.plano) })
     }
-  }, [periodo, tenantId, souFuncionario]))
+  }, [periodo, tenantId, podeVerTotais]))
 
   // Guard defensivo: a aba já é escondida pra funcionário em (tabs)/_layout.tsx
   // (href: null), isto cobre um acesso direto por link/estado antigo.
-  if (souFuncionario) {
+  if (carregandoPapel) {
+    return (
+      <View style={estilos.vazio}>
+        <ActivityIndicator color={C.green} />
+      </View>
+    )
+  }
+  if (!podeVerTotais) {
     return (
       <View style={estilos.vazio}>
         <Text style={{ fontSize: 36 }}>🔒</Text>
-        <Text style={estilos.vazioTitulo}>Disponível só para o dono</Text>
-        <Text style={estilos.vazioTexto}>Relatórios e totais do negócio ficam visíveis apenas pra quem é dono da conta.</Text>
+        <Text style={estilos.vazioTitulo}>{souFuncionario ? 'Disponível só para o dono' : 'Não foi possível confirmar seu acesso'}</Text>
+        <Text style={estilos.vazioTexto}>
+          {souFuncionario
+            ? 'Relatórios e totais do negócio ficam visíveis apenas pra quem é dono da conta.'
+            : 'Conecte-se à internet para carregar os relatórios.'}
+        </Text>
       </View>
     )
   }

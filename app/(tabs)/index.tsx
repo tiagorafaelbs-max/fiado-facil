@@ -33,11 +33,12 @@ export default function DashboardScreen() {
   const insets = useSafeAreaInsets()
   const { resumo, topDevedores, carregando, buscar, plano, offline: dashboardOffline } = useDashboard()
   const { online, pendentes } = useOffline()
-  const { tenantId, souFuncionario, carregando: carregandoPapel } = useTenant()
-  // O total em aberto é do dono. Enquanto o papel ainda carrega NÃO mostra (o valor
-  // não pode piscar na tela do funcionário na abertura) -- usa o mesmo critério de
-  // dono/funcionário do resto do app (useTenant), sem permissão nova.
-  const mostrarTotal = !carregandoPapel && !souFuncionario
+  const { tenantId, souFuncionario, carregando: carregandoPapel, podeVerTotais } = useTenant()
+  // O total em aberto é do dono. Só aparece com o papel CONFIRMADO como dono: enquanto
+  // carrega, ou se não deu pra confirmar (sem cache e sem rede), NÃO mostra -- o valor
+  // não pode piscar na tela do funcionário. Mesmo critério de dono/funcionário do app
+  // (useTenant), sem permissão nova; só exibição, nenhuma ação é bloqueada.
+  const mostrarTotal = podeVerTotais
   const { modulos } = useModulos(tenantId || usuario?.id)
   const checklistDia0 = useChecklistDia0(tenantId)
   const { width } = useWindowDimensions()
@@ -424,6 +425,9 @@ export default function DashboardScreen() {
                   </View>
                   <Text style={estilos.heroRelatorioHint}>Toque para ver relatório de vendas</Text>
                 </>
+              ) : !souFuncionario ? (
+                // Dono com o papel ainda não confirmado (sem cache e sem rede): sem total, mas avisa.
+                <Text style={estilos.heroRelatorioHint}>Conecte-se para ver o total em aberto</Text>
               ) : null}
 
               {/* Rodapé hero */}
@@ -445,8 +449,8 @@ export default function DashboardScreen() {
             <View ref={refCards} style={estilos.metricas}>
               <TouchableOpacity
                 style={[estilos.metricaCard, { borderLeftColor: C.green }]}
-                onPress={() => router.push('/(tabs)/relatorios')}
-                activeOpacity={0.75}
+                onPress={podeVerTotais ? () => router.push('/(tabs)/relatorios') : undefined}
+                activeOpacity={podeVerTotais ? 0.75 : 1}
               >
                 <View style={[estilos.metricaIcone, { backgroundColor: C.greenLight }]}>
                   <Ionicons name="checkmark-circle" size={18} color={C.green} />

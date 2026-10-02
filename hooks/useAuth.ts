@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import { Platform } from 'react-native'
+import * as Notifications from 'expo-notifications'
 import { supabase } from '../lib/supabase'
 import type { Session, User } from '@supabase/supabase-js'
 
@@ -45,6 +47,9 @@ export function useAuth() {
   }
 
   async function sair() {
+    // Notificações agendadas ("R$ X a receber", "vence amanhã — R$ X") são locais ao aparelho e
+    // continuariam disparando com o valor do dono depois do logout, num celular compartilhado.
+    if (Platform.OS !== 'web') await Notifications.cancelAllScheduledNotificationsAsync().catch(() => {})
     await supabase.auth.signOut()
   }
 

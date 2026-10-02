@@ -3,7 +3,7 @@ import { Platform } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Notifications from 'expo-notifications'
 import { supabase } from '../lib/supabase'
-import { resolverTenantId } from '../lib/tenant'
+import { obterContextoEquipe } from '../lib/tenant'
 import { formatarMoeda } from '../lib/validacao'
 
 const CHAVE_JA_PEDIU_PERMISSAO = '@fiado_notif_ja_pedida'
@@ -57,7 +57,12 @@ export async function agendarNotificacoesVencimento() {
 
     const { data: { session } } = await supabase.auth.getSession()
     if (!session?.user) return
-    const uid = await resolverTenantId(session.user.id)
+    const contexto = await obterContextoEquipe(session.user.id)
+    const uid = contexto.tenantId
+    // Totais somados ("R$ X a receber", "vencem amanhã — R$ X") são só do dono: para funcionário
+    // -- ou papel não confirmado -- essas notificações não são agendadas (o cancelAll acima já
+    // removeu as que um dono anterior deixou agendadas neste aparelho).
+    const podeVerTotais = contexto.papelConfirmado && !contexto.souFuncionario
 
     // Filtro explícito por comerciante além da RLS (incidente 16/09).
     const { data: vendasAmanha } = await supabase
@@ -77,7 +82,7 @@ export async function agendarNotificacoesVencimento() {
       .gt('saldo_devedor', 0)
 
     // Notificação das 9h — vencimentos de amanhã
-    if (vendasAmanha && vendasAmanha.length > 0) {
+    if (podeVerTotais && vendasAmanha && vendasAmanha.length > 0) {
       const totalAmanha = (vendasAmanha as any[]).reduce((acc, v) => acc + v.valor, 0)
       const nomes = [...new Set((vendasAmanha as any[]).map(v => (v.clientes as any)?.nome).filter(Boolean))]
       const texto = nomes.length === 1
@@ -100,7 +105,7 @@ export async function agendarNotificacoesVencimento() {
     }
 
     // Notificação das 18h — cobranças vencidas (lembrete fim de expediente)
-    if (clientesVencidos && clientesVencidos.length > 0) {
+    if (podeVerTotais && clientesVencidos && clientesVencidos.length > 0) {
       const totalVencido = (clientesVencidos as any[]).reduce((acc, c) => acc + (c.saldo_devedor ?? 0), 0)
 
       await Notifications.scheduleNotificationAsync({

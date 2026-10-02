@@ -201,7 +201,7 @@ export default function ConfiguracoesScreen() {
         throw new Error(body.error ?? 'Erro ao excluir conta')
       }
 
-      await supabase.auth.signOut()
+      await sair() // cancela também as notificações agendadas com valores da conta excluída
     } catch (e: any) {
       Alert.alert('Erro', 'Não foi possível excluir a conta. Tente novamente ou contate fiadoapp.contato@gmail.com')
     }

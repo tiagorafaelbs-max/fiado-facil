@@ -24,6 +24,10 @@ export interface ContextoEquipe {
   souFuncionario: boolean
   nomeExibicao: string | null
   permissoes: Permissoes
+  // false só no fallback "sem cache e sem rede": o papel NÃO foi confirmado (nem pelo
+  // servidor nem pelo cache do usuário). Serve apenas para decidir EXIBIÇÃO de totais
+  // (dono vê; funcionário não) -- nunca para bloquear ações, que a RLS já garante.
+  papelConfirmado: boolean
 }
 
 // Resolve o id do "dono" (tenant) de quem está logado agora.
@@ -59,12 +63,13 @@ export async function obterContextoEquipe(userId: string): Promise<ContextoEquip
     if (error) throw error
 
     const contexto: ContextoEquipe = !data
-      ? { tenantId: userId, souFuncionario: false, nomeExibicao: null, permissoes: PERMISSOES_PADRAO }
+      ? { tenantId: userId, souFuncionario: false, nomeExibicao: null, permissoes: PERMISSOES_PADRAO, papelConfirmado: true }
       : {
           tenantId: data.dono_id,
           souFuncionario: true,
           nomeExibicao: data.nome,
           permissoes: { ...PERMISSOES_PADRAO, ...(data.permissoes ?? {}) },
+          papelConfirmado: true,
         }
 
     AsyncStorage.setItem(cacheKey, JSON.stringify(contexto)).catch(() => {})
@@ -74,14 +79,17 @@ export async function obterContextoEquipe(userId: string): Promise<ContextoEquip
     // internet real) -- mesmo fallback do caminho offline acima.
     const doCache = await lerContextoDoCache(cacheKey, userId)
     if (doCache) return doCache
-    return { tenantId: userId, souFuncionario: false, nomeExibicao: null, permissoes: PERMISSOES_PADRAO }
+    // Sem cache e sem rede: segue como "dono de si mesmo" para as AÇÕES (comportamento
+    // de sempre, a RLS decide no servidor), mas marca o papel como NÃO confirmado --
+    // as telas escondem totais agregados até o papel carregar de verdade.
+    return { tenantId: userId, souFuncionario: false, nomeExibicao: null, permissoes: PERMISSOES_PADRAO, papelConfirmado: false }
   }
 }
 
 async function lerContextoDoCache(cacheKey: string, userId: string): Promise<ContextoEquipe | null> {
   try {
     const cache = await AsyncStorage.getItem(cacheKey)
-    if (cache) return JSON.parse(cache)
+    if (cache) return { ...JSON.parse(cache), papelConfirmado: true }
   } catch { /* sem cache -- quem chamou decide o fallback */ }
   return null
 }
