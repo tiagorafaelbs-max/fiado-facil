@@ -329,6 +329,8 @@ Item 4 — decisão do Tiago: o e-mail oficial é `fiadoapp.contato@gmail.com` (
 4. **Varredura**: funcionário ainda vê só (a) "Recebido hoje" (soma do dia, mantido por decisão do Tiago), (b) contagens sem valor (clientes vencidos, abas, badge), (c) valores POR CLIENTE (saldo, ranking `totalComprado`/`saldoDevedor`, perfil do cliente, extrato, WhatsApp). Sem soma geral de saldo.
 Proteção é só de interface: o total ainda é calculado/guardado em cache no aparelho do funcionário e a RLS deixa ele ler o saldo dos clientes (combinado).
 
+**Publicado em 02/10 (OTA, channel `production`, commit `a1d8afc`)** com a trava de fingerprint: Android update `01a0fdf7-ba25-72cd-a96a-9d88331d8a6f` (grupo `d20dbb56-0731-484c-8f2c-35b149fd828f`, runtime `61a2955d…` = build 54, publicado com `ios.buildNumber="87"` temporário, restaurado) e iOS update `01a0fdfb-46d9-7b21-b272-5e2fef388173` (grupo `ac3ae659-8491-4666-8603-7c2498b22b3c`, runtime `3ae31820…` = build 88).
+
 ## Pendências fora do lote
 - Foto de comprovante (`nova-venda.tsx:188`): o bucket `comprovantes` **não existe**, e o upload falha sem avisar. Se for ativar: bucket privado + URL assinada. Decisão de produto.
 - Testes automatizados e lint: backlog de adequação (`docs/adequacao-fabrica.md`, a criar).
