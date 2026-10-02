@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Abrir o FiadoApp</title>
+<!--
+  PROPOSTA — NÃO PUBLICADA. Destino sugerido: https://fiadoapp.app.br/auth (arquivo auth/index.html).
+
+  O que faz: repassa o link de convite / recuperação de senha para o app, preservando
+  TUDO que veio na URL — query (?token_hash=...&type=invite|recovery, ?code=...) e
+  fragmento (#access_token=...&type=..., #error=...&error_code=otp_expired). Por isso
+  serve para os dois formatos que o app (lib/linkAuth.ts) entende.
+
+  Segurança: página 100% estática; NÃO consome o token (só o app consome, via verifyOtp),
+  então pré-visualização de e-mail / antivírus não "queima" o link. Não registra nada e
+  não envia o token a nenhum servidor (sem scripts de terceiros, sem analytics).
+  Servir com `Referrer-Policy: no-referrer` e `Cache-Control: no-store` se possível.
+
+  Quando usar: só depois que o 1.0.12 (com a OTA de 02/10) for a maioria dos usuários.
+  Builds 1.0.11 e anteriores NÃO entendem ?token_hash e continuam com o formato antigo.
+-->
+<style>
+  body { font-family: -apple-system, 'Inter', Arial, sans-serif; background: #F7F5F0; color: #14352A; margin: 0; padding: 32px 20px; text-align: center; }
+  main { max-width: 420px; margin: 8vh auto 0; }
+  h1 { font-size: 22px; margin: 0 0 8px; }
+  p { color: #3D5347; line-height: 1.5; font-size: 15px; }
+  a.botao { display: inline-block; margin-top: 12px; background: #14352A; color: #fff; text-decoration: none; padding: 14px 22px; border-radius: 12px; font-weight: 700; }
+  .pequeno { font-size: 13px; color: #7A8C82; margin-top: 28px; }
+</style>
+</head>
+<body>
+<main>
+  <h1 id="titulo">Abrindo o FiadoApp…</h1>
+  <p id="texto">Se o app não abrir sozinho, toque no botão abaixo.</p>
+  <a class="botao" id="botao" href="fiadofacil://nova-senha">Abrir no FiadoApp</a>
+  <p class="pequeno">Abra este link no mesmo celular em que o FiadoApp está instalado. Se você não pediu este e-mail, ignore-o.</p>
+</main>
+<script>
+  // Repassa exatamente o que chegou (query + fragmento) para o esquema do app.
+  var destino = 'fiadofacil://nova-senha' + window.location.search + window.location.hash;
+  document.getElementById('botao').setAttribute('href', destino);
+
+  var ehComputador = !/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (ehComputador) {
+    document.getElementById('titulo').textContent = 'Abra este link no celular';
+    document.getElementById('texto').textContent = 'Este link só funciona no celular onde o FiadoApp está instalado.';
+  } else {
+    // Pequeno atraso para o navegador desenhar a página antes de trocar de app.
+    setTimeout(function () { window.location.href = destino; }, 150);
+  }
+</script>
+</body>
+</html>

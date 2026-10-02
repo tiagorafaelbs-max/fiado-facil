@@ -314,6 +314,8 @@ Item 3 — o que mudou: `assinarEventosDaFila('enfileirou'|'sincronizou')`; clie
 
 Item 4 — decisão do Tiago: o e-mail oficial é `fiadoapp.contato@gmail.com` (conta Google real do Search Console/Analytics; a nota antiga do `prompt-melhorias-testers-community.md` sobre `suporte@fiadofacil.com.br` está desatualizada). Site (`docs/`, `site-live-mirror/`) e fichas das lojas o Tiago corrige por fora.
 
+**Publicado em 02/10 (OTA, branch/channel `production`, commit `bec894e`):** Android update `01a0fd85-84ec-796e-a059-0fe59e413747` (grupo `0eb8131b-95e9-4ef8-94a1-cd6040a7cc04`, runtime `61a2955d…` = build 54) e iOS update `01a0fd88-fa3a-7e36-b50d-cae92c2a54b9` (grupo `95e27cac-ae50-4d30-848d-84c08efaac6c`, runtime `3ae31820…` = build 88). Android publicado com `ios.buildNumber="87"` temporário (restaurado). **Templates do Supabase NÃO trocados** (1.0.11 quebraria) — proposta da página ponte em `docs/release/PROPOSTA-auth-ponte.html`.
+
 **Teste:** `tsc --noEmit` limpo no app; Fiscal aprovou os 4 itens (2 rodadas no item 1: achou setSession com token vencido deslogando a conta, e o e-mail da conta do link). **Sem teste em aparelho** — roteiro de teste no doc do Supabase.
 
 ## Pendências fora do lote

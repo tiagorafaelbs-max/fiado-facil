@@ -1,5 +1,7 @@
 # Convite / recuperação de senha — rollout e ajustes manuais no painel do Supabase
 
+> **STATUS 02/10 (decisão do Tiago):** OTA publicada (Android `01a0fd85-84ec-796e-a059-0fe59e413747`, iOS `01a0fd88-fa3a-7e36-b50d-cae92c2a54b9`). **NÃO trocar os templates agora** — os usuários reais ainda estão no 1.0.11, que não entende `?token_hash`: convite e recuperação deles quebrariam. A troca fica para quando o 1.0.12 for maioria. A página ponte proposta está em `docs/release/PROPOSTA-auth-ponte.html` (destino sugerido `https://fiadoapp.app.br/auth`, não publicada; repassa query + fragmento, serve aos dois formatos). Quando for a hora, usar nos templates `https://fiadoapp.app.br/auth?token_hash={{ .TokenHash }}&type=invite` (e `type=recovery`) em vez da opção A.
+
 Contexto (incidente 02/10): o link de convite falhou em silêncio (provável token já consumido, volta como `fiadofacil://nova-senha#error=...otp_expired`) e a tela `nova-senha` trocou a senha do DONO que estava logado no aparelho. O app agora só troca a senha depois de validar o link (`lib/linkAuth.ts`), pergunta antes de trocar de conta, mostra o e-mail da conta do link e aceita `?token_hash=...&type=...` (validado com `verifyOtp`: funciona em qualquer aparelho e não é consumido por pré-visualização de e-mail).
 
 ## 1. OTA primeiro (ordem obrigatória)
