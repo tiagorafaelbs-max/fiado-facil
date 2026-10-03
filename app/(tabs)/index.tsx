@@ -21,6 +21,7 @@ import { Avatar } from '../../components/ui/Avatar'
 import { BadgeStatus } from '../../components/ui/BadgeStatus'
 import { AppTour, type TourStep } from '../../components/ui/AppTour'
 import { ChecklistDia0 } from '../../components/ui/ChecklistDia0'
+import { AvisoVencimentoAntigas } from '../../components/ui/AvisoVencimentoAntigas'
 import { formatarMoeda } from '../../lib/validacao'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
@@ -364,6 +365,12 @@ export default function DashboardScreen() {
                 onDispensar={checklistDia0.dispensar}
               />
             )}
+
+            {/* Vendas antigas sem data de vencimento — só o dono (o componente some para funcionário) */}
+            <AvisoVencimentoAntigas
+              vencidosAtuais={resumo.clientes_vencidos}
+              aoMudar={() => { buscar(); checklistDia0.recarregar() }}
+            />
 
             {/* Alertas */}
             {modulos.cobranca_automatica && diaCobranca && clientesParaCobrar > 0 && (

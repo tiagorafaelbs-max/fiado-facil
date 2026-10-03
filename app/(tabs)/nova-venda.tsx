@@ -52,6 +52,19 @@ export default function NovaVendaScreen() {
   const [vencimentoEditado, setVencimentoEditado] = useState(false)
   const [semVencimento, setSemVencimento] = useState(false)
   const vencimentoInputRef = useRef<TextInput>(null)
+  // Qual chip de vencimento está "marcado": o padrão (enquanto não editado), o atalho de N dias
+  // cuja data é a do campo, ou "Sem vencimento".
+  function chipVencimentoAtivo(): string | null {
+    if (semVencimento) return 'sem'
+    const padraoBR = dataParaBR(calcularVencimentoPadrao(new Date(), diaCobranca))
+    if (!vencimentoEditado) return dataVencimento === padraoBR ? 'padrao' : null
+    for (const n of [7, 15, 30]) {
+      const d = new Date()
+      d.setDate(d.getDate() + n)
+      if (dataParaBR(d) === dataVencimento) return String(n)
+    }
+    return dataVencimento === padraoBR ? 'padrao' : null
+  }
   useEffect(() => {
     if (vencimentoEditado) return
     setDataVencimento(dataParaBR(calcularVencimentoPadrao(new Date(), diaCobranca)))
@@ -601,15 +614,19 @@ export default function NovaVendaScreen() {
           <Text style={estilos.labelDataRapida}>Vencimento</Text>
           <View style={estilos.datasRapidasRow}>
             {[
-              { label: '7 dias', dias: 7 },
-              { label: '15 dias', dias: 15 },
-              { label: '30 dias', dias: 30 },
-              { label: 'Sem vencimento', dias: -1 },
-            ].map(({ label, dias }) => (
+              { chave: 'padrao', label: 'Padrão', dias: 0 },
+              { chave: '7', label: '7 dias', dias: 7 },
+              { chave: '15', label: '15 dias', dias: 15 },
+              { chave: '30', label: '30 dias', dias: 30 },
+              { chave: 'sem', label: 'Sem vencimento', dias: -1 },
+            ].map(({ chave, label, dias }) => {
+              const marcado = chipVencimentoAtivo() === chave
+              return (
               <TouchableOpacity
                 key={label}
-                style={[estilos.dataChip, dias === -1 && estilos.dataChipLimpar]}
+                style={[estilos.dataChip, dias === -1 && estilos.dataChipLimpar, marcado && { backgroundColor: '#00A651', borderColor: '#00A651' }]}
                 onPress={() => {
+                  if (chave === 'padrao') { setVencimentoEditado(false); setSemVencimento(false); return }
                   setVencimentoEditado(true)
                   if (dias === -1) { setDataVencimento(''); setSemVencimento(true); return }
                   setSemVencimento(false)
@@ -621,9 +638,10 @@ export default function NovaVendaScreen() {
                   setDataVencimento(`${dd}/${mm}/${aaaa}`)
                 }}
               >
-                <Text style={[estilos.dataChipTexto, dias === -1 && estilos.dataChipTextoLimpar]}>{label}</Text>
+                <Text style={[estilos.dataChipTexto, dias === -1 && estilos.dataChipTextoLimpar, marcado && { color: '#fff' }]}>{label}</Text>
               </TouchableOpacity>
-            ))}
+              )
+            })}
           </View>
           <View style={estilos.vencimentoResumo}>
             <Text style={estilos.vencimentoResumoTexto}>
@@ -1039,7 +1057,7 @@ const estilos = StyleSheet.create({
   },
   btnWhatsAppTexto: { color: C.white, fontWeight: '800', fontSize: 15 },
   labelDataRapida: { fontSize: 12, fontWeight: '600', color: C.text2, marginBottom: 8, letterSpacing: 0.3 },
-  datasRapidasRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
+  datasRapidasRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
   dataChip: {
     paddingHorizontal: 12, paddingVertical: 7, borderRadius: 99,
     backgroundColor: C.greenLight, borderWidth: 1, borderColor: C.greenMid,

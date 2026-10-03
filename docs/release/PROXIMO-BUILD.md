@@ -369,6 +369,22 @@ Achados do Fiscal já corrigidos: dia de cobrança pequeno no fim do mês caía 
 
 **3c (vendas antigas sem data) — PARA REVISÃO, NADA aplicado:** `supabase/migrations/vencimento_vendas_antigas_3c.sql` + `docs/release/DESENHO-vencimento-vendas-antigas.md` (decisões do Tiago: data_venda + 30, funcionário não vê, auditoria + desfazer, "Agora não" 7 dias). Fiscal reprovou 1x (LGPD: tabela de auditoria sem FK/cascade) — corrigido, e aplicados os ajustes de escopo/lock. Telas ainda NÃO implementadas.
 
+## Lote 03/10 (4) — retorno do reteste (3a/b e FIFO aprovados) + chips, 3c (telas) e segurança (migrations para revisão, NADA aplicado/publicado)
+
+Reteste do Tiago (Samsung, OTA 01a1012a): vencimento padrão (`Vence em 05/11 (padrão)`, banco 2026-11-05, total +R$ 1,00 exato) e FIFO nova (venda antiga sem data antes da nova; log 36, vencidos 211, saldo inalterado) — APROVADOS.
+
+| # | Item | Arquivos |
+|---|---|---|
+| 1 | Nova venda: chip "Padrão" + chip marcado (padrão / N dias / Sem vencimento); chips quebram em 2 linhas (flexWrap) — o "Sem vencimento" era cortado no A51 | `app/(tabs)/nova-venda.tsx` |
+| 2 | 3c — vendas ANTIGAS sem data: aviso só para o dono, com os números da loja ANTES de confirmar ("X vendas antigas sem data · Y clientes vão aparecer como vencidos"), "Agora não" 7 dias, "Desfazer" por 7 dias, nada muda sem o toque de confirmação | `hooks/useVencimentoAntigas.ts`, `components/ui/AvisoVencimentoAntigas.tsx` (novos), `app/(tabs)/index.tsx`, `app/cobrancas.tsx`, `supabase/migrations/vencimento_vendas_antigas_3c.sql` (NÃO aplicada) |
+| 3 | Segurança: INSERT/UPDATE de vendas/pagamentos só com cliente do mesmo dono | `supabase/migrations/hardening_vendas_pagamentos_cliente_do_tenant.sql` (NÃO aplicada) |
+
+**3c — CORTE (achado do Fiscal):** só vendas criadas ANTES de 03/10/2026 09:49 UTC (OTA do vencimento padrão), no mesmo corte em `contar` e `definir`; depois dela, `data_vencimento IS NULL` também é a escolha deliberada "Sem vencimento", que nunca pode ser sobrescrita. Só clientes ativos. Números (todas as lojas somadas, só leitura): 1.030 vendas / 260 já vencidas / 770 a vencer / 716 clientes / 69 donos / 237 novos vencidos; hoje 0 vendas sem data e em aberto criadas depois do corte. A RPC `contar_vendas_sem_vencimento` agora devolve também clientes_afetados, novos_vencidos, desfazivel e ultima_execucao. O hook é silencioso se a RPC falhar/offline/migration ainda não aplicada — dá para publicar a OTA antes da migration (nada aparece).
+
+**Segurança — as 5 vendas cruzadas de 11/07 (NÃO apagadas):** todas criadas pela conta `04274343` (e-mail `don***@gmail.com`, dona das vendas, `criado_por` = ela mesma) em 3 clientes da conta `06a90188` (e-mail `tia***@gmail.com`, dona dos clientes); sem vínculo em `membros_equipe`; 0 pagamentos cruzados. A view soma as 5 no saldo dos 3 clientes da outra loja (R$ 172 lançados por terceiro: R$ 62, R$ 95, R$ 15; só 1 em aberto, R$ 15) — se forem apagadas, esses saldos podem ficar negativos. A migration NÃO mexe nelas; o dono delas só deixa de conseguir editá-las pelo app.
+
+**Teste:** `tsc --noEmit` limpo; Fiscal: Parte 2 reprovada 1x (2 bloqueantes: corte contra sobrescrever "Sem vencimento" deliberado; textos falsos no impacto), corrigidos e aprovada; Partes 1 e 3 aprovadas. Sem teste em aparelho. Sem push/OTA nesta rodada.
+
 ## Pendências fora do lote
 - Foto de comprovante (`nova-venda.tsx:188`): o bucket `comprovantes` **não existe**, e o upload falha sem avisar. Se for ativar: bucket privado + URL assinada. Decisão de produto.
 - Testes automatizados e lint: backlog de adequação (`docs/adequacao-fabrica.md`, a criar).

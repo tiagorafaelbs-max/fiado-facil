@@ -12,6 +12,7 @@ import { useModulos } from '../hooks/useModulos'
 import { useTenant } from '../hooks/useTenant'
 import { useContadorWhatsApp } from '../hooks/useContadorWhatsApp'
 import { Avatar } from '../components/ui/Avatar'
+import { AvisoVencimentoAntigas } from '../components/ui/AvisoVencimentoAntigas'
 import { formatarMoeda } from '../lib/validacao'
 import { montarUrlWhatsApp } from '../lib/whatsapp'
 import { C } from '../constants/colors'
@@ -395,6 +396,10 @@ export default function CobrancasScreen() {
 
   return (
     <View style={estilos.container}>
+      {/* Vendas antigas sem data de vencimento — só o dono (o componente some para funcionário) */}
+      <View style={{ paddingHorizontal: 16 }}>
+        <AvisoVencimentoAntigas vencidosAtuais={vencidos.length} aoMudar={buscar} margemTopo={12} />
+      </View>
       {/* Tabs */}
       <View style={estilos.tabBar}>
         <TouchableOpacity

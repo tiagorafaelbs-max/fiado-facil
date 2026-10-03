@@ -62,3 +62,8 @@ Status (03/10): **decisões tomadas pelo Tiago; migration escrita PARA REVISÃO 
 
 ## Segurança (fora do 3c, já existia) — para decidir
 A policy `vendas_insert` confere `usuario_id = tenant_id_atual()` mas não confere que o `cliente_id` pertence ao tenant; foi assim que surgiram as 5 vendas ligadas a cliente de outro dono (1 usuário, 3 clientes, 11/07). Sugestão: `exists (select 1 from clientes c where c.id = cliente_id and c.usuario_id = tenant_id_atual())` no WITH CHECK de insert e update de `vendas` (e conferir `pagamentos`, hoje sem órfãos). Pacote próprio, com migration para revisão.
+
+## Atualização 03/10 (implementação para revisão)
+- **Corte:** só vendas criadas antes de 03/10/2026 09:49 UTC entram (depois da OTA do vencimento padrão, `data_vencimento IS NULL` pode ser "Sem vencimento" escolhido de propósito). Mesmo corte em contar e definir. Números com corte (todas as lojas): 1.030 vendas / 260 já vencidas / 770 a vencer / 716 clientes / 69 donos / 237 novos vencidos.
+- **Telas implementadas (não publicadas):** aviso no Início e em Cobranças (só dono com papel confirmado), modal de confirmação com os números da loja, "Agora não" 7 dias (AsyncStorage por tenant), banner "Desfazer" por 7 dias, reagendamento das notificações e recarga das telas ao confirmar/desfazer.
+- **Janela de desfazer:** 7 dias (banco e tela), conforme pedido.
