@@ -104,6 +104,10 @@ export function AvisoVencimentoAntigas({ vencidosAtuais, aoMudar, margemTopo = 0
   }
   const textoPrazo = partesPrazo.join(' ')
 
+  const desfezEm = impacto.ultimoDesfazer
+    ? new Date(impacto.ultimoDesfazer).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+    : null
+
   const clientesTxt = impacto.novosVencidos === 0
     ? 'nenhum cliente novo vai aparecer como vencido'
     : impacto.novosVencidos === 1 ? '1 cliente vai aparecer como vencido' : `${impacto.novosVencidos} clientes vão aparecer como vencidos`
@@ -115,6 +119,7 @@ export function AvisoVencimentoAntigas({ vencidosAtuais, aoMudar, margemTopo = 0
         <View style={{ flex: 1 }}>
           <Text style={estilos.titulo}>{impacto.total} {impacto.total === 1 ? 'venda antiga sem data' : 'vendas antigas sem data'} de vencimento</Text>
           <Text style={estilos.sub}>{impacto.total === 1 ? 'Ela nunca aparece' : 'Elas nunca aparecem'} em Cobranças · {clientesTxt}. Toque em Revisar para ver o impacto.</Text>
+          {desfezEm && <Text style={estilos.nota}>Você desfez em {desfezEm}.</Text>}
           <View style={estilos.linhaBotoes}>
             <TouchableOpacity onPress={() => setModal(true)} style={estilos.btnPrimario}>
               <Text style={estilos.btnPrimarioTexto}>Revisar</Text>
@@ -165,6 +170,7 @@ const estilos = StyleSheet.create({
   bannerOk: { backgroundColor: C.greenLight, borderColor: C.greenMid },
   titulo: { fontSize: 14, fontWeight: '800', color: C.text },
   sub: { fontSize: 12, color: C.text2, marginTop: 3, lineHeight: 17 },
+  nota: { fontSize: 11, color: C.text3, marginTop: 4 },
   linhaBotoes: { flexDirection: 'row', gap: 8, marginTop: 10 },
   btnPrimario: { backgroundColor: C.green, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8 },
   btnPrimarioTexto: { color: C.white, fontSize: 12, fontWeight: '800' },

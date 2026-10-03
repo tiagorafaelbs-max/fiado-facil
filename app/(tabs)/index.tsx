@@ -651,7 +651,7 @@ const estilos = StyleSheet.create({
     marginTop: 6, marginBottom: 16,
   },
   heroRodape: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 10,
   },
   heroStat: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   heroStatTexto: { fontSize: 13, color: 'rgba(255,255,255,0.75)', fontWeight: '500' },

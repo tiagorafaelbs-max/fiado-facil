@@ -16,6 +16,7 @@ export interface ImpactoVencimento {
   novosVencidos: number
   desfazivel: number
   ultimaExecucao: string | null
+  ultimoDesfazer: string | null   // quando o dono desfez pela última vez (para o aviso dizer que não é a 1ª vez)
 }
 
 interface LinhaContagem {
@@ -44,6 +45,18 @@ export function useVencimentoAntigas() {
     if (error || !data || minha !== sequencia.current) return
     const r = (Array.isArray(data) ? data[0] : data) as LinhaContagem | undefined
     if (!r) return
+    // Só interessa quando o aviso vai aparecer (nada a desfazer agora); falha aqui não atrapalha o aviso.
+    let ultimoDesfazer: string | null = null
+    if (!Number(r.desfazivel ?? 0)) {
+      const { data: log } = await supabase
+        .from('vendas_vencimento_backfill')
+        .select('desfeito_em')
+        .not('desfeito_em', 'is', null)
+        .order('desfeito_em', { ascending: false })
+        .limit(1)
+      ultimoDesfazer = (log?.[0]?.desfeito_em as string | undefined) ?? null
+    }
+    if (minha !== sequencia.current) return
     setImpacto({
       total: Number(r.total ?? 0),
       jaVencidas: Number(r.ja_vencidas ?? 0),
@@ -52,6 +65,7 @@ export function useVencimentoAntigas() {
       novosVencidos: Number(r.novos_vencidos ?? 0),
       desfazivel: Number(r.desfazivel ?? 0),
       ultimaExecucao: r.ultima_execucao ?? null,
+      ultimoDesfazer,
     })
     const ate = await AsyncStorage.getItem(chaveEscondido).catch(() => null)
     if (minha !== sequencia.current) return

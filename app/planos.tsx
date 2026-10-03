@@ -515,7 +515,7 @@ const estilos = StyleSheet.create({
   btnProTexto: { color: C.green, fontWeight: '800', fontSize: 15 },
   proGarantia: { fontSize: 11, color: 'rgba(255,255,255,0.6)', textAlign: 'center', marginTop: 10 },
   anualBox: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: C.greenLight, borderRadius: 14, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: C.greenMid },
-  anualEsquerda: { gap: 2 },
+  anualEsquerda: { flex: 1, gap: 2 },
   anualTitulo: { fontSize: 15, fontWeight: '700', color: C.greenDark },
   anualSub: { fontSize: 13, color: C.green },
   anualBadge: { backgroundColor: C.green, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },

@@ -397,6 +397,39 @@ Reteste do Tiago (Samsung, OTA 01a1012a): vencimento padrão (`Vence em 05/11 (p
 
 **OTA dos chips + telas da 3c (commit `2450b71`):** Android `01a101bd-fd08-731d-a040-2e51489f2454` (grupo `a3a43f9d-e1fe-4f8f-83f6-08e96912f42e`, runtime `61a2955d…`) e iOS `01a101bf-a867-7478-b909-fc6c0ec9fbf5` (grupo `6ab4a145-78f7-4e07-b266-4adf10acd591`, runtime `3ae31820…`); fingerprints conferidos contra os builds 54/88 (Android com `ios.buildNumber="87"` temporário, restaurado). Push dos commits locais feito.
 
+## O QUE HÁ DE NOVO — tudo que já está no ar via OTA desde os builds 54 (Android) / 88 (iOS)
+
+Referência para a próxima publicação nas lojas (builds 1.0.12 54/88 já têm `channel: production`; quem está neles recebe isto por OTA, abrindo o app 2 vezes). Fingerprints: Android `61a2955d…`, iOS `3ae31820…` (receita do `eas update` em `docs/release/supabase-templates-convite.md`).
+
+| Data | Android | iOS | O que entrou |
+|---|---|---|---|
+| 02/10 | `01a0fd85-84ec-796e-a059-0fe59e413747` | `01a0fd88-fa3a-7e36-b50d-cae92c2a54b9` | Convite/recuperação de senha só altera a conta do link validado (incidente do dono); fila offline atualiza as telas e mostra "Pendente"; sem duplicar "Dívida anterior" nem pagamento pelo "+"; e-mail de contato novo |
+| 02/10 | `01a0fdf7-ba25-72cd-a96a-9d88331d8a6f` | `01a0fdfb-46d9-7b21-b272-5e2fef388173` | Totais agregados só para o dono (Início, Cobranças, Relatórios, notificações); papel não confirmado esconde totais |
+| 03/10 | `01a1011b-c991-74ad-adc6-f026c6b68c6e` | `01a1011d-702f-754f-989a-eea55e29adc5` | Texto do "Trocar de conta?" separado para convite e recuperação |
+| 03/10 | `01a1012a-ff51-7c2e-9d03-98f36f810f4e` | `01a1012e-5dd6-7f06-80c8-30620d7762b2` | Vencimento padrão nas vendas novas (hoje + 30 dias ou próximo dia de cobrança); "Sem vencimento" explícito; ordem de quitação pelo vencimento efetivo no score |
+| 03/10 | `01a101bd-fd08-731d-a040-2e51489f2454` | `01a101bf-a867-7478-b909-fc6c0ec9fbf5` | Chip "Padrão"/marcado na Nova venda (chips quebram linha); aviso das vendas ANTIGAS sem data de vencimento (só dono, com impacto da loja, "Agora não" 7 dias, "Desfazer" 7 dias) |
+
+No banco (já aplicado, independente de versão do app): ordem FIFO por vencimento efetivo (view + RPC + backfill da flag `pago`), regra de segurança (vendas/pagamentos só com cliente do mesmo dono), funções do aviso das vendas antigas.
+
+**"O que há de novo" para App Store / Google Play (pt-BR, até 4 linhas):**
+```
+• Mais segurança nos convites da equipe e na troca de senha.
+• O total que os clientes devem agora aparece só para o dono.
+• Vendas novas já vêm com uma data de vencimento sugerida — dá para mudar ou deixar sem.
+• Novo aviso para organizar as vendas antigas sem data, com opção de desfazer.
+• Ajustes de tela em celulares menores. (opcional, se couber)
+```
+
+## Lote 03/10 (6) — retorno do reteste (chips + 3c aprovados) + ajustes de layout/texto (PARA REVISÃO, OTA NÃO publicada)
+
+Reteste do Tiago (Samsung A51, Android 54 + OTA 01a101bd): chips OK; 3c na conta de teste: aviso "13 vendas · 8 clientes vão aparecer como vencidos", confirmar → vencidos 1→9, log com 13, saldo igual (R$ 1.090,34); Cobranças "Vencidos (9) · R$ 1.230,00" com dias de atraso; desfazer → 1 vencido, 13 desfeitas, saldo igual, aviso reapareceu; banco: 0 cruzadas, 6 policies novas — APROVADO.
+
+| # | Item | Arquivos |
+|---|---|---|
+| 1 | Cobranças › Vencidos: botão "Cobrar vencidos" cortado no A51 ("Cobrar venc") — o `resumoBox` quebra linha (`flexWrap`) e o botão fica SEMPRE em linha própria, largura total (`width: '100%'`; a 1ª versão com `flexGrow` fazia o botão subir/descer de linha durante o envio e esticava no tablet — achado do Fiscal). Varredura: mesma linha-padrão no Início (contador de clientes + "Nova venda") ganhou `flexWrap`/`gap`; as listas de Cobranças (ícone WhatsApp), Relatórios (exportar em largura total; data personalizada com campo `flex:1`) já eram seguras; Planos: bloco "anual" ganhou `flex: 1` no texto (o selo "-37%" podia sair da tela com fonte grande) | `app/cobrancas.tsx`, `app/(tabs)/index.tsx`, `app/planos.tsx` |
+| 2 | Aviso das vendas antigas depois de desfazer: linha discreta "Você desfez em dd/mm." (lida do log de auditoria — RLS: só o dono; vale em qualquer aparelho, sem migration) | `hooks/useVencimentoAntigas.ts`, `components/ui/AvisoVencimentoAntigas.tsx` |
+| 3 | Este registro de "o que há de novo" + texto de lojas | `docs/release/PROXIMO-BUILD.md` |
+
 ## Pendências fora do lote
 - Foto de comprovante (`nova-venda.tsx:188`): o bucket `comprovantes` **não existe**, e o upload falha sem avisar. Se for ativar: bucket privado + URL assinada. Decisão de produto.
 - Testes automatizados e lint: backlog de adequação (`docs/adequacao-fabrica.md`, a criar).

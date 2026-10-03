@@ -556,7 +556,7 @@ const estilos = StyleSheet.create({
   tabTexto: { fontSize: 13, fontWeight: '600', color: C.text3 },
 
   resumoBox: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between',
     backgroundColor: C.card, padding: 16, borderBottomWidth: 1, borderBottomColor: C.border,
     gap: 8,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2,
@@ -565,8 +565,11 @@ const estilos = StyleSheet.create({
   resumoNum: { fontSize: 17, fontWeight: '800', color: C.text },
   resumoLabel: { fontSize: 10, color: C.text2, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
 
+  // Sempre em linha própria, em largura total (o resumoBox quebra linha): no A51 (1080px) o botão ao
+  // lado dos números ficava cortado ("Cobrar venc"). Largura fixa em 100% também evita o botão subir
+  // e descer de linha quando o texto muda ("Enviando...", "3/9") e não estica estranho no tablet.
   btnCobrarTodos: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', width: '100%', gap: 6,
     backgroundColor: '#25D366', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10,
     shadowColor: '#25D366', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4,
   },
