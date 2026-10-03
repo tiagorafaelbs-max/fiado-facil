@@ -66,11 +66,15 @@ export function ehLinkDeAuth(url: string): boolean {
   return !!(pega('token_hash') || pega('access_token') || pega('code'))
 }
 
-function confirmarTrocaDeConta(email?: string | null): Promise<boolean> {
+function confirmarTrocaDeConta(email: string | null | undefined, tipo: TipoLink): Promise<boolean> {
+  const deQuem = email ? `de ${email}` : 'da conta atual'
+  const mensagem = tipo === 'invite'
+    ? `Este link é de um convite para outra conta. Para aceitar, este aparelho vai sair ${deQuem}. Se você é o dono e só quer testar, abra o link no celular do funcionário.`
+    : `Este link é para redefinir a senha de outra conta. Este aparelho vai sair ${deQuem} e entrar na conta do link.`
   return new Promise(resolve => {
     Alert.alert(
       'Trocar de conta?',
-      `Este aparelho já está conectado${email ? ` como ${email}` : ''}. Abrir este link vai desconectar essa conta e entrar com a conta do link.\n\nSe você é o dono e quer só testar o convite, abra o link em outro aparelho.`,
+      mensagem,
       [
         { text: 'Cancelar', style: 'cancel', onPress: () => resolve(false) },
         { text: 'Continuar', style: 'destructive', onPress: () => resolve(true) },
@@ -80,9 +84,9 @@ function confirmarTrocaDeConta(email?: string | null): Promise<boolean> {
   })
 }
 
-// Se estourar o tempo, rejeita -- mas a chamada de rede continua viva e pode
-// terminar depois (salvando a sessão do link no aparelho). aoChegarTarde deixa a
-// tela refletir isso em vez de ficar em 'erro' com a sessão já trocada.
+// Se estourar o tempo, rejeita -- mas a chamada de rede continua viva e pode terminar
+// depois (salvando a sessão do link no aparelho). aoChegarTarde deixa a tela refletir
+// isso em vez de ficar em 'erro' com a sessão já trocada.
 function comTimeout<T>(promessa: PromiseLike<T>, ms: number, aoChegarTarde?: (valor: T) => void): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     let estourou = false
@@ -184,7 +188,7 @@ async function executar(url: string): Promise<TipoLink> {
 
     const { data: { session: atual } } = await supabase.auth.getSession()
     if (atual?.user) {
-      const confirmou = await confirmarTrocaDeConta(atual.user.email)
+      const confirmou = await confirmarTrocaDeConta(atual.user.email, tipo)
       if (!confirmou) {
         definirEstadoLink({ status: 'cancelado' })
         return tipo

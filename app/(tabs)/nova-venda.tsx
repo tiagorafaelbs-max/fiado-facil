@@ -21,6 +21,8 @@ import { montarUrlWhatsApp } from '../../lib/whatsapp'
 import { C } from '../../constants/colors'
 import { useCategorias } from '../../hooks/useCategorias'
 import { useOffline } from '../../hooks/useOffline'
+import { useDiaCobranca } from '../../hooks/useDiaCobranca'
+import { calcularVencimentoPadrao, dataParaBR, dataParaISO, somarMesesLimitando } from '../../lib/vencimento'
 import { useBeep } from '../../hooks/useBeep'
 import { solicitarPermissaoNotificacoesUmaVez, agendarNotificacoesVencimento } from '../../hooks/useNotificacoes'
 import { KeyboardToolbar, KEYBOARD_TOOLBAR_ID } from '../../components/ui/KeyboardToolbar'
@@ -43,6 +45,21 @@ export default function NovaVendaScreen() {
   const [valor, setValor] = useState('')
   const [dataVenda, setDataVenda] = useState('')
   const [dataVencimento, setDataVencimento] = useState('')
+  // Vencimento padrão (hoje + 30 dias, ou próximo dia de cobrança do perfil) vem
+  // preenchido e editável; "Sem vencimento" é uma escolha explícita. Campo apagado na
+  // mão NÃO vira "sem vencimento": ao salvar cai de novo no padrão.
+  const diaCobranca = useDiaCobranca()
+  const [vencimentoEditado, setVencimentoEditado] = useState(false)
+  const [semVencimento, setSemVencimento] = useState(false)
+  const vencimentoInputRef = useRef<TextInput>(null)
+  useEffect(() => {
+    if (vencimentoEditado) return
+    setDataVencimento(dataParaBR(calcularVencimentoPadrao(new Date(), diaCobranca)))
+  }, [diaCobranca, vencimentoEditado])
+  // A aba fica montada: se o app passou a noite aberto, o padrão precisa ser de HOJE.
+  useFocusEffect(useCallback(() => {
+    if (!vencimentoEditado) setDataVencimento(dataParaBR(calcularVencimentoPadrao(new Date(), diaCobranca)))
+  }, [diaCobranca, vencimentoEditado]))
   const [categoria, setCategoria] = useState('Mercadoria')
   const [novaCategoria, setNovaCategoria] = useState('')
   const [editandoCategoria, setEditandoCategoria] = useState<string | null>(null)
@@ -267,9 +284,13 @@ export default function NovaVendaScreen() {
       }
 
       let vencimentoISO: string | undefined
-      if (dataVencimento.length === 10) {
-        const [dd, mm, aaaa] = dataVencimento.split('/')
-        if (dd && mm && aaaa) vencimentoISO = `${aaaa}-${mm}-${dd}`
+      if (!semVencimento) {
+        if (dataVencimento.length === 10) {
+          const [dd, mm, aaaa] = dataVencimento.split('/')
+          if (dd && mm && aaaa) vencimentoISO = `${aaaa}-${mm}-${dd}`
+        }
+        // Campo vazio sem ter escolhido "Sem vencimento": usa o padrão.
+        if (!vencimentoISO) vencimentoISO = dataParaISO(calcularVencimentoPadrao(new Date(), diaCobranca))
       }
 
       let fotoUrl: string | undefined
@@ -285,13 +306,10 @@ export default function NovaVendaScreen() {
         const valorParcela = Math.round((valorTotal / numParcelas) * 100) / 100
         let primeiroId: string | null = null
         const parcelasIds: string[] = []
-        const baseDate = vencimentoISO ? new Date(vencimentoISO + 'T12:00:00') : new Date()
-        if (!vencimentoISO) baseDate.setMonth(baseDate.getMonth() + 1)
+        const baseDate = vencimentoISO ? new Date(vencimentoISO + 'T12:00:00') : somarMesesLimitando(new Date(), 1)
 
         for (let i = 0; i < numParcelas; i++) {
-          const d = new Date(baseDate)
-          d.setMonth(d.getMonth() + i)
-          const parcISO = d.toISOString().split('T')[0]
+          const parcISO = dataParaISO(somarMesesLimitando(baseDate, i))
           const v = await criar({
             cliente_id: clienteId,
             descricao: `${descricaoLimpa} (${i + 1}/${numParcelas})`,
@@ -328,7 +346,7 @@ export default function NovaVendaScreen() {
       solicitarPermissaoNotificacoesUmaVez().then(ok => { if (ok) agendarNotificacoesVencimento() })
       // Volta para o início automaticamente após 2s
       redirectTimer.current = setTimeout(() => router.replace('/(tabs)'), 2000)
-      setClienteId(''); setBuscaCliente(''); setDescricao(''); setValor(''); setDataVenda(''); setDataVencimento(''); setCategoria('Mercadoria'); setErros({}); setFotoUri(null); setTipoPagamento('fiado'); setNumParcelas(2)
+      setClienteId(''); setBuscaCliente(''); setDescricao(''); setValor(''); setDataVenda(''); setDataVencimento(dataParaBR(calcularVencimentoPadrao(new Date(), diaCobranca))); setVencimentoEditado(false); setSemVencimento(false); setCategoria('Mercadoria'); setErros({}); setFotoUri(null); setTipoPagamento('fiado'); setNumParcelas(2)
     } catch (e: any) {
       setErroGeral(e.message ?? 'Erro ao salvar. Tente novamente.')
     } finally {
@@ -580,19 +598,21 @@ export default function NovaVendaScreen() {
         </View>
 
         <View style={{ marginBottom: 4 }}>
-          <Text style={estilos.labelDataRapida}>Vencimento (opcional)</Text>
+          <Text style={estilos.labelDataRapida}>Vencimento</Text>
           <View style={estilos.datasRapidasRow}>
             {[
               { label: '7 dias', dias: 7 },
               { label: '15 dias', dias: 15 },
               { label: '30 dias', dias: 30 },
-              { label: 'Limpar', dias: -1 },
+              { label: 'Sem vencimento', dias: -1 },
             ].map(({ label, dias }) => (
               <TouchableOpacity
                 key={label}
                 style={[estilos.dataChip, dias === -1 && estilos.dataChipLimpar]}
                 onPress={() => {
-                  if (dias === -1) { setDataVencimento(''); return }
+                  setVencimentoEditado(true)
+                  if (dias === -1) { setDataVencimento(''); setSemVencimento(true); return }
+                  setSemVencimento(false)
                   const d = new Date()
                   d.setDate(d.getDate() + dias)
                   const dd = String(d.getDate()).padStart(2, '0')
@@ -605,7 +625,20 @@ export default function NovaVendaScreen() {
               </TouchableOpacity>
             ))}
           </View>
+          <View style={estilos.vencimentoResumo}>
+            <Text style={estilos.vencimentoResumoTexto}>
+              {semVencimento
+                ? 'Sem vencimento — esta venda não entra em Cobranças nem nos lembretes'
+                : `Vence em ${(dataVencimento.length === 10 ? dataVencimento : dataParaBR(calcularVencimentoPadrao(new Date(), diaCobranca))).slice(0, 5)}${vencimentoEditado && dataVencimento.length === 10 ? '' : ' (padrão)'} · `}
+            </Text>
+            {!semVencimento && (
+              <TouchableOpacity onPress={() => vencimentoInputRef.current?.focus()}>
+                <Text style={estilos.vencimentoResumoLink}>alterar</Text>
+              </TouchableOpacity>
+            )}
+          </View>
           <TextInput
+            ref={vencimentoInputRef}
             style={estilos.dataInput}
             value={dataVencimento}
             inputAccessoryViewID={Platform.OS === 'ios' ? KEYBOARD_TOOLBAR_ID : undefined}
@@ -616,6 +649,8 @@ export default function NovaVendaScreen() {
               let fmt = nums
               if (nums.length > 2) fmt = nums.slice(0, 2) + '/' + nums.slice(2)
               if (nums.length > 4) fmt = nums.slice(0, 2) + '/' + nums.slice(2, 4) + '/' + nums.slice(4)
+              setVencimentoEditado(true)
+              setSemVencimento(false)
               setDataVencimento(fmt)
             }}
             placeholder="DD/MM/AAAA"
@@ -1012,6 +1047,9 @@ const estilos = StyleSheet.create({
   dataChipLimpar: { backgroundColor: C.bg, borderColor: C.border },
   dataChipTexto: { fontSize: 12, color: C.green, fontWeight: '700' },
   dataChipTextoLimpar: { color: C.text3 },
+  vencimentoResumo: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', marginBottom: 6 },
+  vencimentoResumoTexto: { fontSize: 12, color: C.text2 },
+  vencimentoResumoLink: { fontSize: 12, color: C.green, fontWeight: '700' },
   dataInput: {
     height: 48, borderWidth: 1.5, borderColor: C.border, borderRadius: 12,
     backgroundColor: C.bg, paddingHorizontal: 14, fontSize: 15, color: C.text,

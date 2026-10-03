@@ -8,6 +8,8 @@ import { Ionicons } from '@expo/vector-icons'
 import { useVendas } from '../../hooks/useVendas'
 import { useClientes } from '../../hooks/useClientes'
 import { useAuth } from '../../hooks/useAuth'
+import { useDiaCobranca } from '../../hooks/useDiaCobranca'
+import { calcularVencimentoPadrao, dataParaBR, dataParaISO } from '../../lib/vencimento'
 import { Avatar } from './Avatar'
 import { sanitizarTexto, formatarMoeda, validarDataBR } from '../../lib/validacao'
 import { C } from '../../constants/colors'
@@ -30,6 +32,10 @@ export function RegistradorRapido({ visivel, onFechar, clientePreSelecionado }: 
   const [descricao, setDescricao] = useState('')
   const [valor, setValor] = useState('')
   const [vencimento, setVencimento] = useState('')
+  // Mesmo critério da Nova venda: padrão preenchido e editável; "Sem vencimento" explícito.
+  const diaCobranca = useDiaCobranca()
+  const [vencEditado, setVencEditado] = useState(false)
+  const [semVenc, setSemVenc] = useState(false)
   const [salvando, setSalvando] = useState(false)
   const [sucesso, setSucesso] = useState(false)
   const [erro, setErro] = useState('')
@@ -44,16 +50,22 @@ export function RegistradorRapido({ visivel, onFechar, clientePreSelecionado }: 
         setEtapa('cliente')
         setClienteSelecionado(null)
       }
-      setBusca(''); setDescricao(''); setValor(''); setVencimento('')
+      setBusca(''); setDescricao(''); setValor(''); setVencimento(''); setVencEditado(false); setSemVenc(false)
       setSucesso(false); setErro('')
     }
   }, [visivel])
+
+  // Declarado depois do efeito de abertura: preenche o padrão logo após o reset.
+  useEffect(() => {
+    if (!visivel || vencEditado) return
+    setVencimento(dataParaBR(calcularVencimentoPadrao(new Date(), diaCobranca)))
+  }, [visivel, diaCobranca, vencEditado])
 
   function fechar() {
     onFechar()
     setTimeout(() => {
       setEtapa('cliente'); setClienteSelecionado(null)
-      setBusca(''); setDescricao(''); setValor(''); setVencimento('')
+      setBusca(''); setDescricao(''); setValor(''); setVencimento(''); setVencEditado(false); setSemVenc(false)
       setSucesso(false); setErro('')
     }, 300)
   }
@@ -87,9 +99,13 @@ export function RegistradorRapido({ visivel, onFechar, clientePreSelecionado }: 
     setSalvando(true); setErro('')
     try {
       let vencimentoISO: string | undefined
-      if (vencimento.length === 10) {
-        const [dd, mm, aaaa] = vencimento.split('/')
-        if (dd && mm && aaaa) vencimentoISO = `${aaaa}-${mm}-${dd}`
+      if (!semVenc) {
+        if (vencimento.length === 10) {
+          const [dd, mm, aaaa] = vencimento.split('/')
+          if (dd && mm && aaaa) vencimentoISO = `${aaaa}-${mm}-${dd}`
+        }
+        // Campo vazio sem ter escolhido "Sem vencimento": usa o padrão.
+        if (!vencimentoISO) vencimentoISO = dataParaISO(calcularVencimentoPadrao(new Date(), diaCobranca))
       }
 
       await criar({
@@ -266,13 +282,27 @@ export function RegistradorRapido({ visivel, onFechar, clientePreSelecionado }: 
                       <TextInput
                         style={estilos.extraInput}
                         value={vencimento}
-                        onChangeText={t => setVencimento(formatarData(t))}
+                        onChangeText={t => { setVencEditado(true); setSemVenc(false); setVencimento(formatarData(t)) }}
                         placeholder="DD/MM/AAAA"
                         placeholderTextColor={C.text3}
                         keyboardType="numeric"
                         maxLength={10}
+                        editable={!semVenc}
                       />
                     </View>
+                  </View>
+                  <View style={estilos.vencimentoLinha}>
+                    <Text style={estilos.vencimentoTexto}>
+                      {semVenc ? 'Sem vencimento — não entra em Cobranças nem nos lembretes · ' : 'Vence em ' + (vencimento.length === 10 ? vencimento.slice(0, 5) : '--/--') + (vencEditado ? '' : ' (padrão)') + ' · '}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        if (semVenc) { setSemVenc(false); setVencEditado(false) }
+                        else { setSemVenc(true); setVencEditado(true); setVencimento('') }
+                      }}
+                    >
+                      <Text style={estilos.vencimentoLink}>{semVenc ? 'usar padrão' : 'sem vencimento'}</Text>
+                    </TouchableOpacity>
                   </View>
 
                   {erro ? (
@@ -371,6 +401,9 @@ const estilos = StyleSheet.create({
 
   extras: { flexDirection: 'row', backgroundColor: C.card, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: C.border, marginBottom: 12 },
   extraCampo: { flex: 1 },
+  vencimentoLinha: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', marginTop: 8 },
+  vencimentoTexto: { fontSize: 11, color: C.text2 },
+  vencimentoLink: { fontSize: 11, color: C.green, fontWeight: '700' },
   extraLabel: { fontSize: 10, fontWeight: '700', color: C.text3, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 },
   extraInput: { fontSize: 14, color: C.text, height: 32 },
 

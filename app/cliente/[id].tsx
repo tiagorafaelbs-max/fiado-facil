@@ -21,6 +21,7 @@ import { cobrarViaWhatsApp, montarExtratoWhatsApp } from '../../lib/whatsapp'
 import { agendarNotificacoesVencimento } from '../../hooks/useNotificacoes'
 import { gerarExtratoCliente } from '../../lib/pdf'
 import { gerarPayloadPix } from '../../lib/pix'
+import { DIAS_VENCIMENTO_PADRAO, dataParaBR, dataParaISO, somarDiasAoISO } from '../../lib/vencimento'
 import { useModulos } from '../../hooks/useModulos'
 import { useContadorWhatsApp } from '../../hooks/useContadorWhatsApp'
 import { useTenant } from '../../hooks/useTenant'
@@ -477,6 +478,17 @@ export default function DetalheClienteScreen() {
     }
   }
 
+  // "Vence em dd/mm/aaaa" mostrado no modal; null enquanto a data digitada não é válida.
+  function vencimentoDividaTexto(): string | null {
+    if (dividaData.length === 10 && !validarDataBR(dividaData).valida) return null
+    const baseISO = dividaData.length === 10 && dividaData.includes('/')
+      ? dividaData.split('/').reverse().join('-')
+      : dataParaISO(new Date())
+    const venc = new Date(somarDiasAoISO(baseISO, DIAS_VENCIMENTO_PADRAO) + 'T12:00:00')
+    if (isNaN(venc.getTime())) return null
+    return 'Vence em ' + dataParaBR(venc) + ' (data da dívida + ' + DIAS_VENCIMENTO_PADRAO + ' dias)'
+  }
+
   async function handleAdicionarDividaAnterior() {
     if (salvandoDivida) return // reforço -- o Botao abaixo já desabilita via carregando={salvandoDivida}
     const valor = parseFloat(dividaValor.replace(',', '.'))
@@ -487,7 +499,7 @@ export default function DetalheClienteScreen() {
     setSalvandoDivida(true)
     try {
       // converte DD/MM/AAAA → AAAA-MM-DD, ou usa hoje
-      let dataISO = new Date().toISOString().split('T')[0]
+      let dataISO = dataParaISO(new Date())
       if (dividaData.length === 10 && dividaData.includes('/')) {
         const [dd, mm, aaaa] = dividaData.split('/')
         if (dd && mm && aaaa) dataISO = `${aaaa}-${mm}-${dd}`
@@ -503,6 +515,9 @@ export default function DetalheClienteScreen() {
         descricao: dividaDescricao.trim() || 'Dívida anterior',
         valor,
         data_venda: dataISO,
+        // Sem vencimento a dívida nunca viraria "vencida" (fora de Cobranças e lembretes):
+        // vence 30 dias depois da data informada. Dívida antiga entra como vencida de imediato.
+        data_vencimento: somarDiasAoISO(dataISO, DIAS_VENCIMENTO_PADRAO),
         categoria: 'Dívida anterior',
       })
       await carregarCliente()
@@ -1067,6 +1082,7 @@ export default function DetalheClienteScreen() {
               keyboardType="numeric"
               maxLength={10}
             />
+            {vencimentoDividaTexto() ? <Text style={estilos.dividaVencimentoInfo}>{vencimentoDividaTexto()}</Text> : null}
             {dividaErro ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#FEE2E2', borderRadius: 10, padding: 12, marginBottom: 14, borderWidth: 1, borderColor: '#FECACA' }}>
                 <Ionicons name="alert-circle" size={16} color={C.red} />
@@ -1233,6 +1249,7 @@ const estilos = StyleSheet.create({
   limitePreenchido: { height: 6, borderRadius: 99 },
   limiteAviso: { fontSize: 11, color: C.red, fontWeight: '600', marginTop: 6, textAlign: 'center' },
   limiteAvisoAtencao: { fontSize: 11, color: C.yellow, fontWeight: '600', marginTop: 6, textAlign: 'center' },
+  dividaVencimentoInfo: { fontSize: 12, color: C.text2, marginTop: -8, marginBottom: 14 },
   offlineBannerTopo: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: C.redLight, borderRadius: 10, padding: 10, marginBottom: 12,

@@ -331,6 +331,23 @@ Proteção é só de interface: o total ainda é calculado/guardado em cache no 
 
 **Publicado em 02/10 (OTA, channel `production`, commit `a1d8afc`)** com a trava de fingerprint: Android update `01a0fdf7-ba25-72cd-a96a-9d88331d8a6f` (grupo `d20dbb56-0731-484c-8f2c-35b149fd828f`, runtime `61a2955d…` = build 54, publicado com `ios.buildNumber="87"` temporário, restaurado) e iOS update `01a0fdfb-46d9-7b21-b272-5e2fef388173` (grupo `ac3ae659-8491-4666-8603-7c2498b22b3c`, runtime `3ae31820…` = build 88).
 
+## Lote 03/10 — retorno do reteste (OTAs 01a0fdf7/01a0fdfb aprovadas) + pacote de 3 itens (OTA, sem native)
+
+Reteste do Tiago em aparelho real (Samsung A51 / Android 54, iPhone / iOS 88): segurança do link (diálogo "Trocar de conta?", senha do funcionário intacta), totais só para o dono e fila offline com "PENDENTE" — TUDO APROVADO.
+
+| # | Item | Arquivos |
+|---|---|---|
+| 1 | Texto do "Trocar de conta?" varia pelo tipo do link (convite × recuperação) | `lib/linkAuth.ts` |
+| 2 | Template "Reset Password" em pt-BR (formato `{{ .ConfirmationURL }}` ATUAL, pronto p/ colar) + como trocar o nome do remetente / SMTP próprio | `docs/release/supabase-templates-convite.md` (seção 0) |
+| 3a/b | Vencimento padrão nas vendas novas: hoje + 30 dias ou próximo `dia_cobranca` a ≥ 7 dias; preenchido e editável ("Vence em dd/mm (padrão) · alterar"); "Sem vencimento" explícito; vale p/ Nova venda (inclui parcelado), venda rápida e dívida anterior (data informada + 30 dias) | `lib/vencimento.ts` (novo), `hooks/useDiaCobranca.ts` (novo), `app/(tabs)/nova-venda.tsx`, `components/ui/RegistradorRapido.tsx`, `app/cliente/[id].tsx` |
+| 3c | Vendas ANTIGAS sem vencimento: só DESENHO, nada implementado | `docs/release/DESENHO-vencimento-vendas-antigas.md` |
+
+Achados do Fiscal já corrigidos: dia de cobrança pequeno no fim do mês caía em "+30" (agora até 3 meses); depois de salvar a próxima venda abria com o vencimento vazio; parcelas em dias 29–31 estouravam o mês (agora limitam ao último dia); dívida anterior misturava fuso UTC/local. Registrados sem correção: venda rápida reaberta em <300 ms pode mostrar o vencimento vazio (salva certo); `useDiaCobranca` sem nova tentativa offline (cai em +30).
+
+**Risco de produto (vai para o desenho):** o FIFO ordena por `data_vencimento ASC NULLS LAST`; com vencimento nas vendas novas, uma venda nova passa a ser quitada ANTES de uma antiga sem data do mesmo cliente. Preencher as antigas (3c) corrige.
+
+**Teste:** `tsc --noEmit` limpo; Fiscal: reprovou 1x (2 bloqueantes), corrigidos, aprovado. Sem teste em aparelho. Sem OTA/push nesta rodada.
+
 ## Pendências fora do lote
 - Foto de comprovante (`nova-venda.tsx:188`): o bucket `comprovantes` **não existe**, e o upload falha sem avisar. Se for ativar: bucket privado + URL assinada. Decisão de produto.
 - Testes automatizados e lint: backlog de adequação (`docs/adequacao-fabrica.md`, a criar).
