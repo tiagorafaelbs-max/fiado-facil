@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
 
 // Reconcilia a flag `vendas.pago` de um cliente por alocação FIFO dos pagamentos
-// (mesma ordem da view clientes_com_saldo: vencimento, depois data da venda) via
+// (mesma ordem da view clientes_com_saldo: vencimento efetivo (data_vencimento ou data da venda + 30 dias), depois data da venda) via
 // RPC SECURITY DEFINER -- o update direto daqui (antes) tocava vendas.pago de
 // vendas de QUALQUER dia/autor do cliente, o que a nova RLS de funcionário passou
 // a recusar em silêncio (só edita venda própria, do mesmo dia): uma venda antiga

@@ -54,3 +54,10 @@ export function somarMesesLimitando(base: Date, meses: number): Date {
   const ano = base.getFullYear()
   return new Date(ano, mes0, Math.min(base.getDate(), ultimoDiaDoMes(ano, mes0)), 12)
 }
+
+// Vencimento usado só para ORDENAR a quitação FIFO (view clientes_com_saldo, RPC
+// reconciliar_pago_cliente e este cálculo em JS): data_vencimento, ou data da venda + 30
+// dias quando a venda não tem vencimento. NÃO decide "vencida" (isso exige data real).
+export function vencimentoEfetivoISO(dataVenda: string, dataVencimento?: string | null): string {
+  return dataVencimento ?? somarDiasAoISO(dataVenda, DIAS_VENCIMENTO_PADRAO)
+}

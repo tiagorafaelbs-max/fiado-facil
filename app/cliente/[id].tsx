@@ -21,7 +21,7 @@ import { cobrarViaWhatsApp, montarExtratoWhatsApp } from '../../lib/whatsapp'
 import { agendarNotificacoesVencimento } from '../../hooks/useNotificacoes'
 import { gerarExtratoCliente } from '../../lib/pdf'
 import { gerarPayloadPix } from '../../lib/pix'
-import { DIAS_VENCIMENTO_PADRAO, dataParaBR, dataParaISO, somarDiasAoISO } from '../../lib/vencimento'
+import { DIAS_VENCIMENTO_PADRAO, dataParaBR, dataParaISO, somarDiasAoISO, vencimentoEfetivoISO } from '../../lib/vencimento'
 import { useModulos } from '../../hooks/useModulos'
 import { useContadorWhatsApp } from '../../hooks/useContadorWhatsApp'
 import { useTenant } from '../../hooks/useTenant'
@@ -59,23 +59,28 @@ type ItemHistorico =
   | { tipo: 'pagamento'; data: string; item: Pagamento }
 
 function calcularScore(vendas: Venda[], pagamentos: Pagamento[]): { label: string; cor: string; estrelas: number; detalhes: string } {
-  const comVencimento = vendas.filter(v => v.data_vencimento)
   const totalPagamentos = pagamentos.reduce((s, p) => s + p.valor, 0)
   const totalVendas = vendas.reduce((s, v) => s + v.valor, 0)
   const taxaPagamento = totalVendas > 0 ? totalPagamentos / totalVendas : 1
 
   const hoje = new Date()
-  // Alocação FIFO (mesma lógica da view clientes_com_saldo): uma venda vencida
-  // só conta como "em atraso" se os pagamentos ainda não a cobriram.
-  const ordenadas = [...comVencimento].sort((a, b) => {
-    if (a.data_vencimento! !== b.data_vencimento!) return a.data_vencimento! < b.data_vencimento! ? -1 : 1
-    return (a.data_venda ?? '') < (b.data_venda ?? '') ? -1 : (a.data_venda ?? '') > (b.data_venda ?? '') ? 1 : 0
+  // Alocação FIFO (mesma ordem da view clientes_com_saldo e da RPC de reconciliação):
+  // vencimento efetivo (data_vencimento ou data da venda + 30 dias), data da venda e id.
+  // Uma venda vencida só conta como "em atraso" se tiver data_vencimento REAL e os
+  // pagamentos ainda não a cobriram (venda sem vencimento nunca é "vencida" sozinha).
+  const ordenadas = [...vendas].sort((a, b) => {
+    const ea = vencimentoEfetivoISO(a.data_venda, a.data_vencimento)
+    const eb = vencimentoEfetivoISO(b.data_venda, b.data_vencimento)
+    if (ea !== eb) return ea < eb ? -1 : 1
+    if (a.data_venda !== b.data_venda) return a.data_venda < b.data_venda ? -1 : 1
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
   })
   let acumulado = 0
   let atrasadas = 0
   for (const v of ordenadas) {
     acumulado += v.valor
-    const venc = new Date(v.data_vencimento! + 'T12:00:00')
+    if (!v.data_vencimento) continue
+    const venc = new Date(v.data_vencimento + 'T12:00:00')
     if (venc < hoje && acumulado > totalPagamentos) atrasadas++
   }
 

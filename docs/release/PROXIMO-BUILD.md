@@ -348,6 +348,19 @@ Achados do Fiscal já corrigidos: dia de cobrança pequeno no fim do mês caía 
 
 **Teste:** `tsc --noEmit` limpo; Fiscal: reprovou 1x (2 bloqueantes), corrigidos, aprovado. Sem teste em aparelho. Sem OTA/push nesta rodada.
 
+## Lote 03/10 (2) — ordem da quitação FIFO (migration + backfill SÓ PARA REVISÃO, NADA APLICADO) + OTA do item 1
+
+**OTA publicada (só o item 1 — texto do "Trocar de conta?"; vencimento padrão 3a/b ficou de fora, por decisão do Tiago):** Android `01a1011b-c991-74ad-adc6-f026c6b68c6e` (grupo `e6146899-d5f3-45fb-948d-92ea168984ba`, runtime `61a2955d…`) e iOS `01a1011d-702f-754f-989a-eea55e29adc5` (grupo `cf26cba6-f257-4d1e-857f-9f6dd358d1ea`, runtime `3ae31820…`), channel `production`, fingerprints conferidos (Android com `ios.buildNumber="87"` temporário, restaurado). Para isolar o item 1, os 3 arquivos do 3a/b (`nova-venda.tsx`, `RegistradorRapido.tsx`, `cliente/[id].tsx`) foram restaurados temporariamente ao estado de `cff9897` durante o `eas update` e devolvidos ao HEAD depois (por isso o `gitCommitHash` dos updates é `d05d6af`, mas o código publicado NÃO tem o 3a/b). Push dos commits locais feito (`172e10d..d05d6af`).
+
+**Ordem FIFO nova** (`coalesce(data_vencimento, data_venda + 30 dias), data_venda, id`) — arquivos para o Tiago revisar ANTES de aplicar:
+- `supabase/migrations/fifo_ordem_vencimento_efetivo.sql`: create or replace da view `clientes_com_saldo` (repete `security_invoker=true`) e da RPC `reconciliar_pago_cliente`; sem alterar dados.
+- `supabase/scripts_dados/backfill_pago_fifo_vencimento_efetivo_DRYRUN.sql` (só leitura) e `..._vencimento_efetivo.sql` (DML da flag `pago`, com log de auditoria e desfazer) — a ser rodado logo depois da migration, com autorização separada.
+- `supabase/simulacoes/fifo_ordem_vencimento_efetivo_simulacao.sql` (só leitura).
+- JS alinhado: `calcularScore` em `app/cliente/[id].tsx` + `vencimentoEfetivoISO` em `lib/vencimento.ts` (vai na OTA do 3a/b, depois da migration).
+
+**Resultado da simulação (03/10, só SELECT):** 3.340 vendas, 1.355 sem vencimento, 839 clientes com venda sem vencimento. Só pela nova ordem: 24 vendas mudam `pago` (16 true→false, 8 false→true) em 11 clientes; **na view, 2 clientes passam a 'vencido' na hora** (vencido 209→211; atenção 89→88; devendo 1198→1197; saldos idênticos). Backfill completo (semântica da RPC): 36 vendas / 25 clientes — 12 passam a EM ABERTO (R$ 1.480,53) e 24 a PAGAS (R$ 6.168,96); inclui flags já desatualizadas hoje. Amostra determinística de 20 clientes com venda sem vencimento: 0 mudanças (a maioria só tem vendas sem data).
+**Por que o Fiscal reprovou o plano só com a migration:** a view muda na hora mas a flag `pago` só na próxima reconciliação do cliente → Cobranças/ranking/lembretes/painel ficam incoerentes até lá; por isso o backfill vai junto. Os 2 novos 'vencido' são parcelados + vendas antigas sem data (o pagamento cobre primeiro a dívida mais velha — é o FIFO pedido, mas o lojista pode estranhar). Fora do escopo/registrado: 5 vendas em 3 clientes têm `usuario_id` diferente do dono do cliente (a view conta, a RPC ignora).
+
 ## Pendências fora do lote
 - Foto de comprovante (`nova-venda.tsx:188`): o bucket `comprovantes` **não existe**, e o upload falha sem avisar. Se for ativar: bucket privado + URL assinada. Decisão de produto.
 - Testes automatizados e lint: backlog de adequação (`docs/adequacao-fabrica.md`, a criar).
