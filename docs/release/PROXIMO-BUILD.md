@@ -385,6 +385,18 @@ Reteste do Tiago (Samsung, OTA 01a1012a): vencimento padrão (`Vence em 05/11 (p
 
 **Teste:** `tsc --noEmit` limpo; Fiscal: Parte 2 reprovada 1x (2 bloqueantes: corte contra sobrescrever "Sem vencimento" deliberado; textos falsos no impacto), corrigidos e aprovada; Partes 1 e 3 aprovadas. Sem teste em aparelho. Sem push/OTA nesta rodada.
 
+## Lote 03/10 (5) — migrations de segurança e 3c APLICADAS + 5 vendas cruzadas removidas + OTA dos chips/3c
+
+**Aplicado (autorizado pelo Tiago, 03/10):** `hardening_vendas_pagamentos_cliente_do_tenant` (INSERT/UPDATE de vendas e pagamentos só com cliente do mesmo dono) e `vencimento_vendas_antigas_3c` (tabela de auditoria + 3 RPCs só do dono). `definir_vencimento_vendas_antigas` NÃO foi rodada em nenhuma conta — quem confirma é o dono, no app.
+
+**5 vendas cruzadas (contas de TESTE, autor `donizettisoares@gmail.com` → clientes de `tiagorafael.bs@gmail.com`, 11/07) REMOVIDAS** depois de gravadas na tabela `vendas_removidas_log` (linha completa em jsonb + motivo; RLS ligada, sem acesso do app): R$ 15 (em aberto), 15, 30, 32 e 80 (pagas) = R$ 172. Saldo total R$ 767.962,16 → R$ 767.790,16 (−172 exatos); 2 desses clientes ficaram com crédito (saldo −85,00 e −62,00) porque os pagamentos da loja dona já tinham coberto essas vendas; flags `pago` a corrigir = 0.
+
+**Conferências:** vendas e pagamentos com cliente de outro dono = 0; vendas 3346 → 3341, pagamentos 702 → 702; sem resquício dos testes. **Teste de RLS** como usuário autenticado (`donizettisoares`, em transação revertida): INSERT de venda em cliente de outra loja BLOQUEADO; INSERT de pagamento cruzado BLOQUEADO; UPDATE trocando o cliente_id para o de outra loja BLOQUEADO; controle (venda no próprio cliente) PASSOU. `contar_vendas_sem_vencimento()` como funcionário (`tiagorafael.bs+func`): recusada ("Somente o dono").
+
+**Números que a tela mostrará para a conta de teste `tiagorafael.bs@gmail.com`:** 13 vendas antigas sem data · 10 clientes · 11 já ficam vencidas · 2 entram nos próximos 30 dias · 8 clientes vão aparecer como vencidos · desfazível 0. (`donizettisoares`: 2 vendas, 2 clientes, 0 já vencidas, 2 a vencer, 0 novos vencidos.)
+
+**OTA dos chips + telas da 3c (commit `2450b71`):** Android `01a101bd-fd08-731d-a040-2e51489f2454` (grupo `a3a43f9d-e1fe-4f8f-83f6-08e96912f42e`, runtime `61a2955d…`) e iOS `01a101bf-a867-7478-b909-fc6c0ec9fbf5` (grupo `6ab4a145-78f7-4e07-b266-4adf10acd591`, runtime `3ae31820…`); fingerprints conferidos contra os builds 54/88 (Android com `ios.buildNumber="87"` temporário, restaurado). Push dos commits locais feito.
+
 ## Pendências fora do lote
 - Foto de comprovante (`nova-venda.tsx:188`): o bucket `comprovantes` **não existe**, e o upload falha sem avisar. Se for ativar: bucket privado + URL assinada. Decisão de produto.
 - Testes automatizados e lint: backlog de adequação (`docs/adequacao-fabrica.md`, a criar).
