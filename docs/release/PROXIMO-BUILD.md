@@ -411,14 +411,14 @@ Referência para a próxima publicação nas lojas (builds 1.0.12 54/88 já têm
 
 No banco (já aplicado, independente de versão do app): ordem FIFO por vencimento efetivo (view + RPC + backfill da flag `pago`), regra de segurança (vendas/pagamentos só com cliente do mesmo dono), funções do aviso das vendas antigas.
 
-**"O que há de novo" para App Store / Google Play (pt-BR, até 4 linhas):**
+**"What's new" OFICIAL do 1.0.12 (App Store / Google Play, pt-BR) — texto definido pelo Tiago em 03/10, prioriza as correções do 1.0.11 → 1.0.12:**
 ```
-• Mais segurança nos convites da equipe e na troca de senha.
-• O total que os clientes devem agora aparece só para o dono.
-• Vendas novas já vêm com uma data de vencimento sugerida — dá para mudar ou deixar sem.
-• Novo aviso para organizar as vendas antigas sem data, com opção de desfazer.
+• Corrigimos a tela do cliente que às vezes ficava carregando sem abrir.
+• Vendas e pagamentos feitos sem internet agora salvam na hora e sincronizam sozinhos, sem duplicar.
+• Vendas novas já vêm com data de vencimento sugerida, e um novo aviso ajuda a organizar as antigas (dá para desfazer).
+• Equipe: o total que os clientes devem aparece só para o dono, e os convites ficaram mais seguros.
+• Ajustes de tela em celulares menores.
 ```
-Opcional, se a loja aceitar 5 linhas: "• Ajustes de tela em celulares menores."
 
 ## Lote 03/10 (6) — retorno do reteste (chips + 3c aprovados) + ajustes de layout/texto (PARA REVISÃO, OTA NÃO publicada)
 
