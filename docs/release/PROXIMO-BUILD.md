@@ -417,8 +417,8 @@ No banco (já aplicado, independente de versão do app): ordem FIFO por vencimen
 • O total que os clientes devem agora aparece só para o dono.
 • Vendas novas já vêm com uma data de vencimento sugerida — dá para mudar ou deixar sem.
 • Novo aviso para organizar as vendas antigas sem data, com opção de desfazer.
-• Ajustes de tela em celulares menores. (opcional, se couber)
 ```
+Opcional, se a loja aceitar 5 linhas: "• Ajustes de tela em celulares menores."
 
 ## Lote 03/10 (6) — retorno do reteste (chips + 3c aprovados) + ajustes de layout/texto (PARA REVISÃO, OTA NÃO publicada)
 
