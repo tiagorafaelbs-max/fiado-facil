@@ -10,7 +10,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useModulos } from '../../hooks/useModulos'
 import { useContadorWhatsApp } from '../../hooks/useContadorWhatsApp'
 import { usePerfilCobranca } from '../../hooks/usePerfilCobranca'
-import { useNomesEquipe } from '../../hooks/useNomesEquipe'
+import { useEquipe } from '../../hooks/useNomesEquipe'
 import { ResumoPorFuncionario, type LancamentoPeriodo } from '../../components/ui/ResumoPorFuncionario'
 import { montarUrlWhatsApp, buscarVencimentosEmAberto, modeloUsaVencimento } from '../../lib/whatsapp'
 import { resolverTenantId } from '../../lib/tenant'
@@ -82,7 +82,7 @@ export default function RelatoriosScreen() {
   const { modulos } = useModulos(tenantId || usuario?.id)
   const [plano, setPlano] = useState<'gratuito' | 'pro'>('gratuito')
   const perfilCobranca = usePerfilCobranca()
-  const nomesEquipe = useNomesEquipe()
+  const { nomes: nomesEquipe, desativados: equipeDesativada } = useEquipe()
   const [lancamentosPeriodo, setLancamentosPeriodo] = useState<LancamentoPeriodo[]>([])
   const { registrarUso: registrarUsoWpp, reverterUso: reverterUsoWpp, limite: limiteWpp } = useContadorWhatsApp(plano, tenantId || usuario?.id)
   const [periodo, setPeriodo] = useState<Periodo>('hoje')
@@ -688,7 +688,7 @@ export default function RelatoriosScreen() {
           {/* Maiores devedores */}
           {/* Por funcionário — só o dono (a tela inteira já é só dele) e só se tem equipe */}
           {podeVerTotais && Object.keys(nomesEquipe).length > 0 && (
-            <ResumoPorFuncionario lancamentos={lancamentosPeriodo} donoId={tenantId} nomes={nomesEquipe} />
+            <ResumoPorFuncionario lancamentos={lancamentosPeriodo} donoId={tenantId} nomes={nomesEquipe} desativados={equipeDesativada} />
           )}
 
           {resumo.maioresDevedores.length > 0 && (

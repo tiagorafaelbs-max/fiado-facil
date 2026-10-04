@@ -19,21 +19,22 @@ interface Props {
   lancamentos: LancamentoPeriodo[]
   donoId: string
   nomes: Record<string, string>
+  desativados?: ReadonlySet<string>
 }
 
 const MAX_ITENS = 10
 
 // "Por funcionário" nos Relatórios (só dono): quanto cada pessoa lançou de vendas e de pagamentos no
 // período escolhido lá em cima. Toque numa pessoa para ver os lançamentos dela (os 10 mais recentes).
-export function ResumoPorFuncionario({ lancamentos, donoId, nomes }: Props) {
+export function ResumoPorFuncionario({ lancamentos, donoId, nomes, desativados }: Props) {
   const [aberto, setAberto] = useState<string | null>(null)
   const resumos = useMemo(
     () => agruparPorAutor(
       lancamentos.filter(l => l.tipo === 'venda'),
       lancamentos.filter(l => l.tipo === 'pagamento'),
-      donoId, nomes,
+      donoId, nomes, desativados,
     ),
-    [lancamentos, donoId, nomes],
+    [lancamentos, donoId, nomes, desativados],
   )
 
   return (

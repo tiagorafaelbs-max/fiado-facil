@@ -22,13 +22,14 @@ export interface ResumoAutor {
 export const CHAVE_DONO = 'dono'
 
 // Agrupa vendas e pagamentos do período por quem lançou. O dono entra sempre (inclui os lançamentos
-// antigos, de antes de existir o campo de autor). Funcionários só aparecem se lançaram algo ou se
-// estão em `nomes`. Ordena por total vendido (maior primeiro), dono primeiro em empate.
+// antigos, de antes de existir o campo de autor). Funcionários ATIVOS de `nomes` aparecem sempre; funcionário
+// desativado (`desativados`) só aparece se lançou algo no período. Ordena por total vendido (maior primeiro), dono primeiro em empate.
 export function agruparPorAutor(
   vendas: LancamentoAutor[],
   pagamentos: LancamentoAutor[],
   donoId: string,
   nomes: Record<string, string>,
+  desativados: ReadonlySet<string> = new Set(),
 ): ResumoAutor[] {
   const mapa = new Map<string, ResumoAutor>()
   const obter = (id: string | null | undefined): ResumoAutor => {
@@ -46,7 +47,7 @@ export function agruparPorAutor(
     return r
   }
   obter(null)
-  for (const id of Object.keys(nomes)) if (id !== donoId) obter(id)
+  for (const id of Object.keys(nomes)) if (id !== donoId && !desativados.has(id)) obter(id)
   for (const v of vendas) { const r = obter(v.criado_por); r.vendas++; r.totalVendas += v.valor }
   for (const p of pagamentos) { const r = obter(p.criado_por); r.pagamentos++; r.totalPagamentos += p.valor }
   return [...mapa.values()].sort((a, b) => b.totalVendas - a.totalVendas || Number(b.ehDono) - Number(a.ehDono))

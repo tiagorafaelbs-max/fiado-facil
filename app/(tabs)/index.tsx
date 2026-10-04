@@ -24,6 +24,7 @@ import { ChecklistDia0 } from '../../components/ui/ChecklistDia0'
 import { AvisoVencimentoAntigas } from '../../components/ui/AvisoVencimentoAntigas'
 import { AvisoAtualizacao } from '../../components/ui/AvisoAtualizacao'
 import { formatarMoeda } from '../../lib/validacao'
+import { escolherLadoFab } from '../../lib/fab'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { C } from '../../constants/colors'
@@ -76,6 +77,14 @@ export default function DashboardScreen() {
   const refCards = useRef<View>(null)
   const refBusca = useRef<View>(null)
   const refSecao = useRef<View>(null)
+  // Botão flutuante (registro rápido): flutua sobre a lista, então pode cair em cima do "Nova venda" do card verde
+  // (apareceu no A51 quando os avisos empurram o card para baixo). Ele mede os controles do card e muda de lado ou
+  // se esconde enquanto estiver por cima deles.
+  const refNovaVenda = useRef<View>(null)
+  const refClientesStat = useRef<View>(null)
+  const refFab = useRef<View>(null)
+  const medindoFab = useRef(false)
+  const [fabLado, setFabLado] = useState<'direita' | 'esquerda' | 'oculto'>('direita')
 
   function medirElemento(ref: React.RefObject<View | null>): Promise<{ x: number; y: number; width: number; height: number } | null> {
     return new Promise(resolve => {
@@ -86,6 +95,23 @@ export default function DashboardScreen() {
       })
     })
   }
+
+  const medirFab = useCallback(async () => {
+    if (medindoFab.current || Platform.OS === 'web') return
+    medindoFab.current = true
+    try {
+      const [fab, botao, stat] = await Promise.all([medirElemento(refFab), medirElemento(refNovaVenda), medirElemento(refClientesStat)])
+      if (!fab) return
+      setFabLado(escolherLadoFab(fab, [botao, stat], width))
+    } finally {
+      medindoFab.current = false
+    }
+  }, [width])
+
+  useEffect(() => {
+    const t = setTimeout(medirFab, 700)
+    return () => clearTimeout(t)
+  }, [medirFab])
 
   async function iniciarTour() {
     const [hero, cards, busca, secao] = await Promise.all([
@@ -247,7 +273,18 @@ export default function DashboardScreen() {
         />
       )}
       {Platform.OS !== 'web' && (
-        <TouchableOpacity style={estilos.fabCaixa} onPress={() => setRegistradorVisivel(true)}>
+        <TouchableOpacity
+          ref={refFab}
+          style={[
+            estilos.fabCaixa,
+            fabLado === 'esquerda' && { right: undefined, left: 18 },
+            fabLado === 'oculto' && { opacity: 0, pointerEvents: 'none' },
+          ]}
+          onPress={() => setRegistradorVisivel(true)}
+          accessibilityLabel="Registro rápido"
+          accessibilityElementsHidden={fabLado === 'oculto'}
+          importantForAccessibility={fabLado === 'oculto' ? 'no-hide-descendants' : 'auto'}
+        >
           <Ionicons name="receipt-outline" size={22} color={C.green} />
         </TouchableOpacity>
       )}
@@ -334,6 +371,9 @@ export default function DashboardScreen() {
         renderItem={renderCliente}
         contentContainerStyle={[estilos.container, isTablet && { maxWidth: 720, alignSelf: 'center', width: '100%' }]}
         refreshControl={<RefreshControl refreshing={carregando} onRefresh={buscar} tintColor={C.green} />}
+        onScroll={medirFab}
+        scrollEventThrottle={120}
+        onContentSizeChange={() => setTimeout(medirFab, 60)}
         ListHeaderComponent={
           <View>
             {/* Topo: logo + busca */}
@@ -443,13 +483,13 @@ export default function DashboardScreen() {
 
               {/* Rodapé hero */}
               <View style={estilos.heroRodape}>
-                <TouchableOpacity style={estilos.heroStat} onPress={() => router.push('/(tabs)/clientes')}>
+                <TouchableOpacity ref={refClientesStat} style={estilos.heroStat} onPress={() => router.push('/(tabs)/clientes')}>
                   <Ionicons name="people-outline" size={13} color="rgba(255,255,255,0.7)" />
                   <Text style={estilos.heroStatTexto}>
                     {resumo.clientes_ativos} {resumo.clientes_ativos === 1 ? 'cliente' : 'clientes'}
                   </Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={estilos.heroBotao} onPress={() => router.push('/(tabs)/nova-venda')}>
+                <TouchableOpacity ref={refNovaVenda} style={estilos.heroBotao} onPress={() => router.push('/(tabs)/nova-venda')}>
                   <Ionicons name="add" size={15} color={C.green} />
                   <Text style={estilos.heroBotaoTexto}>Nova venda</Text>
                 </TouchableOpacity>
