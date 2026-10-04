@@ -1,6 +1,6 @@
 # Segurança: brecha "Pro de graça" em `perfis` (04/10)
 
-Status: **PARA REVISÃO** — migration `supabase/migrations/seguranca_perfis_sem_pro_gratis.sql` NÃO aplicada.
+Status: **APLICADA em 04/10/2026** (aprovada pelo Tiago) — `supabase/migrations/seguranca_perfis_sem_pro_gratis.sql`. Os 3 roteiros de conferência passaram (ver abaixo).
 
 ## A brecha
 - `enforce_pro_modules` só segura a troca de `plano` no UPDATE; no INSERT aceita `plano = 'pro'`.
@@ -20,6 +20,12 @@ Status: **PARA REVISÃO** — migration `supabase/migrations/seguranca_perfis_se
 - **Upsert de `configuracoes.tsx` (~linha 106)** — `INSERT … ON CONFLICT (id) DO UPDATE` com `id, nome_negocio, telefone, chave_pix, dia_cobranca, notificacoes_ativas, cobranca_auto_tipo`: perfil existente cai no caminho de UPDATE, que só altera as colunas enviadas (nunca `plano`); o INSERT proposto é forçado a gratuito, mas isso não toca na linha existente. Dono Pro continua Pro. Perfil inexistente cria como gratuito. As demais escritas do app em `perfis` são todas UPDATE (`SetupModal`, `useModulos`, `useCategorias`, `useChecklistDia0`, notificações, mensagem e resumo da equipe) e passam pelas policies novas.
 - Nenhum código do app apaga `perfis`.
 - Testes de comportamento (3 roteiros curtos, cada um termina em `ROLLBACK`) estão no fim da migration, para rodar logo depois de aplicar. **Não fiz teste de DDL no banco de produção** (derrubar/criar policy toma lock em `perfis`).
+
+## Conferência pós-aplicação (04/10, transações revertidas)
+1. Usuário sem perfil inserindo `plano='pro'` → entrou como **gratuito**, módulos Pro em false. OK
+2. Dono gratuito tentando `DELETE` do próprio perfil → **permission denied**. OK
+3. Upsert de Configurações de um dono Pro → continua **pro**, módulos Pro intactos. OK
+Estado: 243 perfis / 32 Pro antes e depois; policies = insert/select/update próprios + leitura_equipe; `authenticated` sem DELETE; trigger e função com o bloco novo; EXECUTE da função segue revogado.
 
 ## Auditoria (d): quem já pode ter usado a brecha
 Resultado em 04/10 (só leitura):
@@ -47,7 +53,9 @@ where p.plano = 'pro' and p.apple_original_transaction_id is null
 order by p.criado_em;
 ```
 
-## Mesma família, fora desta migration (decisão sua)
+**Esclarecimento do Tiago (04/10):** as 23 Pro sem origem batem com assinaturas Apple compradas antes do 1.0.12 — o App Store Connect mostra 27 assinaturas ativas pagas e só 9 têm `apple_original_transaction_id` no banco. Não investigar agora. **Repetir a consulta acima depois que o 1.0.12 for adotado** (o app novo vincula a compra) e comparar.
+
+## Mesma família, fora desta migration (próximo pacote)
 - `apple_original_transaction_id` é gravável pelo app (índice único parcial já existe): um usuário que soubesse o ID de transação de outro assinante poderia ocupar o vínculo. Exige conhecer o ID, mas vale travar igual ao `plano` (UPDATE reverte, INSERT zera, fora do `service_role`).
 - `wpp_cobrado_mes` / `wpp_mes_ref` são graváveis pelo app: dá para zerar o próprio contador do plano grátis (10 cobranças/mês) por UPDATE direto, contornando a RPC que valida o plano no servidor.
 - Solução geral: grant de UPDATE **por coluna** para `authenticated` (só as colunas que o app edita). É mais forte, mas exige lembrar de liberar cada coluna nova — por isso deixei fora do pacote.
