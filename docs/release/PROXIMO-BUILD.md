@@ -438,6 +438,14 @@ Reteste do Tiago (Samsung A51, Android 54 + OTA 01a101bd): chips OK; 3c na conta
 | 2 | Aviso das vendas antigas depois de desfazer: linha discreta "Você desfez em dd/mm." (lida do log de auditoria — RLS: só o dono; vale em qualquer aparelho, sem migration) | `hooks/useVencimentoAntigas.ts`, `components/ui/AvisoVencimentoAntigas.tsx` |
 | 3 | Este registro de "o que há de novo" + texto de lojas | `docs/release/PROXIMO-BUILD.md` |
 
+## Em espera — aguardando aprovação do 1.0.12 nas lojas e a adoção (decisão do Tiago, 04/10: sem novos pacotes por agora)
+- **Resumo diário da equipe com números** ("Hoje sua equipe lançou X vendas (R$ Y) e Z pagamentos (R$ W)"): precisa de push de servidor — tabela `push_tokens` (usuario_id, token, plataforma, RLS própria), edge function diária via pg_cron somando vendas/pagamentos por `criado_por` e enviando só ao dono que ligou a opção (`perfis.notif_resumo_equipe`). Exige aprovação para publicar a função. Hoje o aviso das 19h é fixo e leva a Relatórios → Por funcionário.
+- **Teste do contador de WhatsApp numa conta GRATUITA de teste**: cobrar 1 cliente (contador sobe) e cancelar (contador volta), depois a 11ª cobrança do mês bloqueia. Foi coberto só pelos roteiros SQL; no aparelho ficou só a conta Pro.
+- **Lançamento offline esquecido por funcionário**: a fila só envia o que a própria sessão criou; item de funcionário que nunca mais entra naquele celular fica parado sem aviso. Ideia: indicador "pendente de outra pessoa" e/ou opção do dono para enviar ou descartar (detalhe no Backlog 1.0.13).
+- Auditoria das 23 contas Pro sem origem: repetir a consulta de `docs/release/DESENHO-seguranca-perfis.md` depois que o 1.0.12 for adotado, e dizer se algum usuário ativo está em build anterior a 16/09 (a exclusão de conta deles foi recusada em silêncio pela migration de segurança).
+- Site e lojas: parágrafo de dados técnicos na política do site; App Privacy (Apple) e Segurança dos dados (Google Play).
+- Aviso de atualização: quando o 1.0.12 for maioria, subir `config_app.versao_minima_recomendada` para a próxima versão ao lançar a seguinte.
+
 ## Pendências fora do lote
 - Foto de comprovante (`nova-venda.tsx:188`): o bucket `comprovantes` **não existe**, e o upload falha sem avisar. Se for ativar: bucket privado + URL assinada. Decisão de produto.
 - Testes automatizados e lint: backlog de adequação (`docs/adequacao-fabrica.md`, a criar).
