@@ -84,6 +84,8 @@ export default function DashboardScreen() {
   const refClientesStat = useRef<View>(null)
   const refFab = useRef<View>(null)
   const medindoFab = useRef(false)
+  const pendenteFab = useRef(false)   // pediram medir durante uma medição: repete ao terminar (não perde o último evento)
+  const timerFab = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [fabLado, setFabLado] = useState<'direita' | 'esquerda' | 'oculto'>('direita')
 
   function medirElemento(ref: React.RefObject<View | null>): Promise<{ x: number; y: number; width: number; height: number } | null> {
@@ -96,8 +98,9 @@ export default function DashboardScreen() {
     })
   }
 
-  const medirFab = useCallback(async () => {
-    if (medindoFab.current || Platform.OS === 'web') return
+  const medirFab = useCallback(async function medir(): Promise<void> {
+    if (Platform.OS === 'web') return
+    if (medindoFab.current) { pendenteFab.current = true; return }
     medindoFab.current = true
     try {
       const [fab, botao, stat] = await Promise.all([medirElemento(refFab), medirElemento(refNovaVenda), medirElemento(refClientesStat)])
@@ -105,12 +108,19 @@ export default function DashboardScreen() {
       setFabLado(escolherLadoFab(fab, [botao, stat], width))
     } finally {
       medindoFab.current = false
+      if (pendenteFab.current) { pendenteFab.current = false; medir() }
     }
   }, [width])
 
   useEffect(() => {
     const t = setTimeout(medirFab, 700)
-    return () => clearTimeout(t)
+    return () => { clearTimeout(t); if (timerFab.current) clearTimeout(timerFab.current) }
+  }, [medirFab])
+
+  // Conteúdo mudou (aviso apareceu, dados chegaram): mede de novo, sem acumular timers.
+  const medirFabDepoisDeMudarConteudo = useCallback(() => {
+    if (timerFab.current) clearTimeout(timerFab.current)
+    timerFab.current = setTimeout(medirFab, 60)
   }, [medirFab])
 
   async function iniciarTour() {
@@ -372,8 +382,10 @@ export default function DashboardScreen() {
         contentContainerStyle={[estilos.container, isTablet && { maxWidth: 720, alignSelf: 'center', width: '100%' }]}
         refreshControl={<RefreshControl refreshing={carregando} onRefresh={buscar} tintColor={C.green} />}
         onScroll={medirFab}
+        onScrollEndDrag={medirFab}
+        onMomentumScrollEnd={medirFab}
         scrollEventThrottle={120}
-        onContentSizeChange={() => setTimeout(medirFab, 60)}
+        onContentSizeChange={medirFabDepoisDeMudarConteudo}
         ListHeaderComponent={
           <View>
             {/* Topo: logo + busca */}

@@ -687,7 +687,7 @@ export default function RelatoriosScreen() {
 
           {/* Maiores devedores */}
           {/* Por funcionário — só o dono (a tela inteira já é só dele) e só se tem equipe */}
-          {podeVerTotais && Object.keys(nomesEquipe).length > 0 && (
+          {podeVerTotais && (Object.keys(nomesEquipe).some(id => !equipeDesativada.has(id)) || lancamentosPeriodo.some(l => l.criado_por && l.criado_por !== tenantId)) && (
             <ResumoPorFuncionario lancamentos={lancamentosPeriodo} donoId={tenantId} nomes={nomesEquipe} desativados={equipeDesativada} />
           )}
 
