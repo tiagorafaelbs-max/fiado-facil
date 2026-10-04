@@ -103,6 +103,8 @@ export default function ConfiguracoesScreen() {
     if (!validar()) return
     setSalvando(true); setErroGeral(''); setSucesso(false)
     try {
+      // Upsert: perfil existente cai em UPDATE só destas colunas. Não inclua plano nem modulos aqui: o trigger do
+      // banco trata o INSERT proposto como gratuito e um dono Pro perderia os módulos.
       const { error } = await supabase.from('perfis').upsert({
         id: tenantId,
         nome_negocio: sanitizarTexto(perfil.nome_negocio),

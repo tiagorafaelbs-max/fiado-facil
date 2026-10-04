@@ -15,6 +15,10 @@
 --
 -- Não altera nenhuma linha. Reversão: ver bloco no fim do arquivo.
 
+-- DROP/CREATE POLICY pega lock exclusivo em perfis: se houver fila, falha em 5 s em vez de travar o app.
+-- Aplicar fora do horário de pico.
+set local lock_timeout = '5s';
+
 -- ── a) policies ─────────────────────────────────────────────────────────────────────────
 drop policy if exists perfil_proprio on public.perfis;
 
