@@ -24,6 +24,7 @@
 --
 -- Não altera nenhuma linha. Reversão: ver bloco no fim do arquivo.
 
+-- (só tem efeito dentro de transação: o apply_migration do MCP já envolve; no SQL Editor, abra com begin; e feche com commit;)
 set local lock_timeout = '5s';
 
 -- ── a) contador de WhatsApp preso à sessão ──────────────────────────────────────────────
@@ -106,9 +107,11 @@ grant update (id, nome_negocio, telefone, chave_pix, dia_cobranca, notificacoes_
 -- (SELECT continua no nível da tabela; DELETE já foi revogado na migration seguranca_perfis_sem_pro_gratis.)
 
 -- ── Como conferir DEPOIS de aplicar (cada bloco termina em ROLLBACK) ───────────────────────────────
--- 1) Dono gratuito não grava colunas de sistema (esperado: permission denied for table perfis):
+-- 1) Dono gratuito não grava colunas de sistema (esperado: permission denied for table perfis), tanto em UPDATE
+--    quanto em INSERT (usuário sem perfil):
 --      ... set local role authenticated; update public.perfis set wpp_cobrado_mes = 0 where id = '<uuid>';
---      ... idem para plano e apple_original_transaction_id.
+--      ... idem para plano e apple_original_transaction_id;
+--      ... insert into public.perfis (id, nome_negocio, plano) values ('<uuid sem perfil>', 'x', 'pro');  (e com wpp_cobrado_mes / apple_original_transaction_id)
 -- 2) Dono grava as colunas liberadas e o upsert exato do PostgREST continua valendo:
 --      insert into public.perfis (id, nome_negocio, telefone, chave_pix, dia_cobranca, notificacoes_ativas, cobranca_auto_tipo)
 --        values ('<uuid>', 'x', null, null, null, true, 'vencidos')
@@ -117,8 +120,14 @@ grant update (id, nome_negocio, telefone, chave_pix, dia_cobranca, notificacoes_
 --          cobranca_auto_tipo = excluded.cobranca_auto_tipo;
 --      update public.perfis set modulos = modulos, categorias_extra = categorias_extra, checklist_dia0_dispensado = true,
 --        checklist_dia0_completado_em = now(), notif_resumo_equipe = false, mensagem_cobranca_modelo = null where id = '<uuid>';
+--      update public.perfis set chave_pix = 'x', dia_cobranca = 5 where id = '<uuid>';      -- o que o SetupModal grava
 -- 3) Contador preso à sessão: usuário A (gratuito) chama incrementar_contador_wpp('<uuid de B>') e o contador de B não muda.
 -- 4) Funcionário ativo chama incrementar_contador_wpp('<qualquer id>') e quem conta é o contador do dono.
+-- 5) service_role continua trocando o plano (simula o webhook): set local role service_role; update public.perfis set plano = plano where id = '<uuid>';
+-- 6) Usuário de outra loja chama reverter_contador_wpp('<id da vítima>') e o contador da vítima não muda.
+-- 7) NO APP, com conta de teste, logo depois de aplicar: salvar Configurações (upsert) e ligar/desligar notificações; ligar um módulo e
+--    criar uma categoria; "Pular" o checklist; salvar a Mensagem de cobrança (Pro); ligar o Resumo da equipe; cobrar 1 cliente pelo
+--    WhatsApp no plano grátis (contador sobe) e cancelar (contador volta). Se alguma tela mostrar "permission denied", reverter (bloco abaixo).
 
 -- ── Reversão (não faz parte da migration) ──────────────────────────────────────────────
 -- grant insert, update on public.perfis to authenticated;     -- volta ao nível de tabela
