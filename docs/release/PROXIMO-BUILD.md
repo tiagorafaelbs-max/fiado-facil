@@ -408,6 +408,7 @@ Referência para a próxima publicação nas lojas (builds 1.0.12 54/88 já têm
 | 03/10 | `01a1011b-c991-74ad-adc6-f026c6b68c6e` | `01a1011d-702f-754f-989a-eea55e29adc5` | Texto do "Trocar de conta?" separado para convite e recuperação |
 | 03/10 | `01a1012a-ff51-7c2e-9d03-98f36f810f4e` | `01a1012e-5dd6-7f06-80c8-30620d7762b2` | Vencimento padrão nas vendas novas (hoje + 30 dias ou próximo dia de cobrança); "Sem vencimento" explícito; ordem de quitação pelo vencimento efetivo no score |
 | 03/10 | `01a101bd-fd08-731d-a040-2e51489f2454` | `01a101bf-a867-7478-b909-fc6c0ec9fbf5` | Chip "Padrão"/marcado na Nova venda (chips quebram linha); aviso das vendas ANTIGAS sem data de vencimento (só dono, com impacto da loja, "Agora não" 7 dias, "Desfazer" 7 dias) |
+| 04/10 | `01a10670-4931-7df4-9342-f2cea5d92448` | `01a10672-bdd4-75b8-9af1-1a456c3dc435` | Botão "Cobrar vencidos" em linha própria (não corta no A51); Início e Planos sem corte em telas estreitas; aviso das vendas antigas mostra "Você desfez em dd/mm." |
 
 No banco (já aplicado, independente de versão do app): ordem FIFO por vencimento efetivo (view + RPC + backfill da flag `pago`), regra de segurança (vendas/pagamentos só com cliente do mesmo dono), funções do aviso das vendas antigas.
 
@@ -420,7 +421,7 @@ No banco (já aplicado, independente de versão do app): ordem FIFO por vencimen
 • Ajustes de tela em celulares menores.
 ```
 
-## Lote 03/10 (6) — retorno do reteste (chips + 3c aprovados) + ajustes de layout/texto (PARA REVISÃO, OTA NÃO publicada)
+## Lote 03/10 (6) — retorno do reteste (chips + 3c aprovados) + ajustes de layout/texto (APROVADO e publicado via OTA em 04/10)
 
 Reteste do Tiago (Samsung A51, Android 54 + OTA 01a101bd): chips OK; 3c na conta de teste: aviso "13 vendas · 8 clientes vão aparecer como vencidos", confirmar → vencidos 1→9, log com 13, saldo igual (R$ 1.090,34); Cobranças "Vencidos (9) · R$ 1.230,00" com dias de atraso; desfazer → 1 vencido, 13 desfeitas, saldo igual, aviso reapareceu; banco: 0 cruzadas, 6 policies novas — APROVADO.
 
