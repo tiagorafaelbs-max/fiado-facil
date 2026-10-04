@@ -63,13 +63,13 @@ Tudo passa por `lib/whatsapp.ts → montarMensagemCobranca(cliente, saldo, perfi
 Efeito colateral bom e intencional: clientes/relatórios/ranking passam a incluir "(nome do negócio)" e a linha do Pix, como as demais telas, e o telefone com `55` não duplica mais o prefixo.
 O **texto padrão** (cobrança em aberto e "em atraso há N dias") é idêntico ao que a tela de Cobranças já usava — testado caractere a caractere contra o texto antigo, com e sem Pix.
 
-`{vencimento}` = vencimento mais antigo em aberto do cliente. Só consulta o banco se o modelo do dono usa `{vencimento}`; sem data, sai "sem data definida". A linha que tem `{pix}` some inteira se o lojista não cadastrou a chave.
+`{vencimento}` = vencimento mais antigo em aberto do cliente. Só consulta o banco se o modelo do dono usa `{vencimento}`; sem data, sai "sem data definida". Sem chave Pix cadastrada: a linha que só tem `{pix}` some; se a linha tem `{pix}` e outra variável (ex. "Você deve {valor}. Pix: {pix}"), ela fica e o `{pix}` vira vazio — nome e valor nunca somem. A prévia mostra exatamente isso. Espaços no fim de linha e mais de uma linha em branco seguida são limpos na mensagem final. A busca do vencimento espera no máximo 3s (rede lenta não atrasa o WhatsApp).
 
 ## Migration para revisão: `supabase/migrations/mensagem_cobranca_modelo.sql`
 
 1. `perfis.mensagem_cobranca_modelo text` (nula) — nenhuma linha existente muda.
 2. `check` de 1 a 1.000 caracteres (ou NULL).
-3. Trigger `trg_pro_mensagem_cobranca` (BEFORE INSERT/UPDATE da coluna): recusa gravar texto se o plano **atual** (no UPDATE, `old.plano`) não é `pro`, exceto `service_role`. Apagar (NULL) é sempre liberado. Usa `old.plano` porque `enforce_pro_modules` já impede o cliente de trocar de plano; assim "plano=pro + modelo" na mesma requisição não burla.
+3. Trigger `trg_pro_mensagem_cobranca` (BEFORE INSERT/UPDATE da coluna): recusa gravar texto se o plano **atual** (`old.plano`) não é `pro`, exceto `service_role`; no INSERT recusa sempre (o plano do INSERT vem do próprio cliente e não é confiável — o app só grava o modelo por UPDATE). Apagar (NULL) é sempre liberado. Usa `old.plano` porque `enforce_pro_modules` já impede o cliente de trocar de plano; assim "plano=pro + modelo" na mesma requisição não burla.
 4. Acesso: escrever em `perfis` continua sendo só do dono (`perfil_proprio`); funcionário só lê (`perfis_leitura_equipe`) — não precisa de policy nova. `revoke` de EXECUTE da função do trigger, como no padrão do projeto.
 5. Reversão comentada no fim do arquivo.
 
@@ -78,7 +78,7 @@ O app antigo (builds 54/88 sem a OTA) não lê nem escreve a coluna: compatível
 ## Como foi testado (sem aparelho)
 
 - `tsc --noEmit` limpo.
-- 25 verificações da função central (script em Node sobre o `lib/whatsapp.ts` real): igualdade com o texto antigo, Pro × grátis × downgrade, plano não carregado, `{vencimento}` com/sem data, linha do Pix, variáveis em maiúsculas/desconhecidas, nome com `$&`/`{valor}` (sem reexpansão), telefone com/sem `55`, limite.
+- 27 verificações da função central (script em Node sobre o `lib/whatsapp.ts` real): igualdade com o texto antigo, Pro × grátis × downgrade, plano não carregado, `{vencimento}` com/sem data, linha do Pix, variáveis em maiúsculas/desconhecidas, nome com `$&`/`{valor}` (sem reexpansão), telefone com/sem `55`, limite.
 - Não testado em aparelho: tela nova, chips (inserção no cursor) e o fluxo de salvar — dependem da migration aplicada e da OTA.
 
 ## Roteiro de teste no aparelho (depois da migration + OTA)

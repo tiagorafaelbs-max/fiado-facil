@@ -6,7 +6,8 @@
 -- Segurança:
 --  * Quem escreve em perfis continua sendo só o dono (policy perfil_proprio, auth.uid() = id).
 --    O funcionário LÊ o modelo do dono pela policy perfis_leitura_equipe (id = tenant_id_atual()).
---  * Gravar um modelo fora do plano Pro é recusado pelo banco (trigger abaixo), não só pela tela.
+--  * Gravar um modelo fora do plano Pro é recusado pelo banco (trigger abaixo), não só pela tela;
+--    INSERT já com modelo só pelo service_role.
 --    Apagar o modelo (voltar ao padrão) é sempre permitido, inclusive depois de um downgrade.
 --  * Limite de 1.000 caracteres no banco (a tela também limita).
 --
@@ -35,8 +36,10 @@ begin
      and (tg_op = 'INSERT' or new.mensagem_cobranca_modelo is distinct from old.mensagem_cobranca_modelo)
      and auth.role() is distinct from 'service_role'
      -- No UPDATE vale o plano ATUAL do banco (old): o plano não muda pelo cliente (enforce_pro_modules),
-     -- então "plano = pro + modelo" na mesma requisição não burla a regra.
-     and (case when tg_op = 'UPDATE' then old.plano else new.plano end) is distinct from 'pro'
+     -- então "plano = pro + modelo" na mesma requisição não burla a regra. No INSERT o plano vem do
+     -- próprio cliente (enforce_pro_modules não o segura no INSERT), então não dá para confiar nele:
+     -- INSERT com modelo só pelo service_role. O app só grava o modelo por UPDATE, com a linha já criada.
+     and (tg_op = 'INSERT' or old.plano is distinct from 'pro')
   then
     raise exception 'Mensagem de cobrança personalizada é um recurso do plano Pro.'
       using errcode = '42501';

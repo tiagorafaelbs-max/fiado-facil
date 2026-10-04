@@ -76,14 +76,17 @@ type ValoresModelo = Partial<Record<VariavelCobranca | 'atraso', string>>
 
 export function renderizarModelo(modelo: string, valores: ValoresModelo): string {
   let linhas = modelo.replace(/\r\n/g, '\n').split('\n')
-  // Sem chave Pix cadastrada, a(s) linha(s) com {pix} saem inteiras (senão sobra "use a chave: **").
-  // Se o modelo inteiro for essa linha, mantém e troca por vazio.
+  // Sem chave Pix cadastrada, a linha que só tem o Pix sai inteira (senão sobra "use a chave: **").
+  // Linha que tem {pix} E outra variável (ex.: "Você deve {valor}. Pix: {pix}") fica: {pix} vira vazio,
+  // para nunca sumir nome/valor da cobrança. Se o modelo inteiro for essa linha, também fica.
   if (!valores.pix) {
-    const semPix = linhas.filter(l => !/\{pix\}/i.test(l))
+    const soPix = (l: string) => /\{pix\}/i.test(l) && !/\{(?!pix\})[a-zA-Z_]+\}/i.test(l)
+    const semPix = linhas.filter(l => !soPix(l))
     if (semPix.some(l => l.trim())) linhas = semPix
   }
   return linhas.join('\n')
     .replace(REGEX_VARIAVEL, (achado, nome: string) => valores[nome.toLowerCase() as keyof ValoresModelo] ?? achado)
+    .replace(/[ \t]+\n/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim()
 }
@@ -117,13 +120,13 @@ export function montarMensagemCobranca(
 }
 
 // Vencimento mais antigo em aberto de cada cliente (yyyy-mm-dd). Só chame quando o modelo usa
-// {vencimento} (modeloUsaVencimento). Falha de rede = mapa vazio (a mensagem sai com "sem data definida").
+// {vencimento} (modeloUsaVencimento). Falha ou demora de rede = mapa parcial/vazio (a mensagem sai com "sem data definida").
 export async function buscarVencimentosEmAberto(
   tenantId: string,
   clienteIds: string[],
 ): Promise<Record<string, string>> {
   const mapa: Record<string, string> = {}
-  try {
+  const buscar = async () => {
     for (let i = 0; i < clienteIds.length; i += 100) {
       const { data } = await supabase
         .from('vendas')
@@ -137,6 +140,11 @@ export async function buscarVencimentosEmAberto(
         if (!mapa[v.cliente_id]) mapa[v.cliente_id] = v.data_vencimento
       }
     }
+  }
+  // Rede lenta não pode atrasar a abertura do WhatsApp (a cota de cobranças já foi contada):
+  // espera no máximo 3s e segue com o que veio.
+  try {
+    await Promise.race([buscar(), new Promise<void>(resolve => setTimeout(resolve, 3000))])
   } catch {
     // sem rede: segue sem as datas
   }

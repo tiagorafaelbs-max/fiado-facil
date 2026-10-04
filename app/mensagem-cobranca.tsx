@@ -79,7 +79,7 @@ export default function MensagemCobrancaScreen() {
     nome: 'Maria Souza',
     valor: formatarMoeda(150),
     negocio: perfil?.nome_negocio?.trim() || 'Minha Loja',
-    pix: perfil?.chave_pix?.trim() || '(sua chave Pix)',
+    pix: perfil?.chave_pix?.trim() || '',
     vencimento: format(new Date(), 'dd/MM/yyyy'),
   }), [texto, perfil])
 
@@ -104,7 +104,12 @@ export default function MensagemCobrancaScreen() {
     if (!tenantId) return false
     const { error } = await supabase.from('perfis').update({ mensagem_cobranca_modelo: valor }).eq('id', tenantId)
     if (error) {
-      Alert.alert('Não foi possível salvar', 'Verifique sua conexão e tente de novo.')
+      const msg = error.code === '42501'
+        ? 'Mensagem personalizada é um recurso do plano Pro.'
+        : error.code === '42703' || error.code === 'PGRST204'
+          ? 'Este recurso ainda está sendo liberado. Tente de novo mais tarde.'
+          : 'Verifique sua conexão e tente de novo.'
+      Alert.alert('Não foi possível salvar', msg)
       return false
     }
     if (perfil) await atualizarCachePerfilCobranca(tenantId, { ...perfil, mensagem_cobranca_modelo: valor })
@@ -198,7 +203,9 @@ export default function MensagemCobrancaScreen() {
         {!podeEditar && (
           <View style={estilos.aviso}>
             <Ionicons name="lock-closed-outline" size={16} color={C.text2} />
-            <Text style={estilos.avisoTexto}>Esta é a mensagem do dono do negócio. Só ele pode alterar.</Text>
+            <Text style={estilos.avisoTexto}>
+              {souFuncionario ? 'Esta é a mensagem do dono do negócio. Só ele pode alterar.' : 'Conecte-se à internet para editar a mensagem.'}
+            </Text>
           </View>
         )}
 
@@ -266,7 +273,7 @@ export default function MensagemCobrancaScreen() {
         )}
         {usaPixSemChave && (
           <Text style={estilos.alerta}>
-            Você ainda não cadastrou sua chave Pix. Enquanto isso, a linha com {'{pix}'} não aparece na mensagem (Configurações → Pix & Cobranças).
+            Você ainda não cadastrou sua chave Pix: a prévia já mostra como a mensagem sai sem ela (a linha só com {'{pix}'} some). Cadastre em Configurações → Pix & Cobranças.
           </Text>
         )}
 
