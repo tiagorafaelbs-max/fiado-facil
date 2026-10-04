@@ -60,5 +60,8 @@ order by p.criado_em;
 - `wpp_cobrado_mes` / `wpp_mes_ref` são graváveis pelo app: dá para zerar o próprio contador do plano grátis (10 cobranças/mês) por UPDATE direto, contornando a RPC que valida o plano no servidor.
 - Solução geral: grant de UPDATE **por coluna** para `authenticated` (só as colunas que o app edita). É mais forte, mas exige lembrar de liberar cada coluna nova — por isso deixei fora do pacote.
 
+## Pacote seguinte: GRANT por coluna + contador de WhatsApp — APLICADO em 04/10 (aprovado pelo Tiago)
+Migration `seguranca_perfis_colunas_e_contador_wpp.sql`. Antes de aplicar, rodei a migration inteira + roteiros numa transação revertida; todos passaram: UPDATE de plano, wpp_cobrado_mes, wpp_mes_ref, apple_original_transaction_id e criado_em negado; INSERT com plano, wpp ou apple negado; upsert exato do PostgREST (com SET id = excluded.id), colunas liberadas e SetupModal funcionando (dono Pro continua Pro); usuário de outra loja chamando o contador com o id da vítima não altera o contador dela; funcionário usa o contador do dono; service_role segue trocando o plano. Pós-aplicação conferido por has_column_privilege (plano/wpp/apple = false; mensagem/resumo = true; SELECT intacto; ACL das funções igual). Reversão no fim do arquivo da migration.
+
 ## Ordem de aplicação (já decidida)
 0 `seguranca_perfis_sem_pro_gratis` → 1 `mensagem_cobranca_modelo` → 2 `dispositivos_app_e_versao_minima` → 3 `equipe_autoria_confiavel_e_resumo` → OTA (fingerprints `61a2955d…` / `3ae31820…`). Só depois da sua aprovação desta migration.
