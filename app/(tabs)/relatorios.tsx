@@ -10,6 +10,8 @@ import { useAuth } from '../../hooks/useAuth'
 import { useModulos } from '../../hooks/useModulos'
 import { useContadorWhatsApp } from '../../hooks/useContadorWhatsApp'
 import { usePerfilCobranca } from '../../hooks/usePerfilCobranca'
+import { useNomesEquipe } from '../../hooks/useNomesEquipe'
+import { ResumoPorFuncionario, type LancamentoPeriodo } from '../../components/ui/ResumoPorFuncionario'
 import { montarUrlWhatsApp, buscarVencimentosEmAberto, modeloUsaVencimento } from '../../lib/whatsapp'
 import { resolverTenantId } from '../../lib/tenant'
 import { useTenant } from '../../hooks/useTenant'
@@ -80,6 +82,8 @@ export default function RelatoriosScreen() {
   const { modulos } = useModulos(tenantId || usuario?.id)
   const [plano, setPlano] = useState<'gratuito' | 'pro'>('gratuito')
   const perfilCobranca = usePerfilCobranca()
+  const nomesEquipe = useNomesEquipe()
+  const [lancamentosPeriodo, setLancamentosPeriodo] = useState<LancamentoPeriodo[]>([])
   const { registrarUso: registrarUsoWpp, reverterUso: reverterUsoWpp, limite: limiteWpp } = useContadorWhatsApp(plano, tenantId || usuario?.id)
   const [periodo, setPeriodo] = useState<Periodo>('hoje')
   const [dataCustom, setDataCustom] = useState('')
@@ -121,8 +125,8 @@ export default function RelatoriosScreen() {
 
       const { data: { session: sess } } = await supabase.auth.getSession()
       const uid = sess?.user ? await resolverTenantId(sess.user.id) : ''
-      let qVendas = supabase.from('vendas').select('id, valor, cliente_id, categoria, descricao, data_venda, clientes(nome)').eq('usuario_id', uid)
-      let qPagamentos = supabase.from('pagamentos').select('id, valor, cliente_id, data_pagamento, clientes(nome)').eq('usuario_id', uid)
+      let qVendas = supabase.from('vendas').select('id, valor, cliente_id, categoria, descricao, data_venda, criado_por, clientes(nome)').eq('usuario_id', uid)
+      let qPagamentos = supabase.from('pagamentos').select('id, valor, cliente_id, data_pagamento, criado_por, clientes(nome)').eq('usuario_id', uid)
 
       if (dataInicio && dataFim) {
         qVendas = qVendas.gte('data_venda', dataInicio).lte('data_venda', dataFim)
@@ -143,6 +147,17 @@ export default function RelatoriosScreen() {
 
       const totalVendido = (vendas ?? []).reduce((acc, v) => acc + v.valor, 0)
       const totalRecebido = (pagamentos ?? []).reduce((acc, p) => acc + p.valor, 0)
+
+      setLancamentosPeriodo([
+        ...(vendas ?? []).map(v => ({
+          id: v.id, tipo: 'venda' as const, valor: v.valor, data: v.data_venda,
+          clienteNome: (v.clientes as any)?.nome ?? 'Desconhecido', descricao: v.descricao, criado_por: v.criado_por,
+        })),
+        ...(pagamentos ?? []).map(p => ({
+          id: p.id, tipo: 'pagamento' as const, valor: p.valor, data: p.data_pagamento,
+          clienteNome: (p.clientes as any)?.nome ?? 'Desconhecido', criado_por: p.criado_por,
+        })),
+      ])
 
       const totaisPorCliente: Record<string, { nome: string; total: number }> = {}
       for (const v of (vendas ?? [])) {
@@ -671,6 +686,11 @@ export default function RelatoriosScreen() {
           )}
 
           {/* Maiores devedores */}
+          {/* Por funcionário — só o dono (a tela inteira já é só dele) e só se tem equipe */}
+          {podeVerTotais && Object.keys(nomesEquipe).length > 0 && (
+            <ResumoPorFuncionario lancamentos={lancamentosPeriodo} donoId={tenantId} nomes={nomesEquipe} />
+          )}
+
           {resumo.maioresDevedores.length > 0 && (
             <View style={estilos.rankingCard}>
               <Text style={estilos.rankingTitulo}>🔴 Maiores devedores</Text>

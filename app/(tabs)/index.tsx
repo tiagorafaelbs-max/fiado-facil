@@ -22,6 +22,7 @@ import { BadgeStatus } from '../../components/ui/BadgeStatus'
 import { AppTour, type TourStep } from '../../components/ui/AppTour'
 import { ChecklistDia0 } from '../../components/ui/ChecklistDia0'
 import { AvisoVencimentoAntigas } from '../../components/ui/AvisoVencimentoAntigas'
+import { AvisoAtualizacao } from '../../components/ui/AvisoAtualizacao'
 import { formatarMoeda } from '../../lib/validacao'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
@@ -365,6 +366,9 @@ export default function DashboardScreen() {
                 onDispensar={checklistDia0.dispensar}
               />
             )}
+
+            {/* Versão nova do app (só aviso, nunca bloqueio) — dono e funcionário */}
+            <AvisoAtualizacao />
 
             {/* Vendas antigas sem data de vencimento — só o dono (o componente some para funcionário) */}
             <AvisoVencimentoAntigas

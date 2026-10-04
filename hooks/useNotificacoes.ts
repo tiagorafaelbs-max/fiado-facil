@@ -123,6 +123,27 @@ export async function agendarNotificacoesVencimento() {
       })
     }
 
+    // Notificação das 19h — resumo da equipe (opção do dono, desligada por padrão). O texto é fixo porque
+    // notificação local não calcula nada na hora de aparecer; os números ficam em Relatórios → Por funcionário.
+    if (podeVerTotais) {
+      const { data: pref } = await supabase.from('perfis').select('notif_resumo_equipe').eq('id', uid).maybeSingle()
+      if (pref?.notif_resumo_equipe === true) {
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: '👥 Resumo da equipe',
+            body: 'Veja o que sua equipe lançou hoje: vendas e pagamentos de cada funcionário.',
+            sound: true,
+            data: { tela: 'relatorios' },
+          },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.DAILY,
+            hour: 19,
+            minute: 0,
+          },
+        })
+      }
+    }
+
     // Notificação das 10h (sábado) — clientes sem compra há 5+ dias (reengajamento)
     const cincoAntras = new Date(hoje)
     cincoAntras.setDate(cincoAntras.getDate() - 5)

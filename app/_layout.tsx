@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar'
 import { Component, ReactNode, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { verificarComprasApplePendentes } from '../lib/appleIAP'
+import { registrarDispositivo } from '../lib/dispositivo'
 import { ehLinkDeAuth, processarLinkAuth } from '../lib/linkAuth'
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { erro: string | null; stack: string | null }> {
@@ -77,6 +78,25 @@ function AppleBackfillListener() {
   return null
 }
 
+// Registra plataforma e versão do app do usuário logado (dono ou funcionário) para suporte e métricas:
+// ao abrir, ao entrar e ao voltar para o app. A função limita as gravações (no máximo 1 a cada 3 h
+// se nada mudou) e nunca mostra erro.
+function RegistroDispositivo() {
+  useEffect(() => {
+    registrarDispositivo()
+    // Fora do callback do auth (chamar o supabase de dentro dele pode travar).
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN') setTimeout(registrarDispositivo, 0)
+    })
+    const sub = AppState.addEventListener('change', (estado) => {
+      if (estado === 'active') registrarDispositivo()
+    })
+    return () => { subscription.unsubscribe(); sub.remove() }
+  }, [])
+
+  return null
+}
+
 function DeepLinkHandler() {
   const router = useRouter()
 
@@ -107,6 +127,7 @@ export default function RootLayout() {
         <StatusBar style="dark" />
         <AuthListener />
         <AppleBackfillListener />
+        <RegistroDispositivo />
         <DeepLinkHandler />
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />

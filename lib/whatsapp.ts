@@ -1,6 +1,7 @@
 import { Linking, Platform } from 'react-native'
 import { supabase } from './supabase'
 import { formatarMoeda } from './validacao'
+import { nomeCurto } from './equipe'
 import type { Cliente } from '../types'
 
 type ClienteBasico = Pick<Cliente, 'id' | 'nome' | 'telefone'>
@@ -192,9 +193,10 @@ export async function cobrarViaWhatsApp(
 
 export function montarExtratoWhatsApp(
   cliente: ClienteBasico & { saldo_devedor?: number },
-  vendas: { descricao: string; valor: number; data_venda: string; pago: boolean }[],
+  vendas: { descricao: string; valor: number; data_venda: string; pago: boolean; criado_por?: string }[],
   nomeNegocio: string,
   chavePix?: string,
+  nomesEquipe: Record<string, string> = {},
 ): string | null {
   if (!cliente.telefone) return null
 
@@ -207,7 +209,8 @@ export function montarExtratoWhatsApp(
 
   const linhasVendas = abertas.map((v, i) => {
     const data = v.data_venda.split('-').reverse().join('/')
-    return `${i + 1}. ${v.descricao}\n   ${data}  |  *${formatarMoeda(v.valor)}*`
+    const nomeAutor = v.criado_por ? nomesEquipe[v.criado_por] : undefined
+    return `${i + 1}. ${v.descricao}\n   ${data}  |  *${formatarMoeda(v.valor)}*${nomeAutor ? `  |  por ${nomeCurto(nomeAutor)}` : ''}`
   }).join('\n')
 
   const pixLinha = chavePix ? `\n🔑 Pague via Pix: *${chavePix}*` : ''

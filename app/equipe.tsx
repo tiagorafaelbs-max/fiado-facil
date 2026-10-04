@@ -8,6 +8,7 @@ import { useAuth } from '../hooks/useAuth'
 import { Campo } from '../components/ui/Campo'
 import { Botao } from '../components/ui/Botao'
 import { sanitizarTexto } from '../lib/validacao'
+import { solicitarPermissaoNotificacoes, agendarNotificacoesVencimento } from '../hooks/useNotificacoes'
 
 const LIMITE_FUNCIONARIOS = 2
 
@@ -28,6 +29,7 @@ export default function EquipeScreen() {
   const [nome, setNome] = useState('')
   const [email, setEmail] = useState('')
   const [erro, setErro] = useState('')
+  const [resumoAtivo, setResumoAtivo] = useState(false)
 
   const buscar = useCallback(async () => {
     if (!usuario?.id) return
@@ -41,6 +43,9 @@ export default function EquipeScreen() {
       .eq('dono_id', usuario.id)
       .order('criado_em')
     setMembros((data ?? []) as Membro[])
+    // Consulta à parte: se a coluna ainda não existir, só o resumo diário fica desligado (a tela continua abrindo).
+    const { data: pref } = await supabase.from('perfis').select('notif_resumo_equipe').eq('id', usuario.id).maybeSingle()
+    setResumoAtivo(pref?.notif_resumo_equipe === true)
     setCarregando(false)
   }, [usuario?.id])
 
@@ -81,6 +86,22 @@ export default function EquipeScreen() {
     } finally {
       setConvidando(false)
     }
+  }
+
+  async function alternarResumo(valor: boolean) {
+    if (!usuario?.id) return
+    if (valor && !(await solicitarPermissaoNotificacoes())) {
+      Alert.alert('Notificações desligadas', 'Ative as notificações do FiadoApp nas configurações do celular para receber o resumo diário.')
+      return
+    }
+    setResumoAtivo(valor)
+    const { error } = await supabase.from('perfis').update({ notif_resumo_equipe: valor }).eq('id', usuario.id)
+    if (error) {
+      setResumoAtivo(!valor)
+      Alert.alert('Não foi possível salvar', 'Verifique sua conexão e tente de novo.')
+      return
+    }
+    agendarNotificacoesVencimento().catch(() => {})
   }
 
   async function alternarPermissao(membro: Membro, chave: 'excluir_venda' | 'editar_venda', valor: boolean) {
@@ -135,6 +156,22 @@ export default function EquipeScreen() {
       <View style={estilos.limiteBox}>
         <Ionicons name="people-outline" size={16} color={C.green} />
         <Text style={estilos.limiteTexto}>{ativos.length} de {LIMITE_FUNCIONARIOS} funcionários usados</Text>
+      </View>
+
+      <View style={estilos.resumoBox}>
+        <View style={{ flex: 1 }}>
+          <Text style={estilos.resumoTitulo}>Resumo diário às 19h</Text>
+          <Text style={estilos.resumoSub}>
+            Um aviso por dia, só para você, para conferir o que a equipe lançou. Os números ficam em Relatórios → Por funcionário.
+          </Text>
+        </View>
+        <Switch
+          value={resumoAtivo}
+          onValueChange={alternarResumo}
+          trackColor={{ false: C.border, true: C.greenMid }}
+          thumbColor={resumoAtivo ? C.green : C.text3}
+          accessibilityLabel="Resumo diário da equipe às 19 horas"
+        />
       </View>
 
       {ativos.map(membro => (
@@ -216,6 +253,12 @@ const estilos = StyleSheet.create({
     borderWidth: 1, borderColor: C.greenMid, marginBottom: 20,
   },
   limiteTexto: { fontSize: 13, color: C.green, fontWeight: '700' },
+  resumoBox: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.card, borderRadius: 16,
+    padding: 16, borderWidth: 1, borderColor: C.border, marginBottom: 12,
+  },
+  resumoTitulo: { fontSize: 14, fontWeight: '700', color: C.text },
+  resumoSub: { fontSize: 12, color: C.text2, lineHeight: 17, marginTop: 3 },
   card: {
     backgroundColor: C.card, borderRadius: 16, padding: 16,
     borderWidth: 1, borderColor: C.border, marginBottom: 12,

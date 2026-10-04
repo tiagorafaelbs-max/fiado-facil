@@ -19,6 +19,8 @@ import { Botao } from '../../components/ui/Botao'
 import { KeyboardToolbar, KEYBOARD_TOOLBAR_ID } from '../../components/ui/KeyboardToolbar'
 import { cobrarViaWhatsApp, montarExtratoWhatsApp, buscarVencimentosEmAberto, modeloUsaVencimento } from '../../lib/whatsapp'
 import { usePerfilCobranca } from '../../hooks/usePerfilCobranca'
+import { useNomesEquipe } from '../../hooks/useNomesEquipe'
+import { SeloEquipe } from '../../components/ui/SeloEquipe'
 import { agendarNotificacoesVencimento } from '../../hooks/useNotificacoes'
 import { gerarExtratoCliente } from '../../lib/pdf'
 import { gerarPayloadPix } from '../../lib/pix'
@@ -108,7 +110,7 @@ export default function DetalheClienteScreen() {
   const [erroCarregamento, setErroCarregamento] = useState(false)
   const [tentativa, setTentativa] = useState(0)
   const [pagamentos, setPagamentos] = useState<Pagamento[]>([])
-  const [nomesEquipe, setNomesEquipe] = useState<Record<string, string>>({})
+  const nomesEquipe = useNomesEquipe()
   const [modalPagamento, setModalPagamento] = useState(false)
   const [modalPix, setModalPix] = useState(false)
   const [valorPagamento, setValorPagamento] = useState('')
@@ -266,10 +268,6 @@ export default function DetalheClienteScreen() {
     if (!tenantId) return
     supabase.from('perfis').select('nome_negocio, chave_pix, plano').eq('id', tenantId).single()
       .then(({ data }) => { if (data) setPerfil(data) })
-    supabase.from('membros_equipe').select('membro_id, nome').eq('dono_id', tenantId).eq('status', 'ativo')
-      .then(({ data }) => {
-        if (data) setNomesEquipe(Object.fromEntries(data.map(m => [m.membro_id, m.nome])))
-      })
   }, [tenantId])
 
   // Saldo do servidor + o que está só na fila (venda soma, pagamento subtrai) --
@@ -357,7 +355,7 @@ export default function DetalheClienteScreen() {
     const permitido = await registrarUsoWpp()
     if (!permitido) { await avisarLimiteWpp(); return }
     const nomeNeg = perfil?.nome_negocio || 'nosso estabelecimento'
-    const url = montarExtratoWhatsApp(cliente, vendas, nomeNeg, perfil?.chave_pix)
+    const url = montarExtratoWhatsApp(cliente, vendas, nomeNeg, perfil?.chave_pix, nomesEquipe)
     if (!url) { await reverterUsoWpp(); return }
     if (Platform.OS === 'web') {
       window.open(url, '_blank')
@@ -456,7 +454,7 @@ export default function DetalheClienteScreen() {
     const nomeNeg = perfil?.nome_negocio || 'nosso estabelecimento'
     setGerandoPDF(true)
     try {
-      await gerarExtratoCliente(cliente, vendas, pagamentos, nomeNeg)
+      await gerarExtratoCliente(cliente, vendas, pagamentos, nomeNeg, nomesEquipe)
     } catch (e: any) {
       if (Platform.OS === 'web') window.alert('PDF não suportado no navegador. Use o app instalado.')
       else Alert.alert('Erro', e.message)
@@ -830,9 +828,7 @@ export default function DetalheClienteScreen() {
                       {v.categoria && <View style={estilos.catBadge}><Text style={estilos.catBadgeTexto}>{v.categoria}</Text></View>}
                       {v.data_vencimento && <Text style={estilos.lancVenc}>Vence: {format(new Date(v.data_vencimento + 'T12:00:00'), "d MMM", { locale: ptBR })}</Text>}
                     </View>
-                    {Object.keys(nomesEquipe).length > 0 && v.criado_por && nomesEquipe[v.criado_por] && (
-                      <Text style={estilos.lancAutor}>Registrado por {nomesEquipe[v.criado_por]}</Text>
-                    )}
+                    {v.criado_por && nomesEquipe[v.criado_por] && <SeloEquipe nome={nomesEquipe[v.criado_por]} />}
                     {v.foto_url && (
                       <Image source={{ uri: v.foto_url }} style={estilos.fotoThumb} resizeMode="cover" />
                     )}
@@ -868,9 +864,7 @@ export default function DetalheClienteScreen() {
                   <View style={{ flex: 1 }}>
                     <Text style={estilos.lancDesc}>{p.observacao ? p.observacao : 'Pagamento recebido'}</Text>
                     <Text style={estilos.lancData}>{format(new Date(p.data_pagamento + 'T12:00:00'), "d MMM yyyy", { locale: ptBR })}</Text>
-                    {Object.keys(nomesEquipe).length > 0 && p.criado_por && nomesEquipe[p.criado_por] && (
-                      <Text style={estilos.lancAutor}>Registrado por {nomesEquipe[p.criado_por]}</Text>
-                    )}
+                    {p.criado_por && nomesEquipe[p.criado_por] && <SeloEquipe nome={nomesEquipe[p.criado_por]} />}
                   </View>
                   <View style={estilos.lancAcoes}>
                     <Text style={[estilos.lancValor, { color: C.green }]}>+ {formatarMoeda(p.valor)}</Text>
@@ -1319,7 +1313,6 @@ const estilos = StyleSheet.create({
   lancIcone: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2 },
   lancDesc: { fontSize: 14, fontWeight: '600', color: C.text },
   lancMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3, flexWrap: 'wrap' },
-  lancAutor: { fontSize: 11, color: C.text3, marginTop: 2, fontStyle: 'italic' },
   avisoOffline: { fontSize: 12, color: C.text2, textAlign: 'center', marginBottom: 10 },
   lancData: { fontSize: 12, color: C.text2 },
   lancVenc: { fontSize: 11, color: C.yellow, fontWeight: '600' },
