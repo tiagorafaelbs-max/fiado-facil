@@ -13,6 +13,8 @@ import { useClientes } from '../../hooks/useClientes'
 import { assinarEventosDaFila } from '../../hooks/useOffline'
 import { useModulos } from '../../hooks/useModulos'
 import { useContadorWhatsApp } from '../../hooks/useContadorWhatsApp'
+import { usePerfilCobranca } from '../../hooks/usePerfilCobranca'
+import { montarUrlWhatsApp, buscarVencimentosEmAberto, modeloUsaVencimento, type PerfilCobranca } from '../../lib/whatsapp'
 import { useAuth } from '../../hooks/useAuth'
 import { useTenant } from '../../hooks/useTenant'
 import { resolverTenantId } from '../../lib/tenant'
@@ -78,14 +80,20 @@ function TaxaBadge({ taxa }: { taxa: number }) {
   )
 }
 
-function abrirWhatsApp(nome: string, saldo: number, telefone: string) {
-  const tel = telefone.replace(/\D/g, '')
-  const msg = encodeURIComponent(
-    `Olá, ${nome}! 👋\n\nPassando para lembrar que você possui um saldo de *${formatarMoeda(saldo)}* em aberto.\n\nQuando puder, entre em contato para acertarmos. Obrigado! 😊`
+async function abrirWhatsApp(
+  cliente: { id: string; nome: string; saldo: number; telefone: string },
+  perfil: PerfilCobranca | null,
+  tenantId: string,
+) {
+  const vencimentos = tenantId && modeloUsaVencimento(perfil) ? await buscarVencimentosEmAberto(tenantId, [cliente.id]) : {}
+  const url = montarUrlWhatsApp(
+    { id: cliente.id, nome: cliente.nome, telefone: cliente.telefone },
+    cliente.saldo,
+    perfil,
+    { vencimento: vencimentos[cliente.id] },
   )
-  const url = `https://wa.me/55${tel}?text=${msg}`
   if (Platform.OS === 'web') window.open(url, '_blank')
-  else require('react-native').Linking.openURL(url)
+  else await require('react-native').Linking.openURL(url)
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -104,9 +112,10 @@ export default function ClientesScreen() {
   const [abaTop, setAbaTop] = useState<AbaTop>('lista')
   const [busca, setBusca] = useState('')
   const [plano, setPlano] = useState<'gratuito' | 'pro'>('gratuito')
+  const perfilCobranca = usePerfilCobranca()
   const { registrarUso: registrarUsoWpp, reverterUso: reverterUsoWpp, limite: limiteWpp } = useContadorWhatsApp(plano, tenantId || usuario?.id)
 
-  async function handleCobrarLista(nome: string, saldo: number, telefone: string) {
+  async function handleCobrarLista(c: { id: string; nome: string; saldo: number; telefone: string }) {
     const permitido = await registrarUsoWpp()
     if (!permitido) {
       Alert.alert(
@@ -120,7 +129,7 @@ export default function ClientesScreen() {
       return
     }
     try {
-      abrirWhatsApp(nome, saldo, telefone)
+      await abrirWhatsApp(c, perfilCobranca, tenantId)
     } catch {
       await reverterUsoWpp()
     }
@@ -378,7 +387,7 @@ export default function ClientesScreen() {
           {item.telefone && temSaldo && (
             <TouchableOpacity
               style={estilos.btnWhats}
-              onPress={(e) => { e.stopPropagation?.(); handleCobrarLista(item.nome, item.saldo_devedor ?? 0, item.telefone!) }}
+              onPress={(e) => { e.stopPropagation?.(); handleCobrarLista({ id: item.id, nome: item.nome, saldo: item.saldo_devedor ?? 0, telefone: item.telefone! }) }}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <Ionicons name="logo-whatsapp" size={18} color="#25D366" />
@@ -751,7 +760,7 @@ const ABAS_RANKING: { key: AbaRanking; icon: string; label: string; cor: string;
 function RankingPanel({ dados, carregando, aba, onAba, onRefresh, onCliente, onCobrar }: {
   dados: ClienteRanking[]; carregando: boolean; aba: AbaRanking
   onAba: (a: AbaRanking) => void; onRefresh: () => void; onCliente: (id: string) => void
-  onCobrar: (nome: string, saldo: number, telefone: string) => void
+  onCobrar: (c: { id: string; nome: string; saldo: number; telefone: string }) => void
 }) {
   const abaInfo = ABAS_RANKING.find(a => a.key === aba)!
   const melhores  = [...dados].sort((a, b) => scoreMelhor(b) - scoreMelhor(a)).slice(0, 10)
@@ -844,7 +853,7 @@ function RankingPanel({ dados, carregando, aba, onAba, onRefresh, onCliente, onC
                 </TouchableOpacity>
                 <View style={{ alignItems: 'flex-end', gap: 6 }}>
                   <Text style={[r.valor, { color: C.red }]}>{formatarMoeda(c.saldoDevedor)}</Text>
-                  {c.telefone && <TouchableOpacity style={r.btnWa} onPress={() => onCobrar(c.nome, c.saldoDevedor, c.telefone!)}><Ionicons name="logo-whatsapp" size={16} color="#25D366" /></TouchableOpacity>}
+                  {c.telefone && <TouchableOpacity style={r.btnWa} onPress={() => onCobrar({ id: c.id, nome: c.nome, saldo: c.saldoDevedor, telefone: c.telefone! })}><Ionicons name="logo-whatsapp" size={16} color="#25D366" /></TouchableOpacity>}
                 </View>
               </View>
             )
@@ -871,7 +880,7 @@ function RankingPanel({ dados, carregando, aba, onAba, onRefresh, onCliente, onC
                 </TouchableOpacity>
                 <View style={{ alignItems: 'flex-end', gap: 6 }}>
                   <Text style={[r.valor, { color: C.red }]}>{formatarMoeda(c.saldoDevedor)}</Text>
-                  {c.telefone && <TouchableOpacity style={r.btnWa} onPress={() => onCobrar(c.nome, c.saldoDevedor, c.telefone!)}><Ionicons name="logo-whatsapp" size={16} color="#25D366" /></TouchableOpacity>}
+                  {c.telefone && <TouchableOpacity style={r.btnWa} onPress={() => onCobrar({ id: c.id, nome: c.nome, saldo: c.saldoDevedor, telefone: c.telefone! })}><Ionicons name="logo-whatsapp" size={16} color="#25D366" /></TouchableOpacity>}
                 </View>
               </View>
             )

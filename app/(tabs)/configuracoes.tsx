@@ -444,9 +444,16 @@ export default function ConfiguracoesScreen() {
         ) : (
           <>
             <ItemInfo icone="qr-code-outline" label="Chave Pix" valor={perfil.chave_pix || 'Não configurada'} />
-            <ItemInfo icone="calendar-outline" label="Dia de cobrança" valor={perfil.dia_cobranca ? `Todo dia ${perfil.dia_cobranca}` : 'Não configurado'} ultimo />
+            <ItemInfo icone="calendar-outline" label="Dia de cobrança" valor={perfil.dia_cobranca ? `Todo dia ${perfil.dia_cobranca}` : 'Não configurado'} />
           </>
         )}
+        {/* Texto do WhatsApp: o dono edita (Pro); funcionário só vê a mensagem do dono */}
+        <AcaoRow
+          icone="chatbubble-ellipses-outline"
+          label={souFuncionario ? 'Ver mensagem de cobrança' : perfil.plano === 'pro' ? 'Mensagem de cobrança' : 'Mensagem de cobrança · Pro'}
+          onPress={() => router.push('/mensagem-cobranca')}
+          ultimo
+        />
       </View>
 
       {/* Notificações */}

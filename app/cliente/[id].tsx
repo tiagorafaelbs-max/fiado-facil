@@ -17,7 +17,8 @@ import { BadgeStatus } from '../../components/ui/BadgeStatus'
 import { Campo } from '../../components/ui/Campo'
 import { Botao } from '../../components/ui/Botao'
 import { KeyboardToolbar, KEYBOARD_TOOLBAR_ID } from '../../components/ui/KeyboardToolbar'
-import { cobrarViaWhatsApp, montarExtratoWhatsApp } from '../../lib/whatsapp'
+import { cobrarViaWhatsApp, montarExtratoWhatsApp, buscarVencimentosEmAberto, modeloUsaVencimento } from '../../lib/whatsapp'
+import { usePerfilCobranca } from '../../hooks/usePerfilCobranca'
 import { agendarNotificacoesVencimento } from '../../hooks/useNotificacoes'
 import { gerarExtratoCliente } from '../../lib/pdf'
 import { gerarPayloadPix } from '../../lib/pix'
@@ -118,6 +119,7 @@ export default function DetalheClienteScreen() {
   const [numParcelas, setNumParcelas] = useState(2)
   const [salvando, setSalvando] = useState(false)
   const [perfil, setPerfil] = useState<{ nome_negocio: string; chave_pix?: string; plano?: 'gratuito' | 'pro' } | null>(null)
+  const perfilCobranca = usePerfilCobranca()
   const { registrarUso: registrarUsoWpp, reverterUso: reverterUsoWpp, limite: limiteWpp } = useContadorWhatsApp(perfil?.plano ?? null, tenantId || usuario?.id)
   const [gerandoPDF, setGerandoPDF] = useState(false)
   const [modalEditarVenda, setModalEditarVenda] = useState<{ id: string; descricao: string; valor: string; data_venda: string; data_vencimento: string; categoria: string } | null>(null)
@@ -334,9 +336,11 @@ export default function DetalheClienteScreen() {
     }
     const permitido = await registrarUsoWpp()
     if (!permitido) { await avisarLimiteWpp(); return }
-    const nomeNeg = perfil?.nome_negocio || 'nosso estabelecimento'
     try {
-      await cobrarViaWhatsApp(cliente, cliente.saldo_devedor ?? 0, nomeNeg, perfil?.chave_pix)
+      const vencimentos = tenantId && modeloUsaVencimento(perfilCobranca)
+        ? await buscarVencimentosEmAberto(tenantId, [cliente.id])
+        : {}
+      await cobrarViaWhatsApp(cliente, cliente.saldo_devedor ?? 0, perfilCobranca, { vencimento: vencimentos[cliente.id] })
     } catch (e: any) {
       await reverterUsoWpp()
       if (Platform.OS === 'web') window.alert(e.message)

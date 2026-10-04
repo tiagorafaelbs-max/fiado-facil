@@ -115,6 +115,7 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="planos" options={{ headerShown: true, title: 'Planos', presentation: 'modal', headerStyle: { backgroundColor: '#F2F5F9' }, headerTintColor: '#1A2332', headerShadowVisible: false }} />
           <Stack.Screen name="cobrancas" options={{ headerShown: true, title: 'Cobranças Vencidas', headerShadowVisible: false, headerStyle: { backgroundColor: '#F2F5F9' }, headerTintColor: '#1A2332', headerBackTitle: 'Voltar' }} />
+          <Stack.Screen name="mensagem-cobranca" options={{ headerShown: true, title: 'Mensagem de cobrança', headerShadowVisible: false, headerStyle: { backgroundColor: '#F2F5F9' }, headerTintColor: '#1A2332', headerBackTitle: 'Voltar' }} />
           <Stack.Screen name="ajuda" options={{ headerShown: true, title: 'Central de Ajuda', headerShadowVisible: false, headerStyle: { backgroundColor: '#F2F5F9' }, headerTintColor: '#1A2332', headerBackTitle: 'Voltar' }} />
           <Stack.Screen name="ranking" options={{ headerShown: false }} />
           <Stack.Screen name="equipe" options={{ headerShown: true, title: 'Equipe & Funcionários', headerShadowVisible: false, headerStyle: { backgroundColor: '#F2F5F9' }, headerTintColor: '#1A2332', headerBackTitle: 'Voltar' }} />

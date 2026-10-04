@@ -11,10 +11,11 @@ import { useAuth } from '../hooks/useAuth'
 import { useModulos } from '../hooks/useModulos'
 import { useTenant } from '../hooks/useTenant'
 import { useContadorWhatsApp } from '../hooks/useContadorWhatsApp'
+import { usePerfilCobranca } from '../hooks/usePerfilCobranca'
 import { Avatar } from '../components/ui/Avatar'
 import { AvisoVencimentoAntigas } from '../components/ui/AvisoVencimentoAntigas'
 import { formatarMoeda } from '../lib/validacao'
-import { montarUrlWhatsApp } from '../lib/whatsapp'
+import { montarUrlWhatsApp, buscarVencimentosEmAberto, modeloUsaVencimento } from '../lib/whatsapp'
 import { C } from '../constants/colors'
 import { format, differenceInDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -47,8 +48,7 @@ export default function CobrancasScreen() {
   const [vencidos, setVencidos] = useState<ClienteVencido[]>([])
   const [emAberto, setEmAberto] = useState<ClienteAberto[]>([])
   const [carregando, setCarregando] = useState(false)
-  const [nomeNegocio, setNomeNegocio] = useState('nossa loja')
-  const [chavePix, setChavePix] = useState<string | undefined>(undefined)
+  const perfilCobranca = usePerfilCobranca()
   const [plano, setPlano] = useState<'gratuito' | 'pro' | null>(null)
   const { usado, restante, atingiuLimite, limite, registrarUso, reverterUso } = useContadorWhatsApp(plano, tenantId || usuario?.id)
   const [cobrando, setCobrando] = useState(false)
@@ -134,12 +134,8 @@ export default function CobrancasScreen() {
 
   useEffect(() => {
     if (!tenantId) return
-    supabase.from('perfis').select('nome_negocio, plano, chave_pix').eq('id', tenantId).single()
-      .then(({ data }) => {
-        if (data?.nome_negocio) setNomeNegocio(data.nome_negocio)
-        if (data?.plano) setPlano(data.plano)
-        if (data?.chave_pix) setChavePix(data.chave_pix)
-      })
+    supabase.from('perfis').select('plano').eq('id', tenantId).single()
+      .then(({ data }) => { if (data?.plano) setPlano(data.plano) })
   }, [tenantId])
 
   useFocusEffect(useCallback(() => { buscar() }, [buscar]))
@@ -148,6 +144,12 @@ export default function CobrancasScreen() {
   useEffect(() => {
     if (abaParam === 'aberto') setAba('aberto')
   }, [abaParam])
+
+  // Vencimento mais antigo em aberto, só consultado quando o modelo do dono usa {vencimento}.
+  async function vencimentosParaMensagem(ids: string[]): Promise<Record<string, string>> {
+    if (!tenantId || ids.length === 0 || !modeloUsaVencimento(perfilCobranca)) return {}
+    return buscarVencimentosEmAberto(tenantId, ids)
+  }
 
   async function cobrarUm(cliente: ClienteVencido) {
     if (!cliente.telefone) {
@@ -169,10 +171,8 @@ export default function CobrancasScreen() {
     const url = montarUrlWhatsApp(
       { id: cliente.id, nome: cliente.nome, telefone: cliente.telefone },
       cliente.saldo_devedor,
-      nomeNegocio,
-      true,
-      cliente.dias_atraso,
-      chavePix,
+      perfilCobranca,
+      { vencido: true, diasAtraso: cliente.dias_atraso, vencimento: cliente.data_vencimento },
     )
     if (Platform.OS === 'web') {
       try { window.open(url, '_blank') } catch { await reverterUso() }
@@ -202,7 +202,7 @@ export default function CobrancasScreen() {
   }
 
   async function executarCobrarTodos(
-    lista: { id: string; nome: string; telefone?: string; saldo_devedor: number; dias_atraso?: number }[],
+    lista: { id: string; nome: string; telefone?: string; saldo_devedor: number; dias_atraso?: number; data_vencimento?: string }[],
     vencido: boolean,
     diasAtrasoDefault: number,
   ) {
@@ -223,6 +223,7 @@ export default function CobrancasScreen() {
             setCobrando(true)
             setProgresso({ atual: 0, total: comTelefone.length })
             try {
+              const vencimentos = await vencimentosParaMensagem(comTelefone.map(c => c.id))
               for (let i = 0; i < comTelefone.length; i++) {
                 const cliente = comTelefone[i]
                 setProgresso({ atual: i + 1, total: comTelefone.length })
@@ -230,10 +231,12 @@ export default function CobrancasScreen() {
                 const url = montarUrlWhatsApp(
                   { id: cliente.id, nome: cliente.nome, telefone: cliente.telefone },
                   cliente.saldo_devedor,
-                  nomeNegocio,
-                  vencido,
-                  cliente.dias_atraso ?? diasAtrasoDefault,
-                  chavePix,
+                  perfilCobranca,
+                  {
+                    vencido,
+                    diasAtraso: cliente.dias_atraso ?? diasAtrasoDefault,
+                    vencimento: cliente.data_vencimento ?? vencimentos[cliente.id],
+                  },
                 )
 
                 if (Platform.OS === 'web') {
@@ -299,13 +302,12 @@ export default function CobrancasScreen() {
       )
       return
     }
+    const vencimentos = await vencimentosParaMensagem([cliente.id])
     const url = montarUrlWhatsApp(
       { id: cliente.id, nome: cliente.nome, telefone: cliente.telefone },
       cliente.saldo_devedor,
-      nomeNegocio,
-      false,
-      0,
-      chavePix,
+      perfilCobranca,
+      { vencimento: vencimentos[cliente.id] },
     )
     if (Platform.OS === 'web') {
       try { window.open(url, '_blank') } catch { await reverterUso() }

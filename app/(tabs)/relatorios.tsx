@@ -9,6 +9,8 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { useModulos } from '../../hooks/useModulos'
 import { useContadorWhatsApp } from '../../hooks/useContadorWhatsApp'
+import { usePerfilCobranca } from '../../hooks/usePerfilCobranca'
+import { montarUrlWhatsApp, buscarVencimentosEmAberto, modeloUsaVencimento } from '../../lib/whatsapp'
 import { resolverTenantId } from '../../lib/tenant'
 import { useTenant } from '../../hooks/useTenant'
 import { Avatar } from '../../components/ui/Avatar'
@@ -77,6 +79,7 @@ export default function RelatoriosScreen() {
   const { tenantId, souFuncionario, carregando: carregandoPapel, podeVerTotais } = useTenant()
   const { modulos } = useModulos(tenantId || usuario?.id)
   const [plano, setPlano] = useState<'gratuito' | 'pro'>('gratuito')
+  const perfilCobranca = usePerfilCobranca()
   const { registrarUso: registrarUsoWpp, reverterUso: reverterUsoWpp, limite: limiteWpp } = useContadorWhatsApp(plano, tenantId || usuario?.id)
   const [periodo, setPeriodo] = useState<Periodo>('hoje')
   const [dataCustom, setDataCustom] = useState('')
@@ -430,7 +433,7 @@ export default function RelatoriosScreen() {
     }
   }
 
-  async function cobrarWhatsApp(c: { nome: string; saldo: number; telefone?: string }) {
+  async function cobrarWhatsApp(c: { id: string; nome: string; saldo: number; telefone?: string }) {
     if (!c.telefone) return
     const permitido = await registrarUsoWpp()
     if (!permitido) {
@@ -444,12 +447,16 @@ export default function RelatoriosScreen() {
       )
       return
     }
-    const tel = c.telefone.replace(/\D/g, '')
-    const msg = encodeURIComponent(
-      `Olá, ${c.nome}! 👋\n\nPassando para lembrar que você possui um saldo de *${formatarMoeda(c.saldo)}* em aberto.\n\nQuando puder, entre em contato. Obrigado! 😊`
-    )
-    const url = `https://wa.me/55${tel}?text=${msg}`
     try {
+      const vencimentos = tenantId && modeloUsaVencimento(perfilCobranca)
+        ? await buscarVencimentosEmAberto(tenantId, [c.id])
+        : {}
+      const url = montarUrlWhatsApp(
+        { id: c.id, nome: c.nome, telefone: c.telefone },
+        c.saldo,
+        perfilCobranca,
+        { vencimento: vencimentos[c.id] },
+      )
       if (Platform.OS === 'web') {
         window.open(url, '_blank')
       } else {

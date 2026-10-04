@@ -17,7 +17,8 @@ import { Campo } from '../../components/ui/Campo'
 import { Botao } from '../../components/ui/Botao'
 import { sanitizarTexto, validarTelefone, formatarMoeda, formatarInputMoeda, validarDataBR } from '../../lib/validacao'
 import * as Contacts from 'expo-contacts'
-import { montarUrlWhatsApp } from '../../lib/whatsapp'
+import { montarUrlWhatsApp, buscarVencimentosEmAberto, modeloUsaVencimento } from '../../lib/whatsapp'
+import { usePerfilCobranca } from '../../hooks/usePerfilCobranca'
 import { C } from '../../constants/colors'
 import { useCategorias } from '../../hooks/useCategorias'
 import { useOffline } from '../../hooks/useOffline'
@@ -101,8 +102,7 @@ export default function NovaVendaScreen() {
     }
   }, [sucesso])
   const [erroGeral, setErroGeral] = useState('')
-  const [nomeNegocio, setNomeNegocio] = useState('nossa loja')
-  const [chavePix, setChavePix] = useState<string | undefined>(undefined)
+  const perfilCobranca = usePerfilCobranca()
   const [plano, setPlano] = useState<'gratuito' | 'pro'>('gratuito')
   const { registrarUso: registrarUsoWpp, reverterUso: reverterUsoWpp, limite: limiteWpp } = useContadorWhatsApp(plano, tenantId || usuario?.id)
   const [primeiraVenda, setPrimeiraVenda] = useState(false)
@@ -170,9 +170,7 @@ export default function NovaVendaScreen() {
     buscar()
     if (tenantId) {
       import('../../lib/supabase').then(({ supabase }) => {
-        supabase.from('perfis').select('nome_negocio, chave_pix, plano').eq('id', tenantId).single().then(({ data }) => {
-          if (data?.nome_negocio) setNomeNegocio(data.nome_negocio)
-          if (data?.chave_pix) setChavePix(data.chave_pix)
+        supabase.from('perfis').select('plano').eq('id', tenantId).single().then(({ data }) => {
           if (data?.plano) setPlano(data.plano)
         })
       })
@@ -446,7 +444,10 @@ export default function NovaVendaScreen() {
       )
       return
     }
-    const url = montarUrlWhatsApp(clienteSucesso, clienteSucesso.saldo_devedor ?? 0, nomeNegocio, false, 0, chavePix)
+    const vencimentos = tenantId && modeloUsaVencimento(perfilCobranca)
+      ? await buscarVencimentosEmAberto(tenantId, [clienteSucesso.id])
+      : {}
+    const url = montarUrlWhatsApp(clienteSucesso, clienteSucesso.saldo_devedor ?? 0, perfilCobranca, { vencimento: vencimentos[clienteSucesso.id] })
     try {
       if (Platform.OS === 'web') window.open(url, '_blank')
       else await require('react-native').Linking.openURL(url)
