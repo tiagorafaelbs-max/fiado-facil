@@ -2,11 +2,10 @@
 import * as Sharing from 'expo-sharing'
 import * as FileSystem from 'expo-file-system/legacy'
 import { formatarMoeda } from './validacao'
-import { nomeCurto } from './equipe'
 import type { Cliente, Venda } from '../types'
 
 interface Pagamento {
-  id: string; valor: number; data_pagamento: string; observacao?: string; criado_por?: string
+  id: string; valor: number; data_pagamento: string; observacao?: string
 }
 
 function escaparHtml(texto: string): string {
@@ -18,19 +17,13 @@ export async function gerarExtratoCliente(
   vendas: Venda[],
   pagamentos: Pagamento[],
   nomeNegocio: string,
-  nomesEquipe: Record<string, string> = {},
 ) {
   const hoje = new Date().toLocaleDateString('pt-BR')
-  // Primeiro nome de quem da equipe lançou (nada para lançamentos do dono ou sem autor).
-  const autor = (id?: string) => {
-    const nome = id ? nomesEquipe[id] : undefined
-    return nome ? ` <span style="color:#6B7280;font-size:11px">· por ${escaparHtml(nomeCurto(nome))}</span>` : ''
-  }
 
   const linhasVendas = vendas.map(v => `
     <tr>
       <td>${new Date(v.data_venda).toLocaleDateString('pt-BR')}</td>
-      <td>${escaparHtml(v.descricao)}${autor(v.criado_por)}</td>
+      <td>${escaparHtml(v.descricao)}</td>
       <td>${v.categoria ?? ''}</td>
       <td style="color:#EF4444;font-weight:700">- ${formatarMoeda(v.valor)}</td>
     </tr>`).join('')
@@ -38,7 +31,7 @@ export async function gerarExtratoCliente(
   const linhasPagamentos = pagamentos.map(p => `
     <tr>
       <td>${new Date(p.data_pagamento).toLocaleDateString('pt-BR')}</td>
-      <td>Pagamento recebido${p.observacao ? ` — ${escaparHtml(p.observacao)}` : ''}${autor(p.criado_por)}</td>
+      <td>Pagamento recebido${p.observacao ? ` — ${escaparHtml(p.observacao)}` : ''}</td>
       <td>—</td>
       <td style="color:#007A3C;font-weight:700">+ ${formatarMoeda(p.valor)}</td>
     </tr>`).join('')

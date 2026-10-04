@@ -41,10 +41,8 @@ Achado do Fiscal, corrigido no app (`hooks/useOffline.ts`): a fila offline é um
 
 **b) Selo visual** (`components/ui/SeloEquipe.tsx`: ícone de pessoa + primeiro nome, ex. 👤 Ana):
 - Histórico do cliente (vendas e pagamentos) — substitui o texto "Registrado por…".
-- Extrato em PDF: "· por Ana" ao lado da descrição, só em lançamento da equipe.
-- Extrato por WhatsApp: "| por Ana" na linha da venda, só em lançamento da equipe.
+- Extratos (PDF e WhatsApp) vão **para o cliente**: por decisão do Tiago (04/10) **não** mostram o nome do funcionário. O selo existe só dentro do app, para o dono.
 - **Cobranças não tem lançamentos** (a tela lista clientes e saldos), então não há onde pôr o selo ali.
-- Atenção: os dois extratos vão **para o cliente**. Mostram só o primeiro nome do funcionário. Se preferir que o cliente não veja, é remover o argumento `nomesEquipe` nas 2 chamadas (cliente/[id].tsx).
 
 **c) Resumo diário (Equipe → "Resumo diário às 19h")**: chave desligada por padrão, só dono (a tela de Equipe já é só dele; o agendamento só roda para dono com papel confirmado). Grava `perfis.notif_resumo_equipe`, pede a permissão de notificações ao ligar e reagenda. Se a coluna ainda não existir, a tela abre normalmente com a chave desligada.
 Fase 2 (não construída; precisa da sua aprovação): tabela `push_tokens` (usuario_id, token, plataforma, RLS própria), edge function diária via pg_cron que soma vendas/pagamentos do dia por `criado_por` e envia o texto "Hoje sua equipe lançou X vendas (R$ Y) e Z pagamentos (R$ W)" só ao dono que ligou a opção.

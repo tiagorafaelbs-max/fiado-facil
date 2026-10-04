@@ -355,7 +355,7 @@ export default function DetalheClienteScreen() {
     const permitido = await registrarUsoWpp()
     if (!permitido) { await avisarLimiteWpp(); return }
     const nomeNeg = perfil?.nome_negocio || 'nosso estabelecimento'
-    const url = montarExtratoWhatsApp(cliente, vendas, nomeNeg, perfil?.chave_pix, nomesEquipe)
+    const url = montarExtratoWhatsApp(cliente, vendas, nomeNeg, perfil?.chave_pix)
     if (!url) { await reverterUsoWpp(); return }
     if (Platform.OS === 'web') {
       window.open(url, '_blank')
@@ -454,7 +454,7 @@ export default function DetalheClienteScreen() {
     const nomeNeg = perfil?.nome_negocio || 'nosso estabelecimento'
     setGerandoPDF(true)
     try {
-      await gerarExtratoCliente(cliente, vendas, pagamentos, nomeNeg, nomesEquipe)
+      await gerarExtratoCliente(cliente, vendas, pagamentos, nomeNeg)
     } catch (e: any) {
       if (Platform.OS === 'web') window.alert('PDF não suportado no navegador. Use o app instalado.')
       else Alert.alert('Erro', e.message)

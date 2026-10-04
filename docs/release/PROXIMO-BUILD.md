@@ -280,6 +280,9 @@ Tiago testou a 1.0.12 num Samsung Galaxy A51 físico (Android 13, navegação po
 
 ## Backlog 1.0.13 (não implementar agora — só registrar)
 - Aviso de operação presa por permissão (funcionário desativado / outro usuário logado no aparelho) enquanto uma operação fica na fila offline sem conseguir sincronizar.
+- Lançamento offline esquecido por funcionário: desde a OTA de 04/10 a fila só envia o que a própria sessão criou; se um funcionário (ex.: ex-funcionário) deixa lançamento pendente e nunca mais entra naquele celular, ele fica parado na fila sem aviso. Ideia: indicador "pendente de outra pessoa" e/ou opção do dono para enviar ou descartar esses itens.
+- Relatórios cortam períodos com mais de 1.000 lançamentos (limite padrão do PostgREST) — afeta os totais e o quadro "Por funcionário".
+- Resumo diário da equipe com números ("Hoje sua equipe lançou X vendas…"): precisa de push de servidor (tabela de tokens + edge function agendada + aprovação para publicar a função).
 - Confirmação de pagamento repetido: mesmo cliente, mesmo valor, lançado por outra pessoa, nos últimos 30 minutos — hoje não há nenhum aviso, só a decisão consciente do comerciante evita duplicidade.
 - Lixeira com restaurar (clientes/vendas/pagamentos excluídos ficam recuperáveis por um período antes de apagar de vez).
 - Permissões finas por funcionário para relatórios, exportação e cobrança em massa (hoje é tudo-ou-nada: dono vê, funcionário não vê nada disso).
