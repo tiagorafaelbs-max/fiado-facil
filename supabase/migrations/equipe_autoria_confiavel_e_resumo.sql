@@ -6,8 +6,12 @@
 --   * INSERT por usuário logado: criado_por = auth.uid() (quem de fato está lançando — dono ou funcionário);
 --   * UPDATE por usuário logado: criado_por nunca muda (editar não "rouba" a autoria).
 -- service_role e acessos sem JWT (painel/migrations) não são afetados.
--- A fila offline sincroniza com o JWT de quem lançou, então a autoria continua certa. As policies de edição
--- do funcionário já exigem criado_por = auth.uid(); o trigger é coerente com elas.
+-- A fila offline é uma só por aparelho: o app (hooks/useOffline.ts) só sincroniza cada operação na sessão de
+-- quem a criou (criado_por = usuário logado); as de outra pessoa esperam ela entrar de novo. Assim, mesmo em
+-- celular compartilhado, o login que envia é o de quem lançou e a autoria continua certa. OBS.: versões do app
+-- sem essa regra (builds 54/88 antes desta OTA) podem sincronizar a fila de outra pessoa com o login atual e,
+-- com o trigger, o autor passaria a ser quem sincronizou — por isso aplicar a migration 2 junto da OTA.
+-- As policies de edição do funcionário já exigem criado_por = auth.uid(); o trigger é coerente com elas.
 --
 -- Também cria perfis.notif_resumo_equipe (resumo diário da equipe, desligado por padrão; só o dono escreve
 -- em perfis, pela policy perfil_proprio).

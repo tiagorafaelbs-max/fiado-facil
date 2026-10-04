@@ -30,7 +30,7 @@ export async function gerarExtratoCliente(
   const linhasVendas = vendas.map(v => `
     <tr>
       <td>${new Date(v.data_venda).toLocaleDateString('pt-BR')}</td>
-      <td>${v.descricao}${autor(v.criado_por)}</td>
+      <td>${escaparHtml(v.descricao)}${autor(v.criado_por)}</td>
       <td>${v.categoria ?? ''}</td>
       <td style="color:#EF4444;font-weight:700">- ${formatarMoeda(v.valor)}</td>
     </tr>`).join('')
@@ -38,7 +38,7 @@ export async function gerarExtratoCliente(
   const linhasPagamentos = pagamentos.map(p => `
     <tr>
       <td>${new Date(p.data_pagamento).toLocaleDateString('pt-BR')}</td>
-      <td>Pagamento recebido${p.observacao ? ` — ${p.observacao}` : ''}${autor(p.criado_por)}</td>
+      <td>Pagamento recebido${p.observacao ? ` — ${escaparHtml(p.observacao)}` : ''}${autor(p.criado_por)}</td>
       <td>—</td>
       <td style="color:#007A3C;font-weight:700">+ ${formatarMoeda(p.valor)}</td>
     </tr>`).join('')

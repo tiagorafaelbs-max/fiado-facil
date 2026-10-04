@@ -105,6 +105,14 @@ async function sincronizarFilaInterno(): Promise<number> {
   const fila = await carregarFila()
   if (fila.length === 0) return 0
 
+  // A fila é uma só por aparelho. Em celular compartilhado, o lançamento de um funcionário que saiu NÃO pode
+  // ser enviado com o login de outra pessoa: o banco grava o autor pelo login (criado_por = auth.uid()) e a
+  // autoria sairia errada. Cada operação só sincroniza na sessão de quem a criou; as outras ficam na fila até
+  // essa pessoa entrar de novo. Sem sessão não há o que enviar.
+  const { data: { session } } = await supabase.auth.getSession()
+  const meuId = session?.user?.id
+  if (!meuId) return 0
+
   let sincronizados = 0
   const idsSincronizados = new Set<string>()
   // Clientes afetados por venda/pagamento sincronizado com sucesso — precisam
@@ -113,6 +121,7 @@ async function sincronizarFilaInterno(): Promise<number> {
   const clientesParaReconciliar = new Set<string>()
 
   for (const op of fila) {
+    if (typeof op.dados.criado_por === 'string' && op.dados.criado_por !== meuId) continue
     try {
       if (op.operacao === 'insert') {
         // Remove o id local (não é UUID válido) — Supabase gera o UUID real ao inserir
