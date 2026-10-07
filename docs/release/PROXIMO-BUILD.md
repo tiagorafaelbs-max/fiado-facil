@@ -57,7 +57,7 @@ npx supabase functions deploy apple-server-notifications --project-ref eyipcpwmw
 - 26/09: `supabase/migrations/idempotencia_fila_offline.sql`: coluna `client_op_id` + constraint única em `vendas`/`pagamentos`, fecha o risco de duplicata na fila offline (ver detalhes na seção do achado abaixo). Testado em transação com ROLLBACK e validado 2x (eu + Fiscal) antes de aplicar.
 
 ## Metadados do App Store Connect (fazer ao abrir a próxima versão, antes de enviar para revisão)
-- **URL da Política de Privacidade** está desatualizada: Distribuição → Privacidade do app → Política de privacidade → `https://rcsolucoes.github.io/fiado-facil/privacy` (domínio antigo) → trocar para `https://fiadoapp.app.br/privacidade`. Campo está congelado na 1.0.11 (já "Pronto para distribuição"), só libera dentro de uma versão nova. Backlink de alta autoridade apontando pro lugar errado — afeta SEO além de credibilidade.
+- **URL da Política de Privacidade** (App Store Connect → Privacidade do app) ainda aponta para `https://rcsolucoes.github.io/fiado-facil/privacy` (404, e o domínio é de OUTRA empresa). Trocar para `https://fiadoapp.app.br/privacidade`. O campo só libera numa versão nova: **iOS 1.0.13** (ver seção abaixo). No código do app não existe nenhuma referência a rcsolucoes (a tela Planos já usa `fiadoapp.app.br/privacidade` e o EULA padrão da Apple; não há URL de termos própria).
 - **Idioma dos metadados**: trocar de Português (Portugal) para Português (Brasil) como principal.
 
 ## Checklist de teste em Android real com R8 ligado (fazer antes de publicar o 1.0.12)
@@ -401,6 +401,29 @@ Reteste do Tiago (Samsung, OTA 01a1012a): vencimento padrão (`Vence em 05/11 (p
 **Números que a tela mostrará para a conta de teste `tiagorafael.bs@gmail.com`:** 13 vendas antigas sem data · 10 clientes · 11 já ficam vencidas · 2 entram nos próximos 30 dias · 8 clientes vão aparecer como vencidos · desfazível 0. (`donizettisoares`: 2 vendas, 2 clientes, 0 já vencidas, 2 a vencer, 0 novos vencidos.)
 
 **OTA dos chips + telas da 3c (commit `2450b71`):** Android `01a101bd-fd08-731d-a040-2e51489f2454` (grupo `a3a43f9d-e1fe-4f8f-83f6-08e96912f42e`, runtime `61a2955d…`) e iOS `01a101bf-a867-7478-b909-fc6c0ec9fbf5` (grupo `6ab4a145-78f7-4e07-b266-4adf10acd591`, runtime `3ae31820…`); fingerprints conferidos contra os builds 54/88 (Android com `ios.buildNumber="87"` temporário, restaurado). Push dos commits locais feito.
+
+## iOS 1.0.13 (só para trocar a URL de privacidade) — PREPARADO, build aguardando autorização
+
+**Nada nativo pendente desde os builds 54/88:** os fingerprints de hoje, com a configuração atual, são os mesmos dos binários (iOS `3ae31820…` = build 88; Android `61a2955d…` = build 54, com o truque do `ios.buildNumber` 87). Único diff de arquivos que entram no binário desde o commit dos builds (`d757b24`): `expo-application` declarado em `package.json`/lock, que já estava nas builds (dependência do `expo-notifications`) e não muda o fingerprint.
+
+**Mexer na versão MUDA o runtime (testado com `eas fingerprint:generate`):**
+
+| app.json | Runtime iOS | Runtime Android (com `ios.buildNumber` 87) |
+|---|---|---|
+| versão 1.0.12 / build 88 (atual) | `3ae31820…` | `61a2955d…` |
+| 1.0.12 / build 89 | `11d5bfdd…` | — |
+| 1.0.13 / build 88 | `193a5bd8…` | — |
+| **1.0.13 / build 89 (o build novo)** | **`e5f6d1e5…`** | **`bd0daa89…` (≠ 61a2955d)** |
+
+- O build iOS 1.0.13 nasce com runtime **`e5f6d1e5…`**, diferente do 1.0.12 (build 88). Quem ficar no 1.0.12 (88) segue no runtime `3ae31820…`. **Enquanto houver usuário no 1.0.12/88, toda OTA iOS precisa ser publicada para os DOIS runtimes.**
+- `version` no `app.json` é única para as duas plataformas: com `1.0.13` commitado, o fingerprint do Android deixa de bater com o do build 54. **Receita nova do Android:** antes de publicar OTA Android, deixar temporariamente `version` `1.0.12` e `ios.buildNumber` `87`, conferir `61a2955d…` e restaurar depois.
+- Receitas de OTA depois do 1.0.13 (sempre conferir o hash antes de publicar):
+  - **iOS 1.0.13 (89):** `app.json` como está commitado (1.0.13 / 89) → `e5f6d1e5…`.
+  - **iOS 1.0.12 (88):** temporariamente `version` 1.0.12 e `ios.buildNumber` 88 → `3ae31820…`.
+  - **Android 1.0.12 (54):** temporariamente `version` 1.0.12 e `ios.buildNumber` 87 → `61a2955d…`.
+- `eas.json` tem `appVersionSource: local` e `production.autoIncrement: true`: o `eas build` sobe o `buildNumber` sozinho (88 → 89). Por isso o `app.json` preparado fica com `version` 1.0.13 e **`buildNumber` 88** (se estivesse 89, sairia 90 e o runtime mudaria). Depois do build, conferir o runtime do binário (`eas build:view`) e commitar o `buildNumber` 89 que o EAS grava.
+- Preparação em branch própria (não vai para a `main` antes do build): `release/ios-1.0.13`, 1 commit só com `version` 1.0.13.
+- Android continua 1.0.12 / versionCode 54 (nenhum build Android).
 
 ## O QUE HÁ DE NOVO — tudo que já está no ar via OTA desde os builds 54 (Android) / 88 (iOS)
 
