@@ -6,8 +6,10 @@
 -- 2) Trava no trigger sync_perfil_plano. Hoje ele recalcula perfis.plano a CADA escrita em subscriptions e
 --    rebaixa para 'gratuito' quem não tem linha ativa -- inclusive o Pro da Apple (que não grava em
 --    subscriptions) e o Pro manual. Passa a rebaixar SOMENTE quando uma assinatura rastreada deixa de
---    conceder acesso (OLD ativa/em carência -> NEW sem acesso, ou linha ativa apagada), e nunca quem tem
---    vínculo Apple (a apple-server-notifications cuida dele). Promover continua igual (linha ativa -> 'pro').
+--    conceder acesso (OLD ativa/em carência -> NEW sem acesso, ou linha ativa apagada). Quem é Pro só pela
+--    Apple ou manual não tem linha em subscriptions e por isso nunca passa por esse caminho. NÃO há exceção
+--    por apple_original_transaction_id: ela deixaria um ex-assinante Apple com Pro de graça depois que o
+--    Google expirasse (parecer do Fiscal). Promover continua igual (linha ativa -> 'pro').
 begin;
 set local lock_timeout = '5s';
 
@@ -25,7 +27,6 @@ declare
   uid uuid := coalesce(new.user_id, old.user_id);
   tem_ativa boolean;
   perdeu_acesso boolean := false;
-  tem_apple boolean;
 begin
   select exists (select 1 from public.active_subscriptions where user_id = uid) into tem_ativa;
 
@@ -46,10 +47,7 @@ begin
   end if;
 
   if perdeu_acesso then
-    select (apple_original_transaction_id is not null) into tem_apple from public.perfis where id = uid;
-    if coalesce(tem_apple, false) = false then
-      update public.perfis set plano = 'gratuito' where id = uid;
-    end if;
+    update public.perfis set plano = 'gratuito' where id = uid;
   end if;
 
   return coalesce(new, old);

@@ -53,7 +53,7 @@ Conferido sem build: o binário Android 54 (versionCode 54) já tem a permissão
 4. Clique na conta criada → aba **Chaves** → **Adicionar chave** → **Criar nova chave** → **JSON** → Criar. Um arquivo `.json` é baixado. **Guarde fora de pastas de projeto e nunca envie por chat.**
    - Se o botão de criar chave estiver bloqueado ("política da organização"): em **IAM e administrador → Políticas da organização**, desative `iam.disableServiceAccountKeyCreation` para o projeto (ou me avise).
 5. **Dar acesso à conta no Play Console:** Play Console (fora do app) → **Usuários e permissões** → **Convidar novos usuários** → e-mail `play-billing@PROJETO.iam.gserviceaccount.com`.
-   - Em permissões **de conta** marque: **Ver informações financeiras, pedidos e respostas da pesquisa de cancelamento** e **Gerenciar pedidos e assinaturas**.
+   - Prefira dar as permissões só **do app FiadoApp** (aba "Permissões do app"): **Ver informações financeiras, pedidos e respostas da pesquisa de cancelamento** e **Gerenciar pedidos e assinaturas**. (Permissões de conta valem para todos os apps.)
    - Convidar. (Pode levar de minutos a algumas horas para a API reconhecer.)
 
 ## Parte D — Pub/Sub (avisos de renovação/cancelamento em tempo real)
@@ -64,7 +64,7 @@ Conferido sem build: o binário Android 54 (versionCode 54) já tem a permissão
    - Principal: `google-play-developer-notifications@system.gserviceaccount.com`
    - Papel: **Pub/Sub Publisher** → Salvar.
 4. Conta de serviço para o push (separada da anterior): **IAM → Contas de serviço → Criar**: nome `pubsub-push` → e-mail `pubsub-push@PROJETO.iam.gserviceaccount.com`. Sem papéis.
-5. Dar permissão do Pub/Sub para "assinar" tokens dessa conta: **IAM e administrador → IAM → Conceder acesso**: principal `service-NUMERO_DO_PROJETO@gcp-sa-pubsub.iam.gserviceaccount.com` (o número do projeto aparece em **Configurações do projeto**), papel **Criador de token de conta de serviço** (Service Account Token Creator). Salvar.
+5. **Só se aparecer erro de permissão ao criar a assinatura push** (projetos antigos): dar permissão do Pub/Sub para "assinar" tokens dessa conta: **IAM e administrador → IAM → Conceder acesso**: principal `service-NUMERO_DO_PROJETO@gcp-sa-pubsub.iam.gserviceaccount.com` (o número do projeto aparece em **Configurações do projeto**), papel **Criador de token de conta de serviço** (Service Account Token Creator). Salvar.
 6. **Pub/Sub → Assinaturas → Criar assinatura**:
    - ID: `play-rtdn-push` · Tópico: `play-rtdn`
    - Tipo de entrega: **Push**
@@ -77,6 +77,8 @@ Conferido sem build: o binário Android 54 (versionCode 54) já tem a permissão
    - Salvar → **Enviar notificação de teste** (só vai funcionar depois que eu publicar a função; antes disso o teste aparece como erro no Pub/Sub e é reenviado, sem problema).
 
 ## Parte E — Segredos na Supabase
+
+**Cole o arquivo `.json` INTEIRO, sem editar nada** (principalmente a chave `private_key`).
 
 Painel: https://supabase.com/dashboard/project/eyipcpwmwtajrywouxub/functions/secrets (ou **Edge Functions → Secrets**). Crie 4 segredos:
 
@@ -94,6 +96,7 @@ Depois de colar o JSON na Supabase, **apague o arquivo `.json` do computador** (
 1. Aplicar a migration `google_play_billing.sql` (status `pending` + trava do trigger).
 2. Publicar as funções `google-play-verify` (com JWT) e `google-play-rtdn` (sem JWT, autenticada pelo OIDC do Google).
 3. OTA Android.
-4. Teste no Samsung com a conta de testador: comprar mensal → conferir no banco → cancelar no Play → renovação/expiração via Pub/Sub → "Restaurar compras".
+4. Teste no Samsung com a conta de testador: comprar mensal → conferir no banco → cancelar no Play → renovação/expiração via Pub/Sub → "Restaurar compras"; depois reembolso/revogação do pedido (Play Console → Pedidos) e troca mensal ↔ anual.
+5. Você: atualizar o formulário **Segurança dos dados** na Play (histórico de compras ligado à conta) e conferir a declaração de assinaturas.
 
 O Play Console só mostra "notificação de teste recebida" depois do passo 2.

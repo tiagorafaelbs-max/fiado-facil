@@ -14,7 +14,7 @@ async function tokenGoogle(): Promise<string> {
   const bruto = Deno.env.get('GOOGLE_PLAY_SERVICE_ACCOUNT_JSON')
   if (!bruto) throw new Error('GOOGLE_PLAY_SERVICE_ACCOUNT_JSON não configurado')
   const conta = JSON.parse(bruto)
-  const chave = await importPKCS8(String(conta.private_key).replace(/\n/g, '\n'), 'RS256')
+  const chave = await importPKCS8(String(conta.private_key).replace(/\\n/g, '\n'), 'RS256')
   const agora = Math.floor(Date.now() / 1000)
   const assertion = await new SignJWT({ scope: 'https://www.googleapis.com/auth/androidpublisher' })
     .setProtectedHeader({ alg: 'RS256', typ: 'JWT' })
