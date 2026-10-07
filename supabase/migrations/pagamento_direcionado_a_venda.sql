@@ -111,7 +111,7 @@ end;
 $$;
 
 -- ── 4) view clientes_com_saldo: status pela mesma alocação ──────────────────────────────────────
-create or replace view public.clientes_com_saldo as
+create or replace view public.clientes_com_saldo with (security_invoker = true) as
  with pg as (
          select pagamentos.cliente_id,
             sum(pagamentos.valor) as total_pago
@@ -124,11 +124,12 @@ create or replace view public.clientes_com_saldo as
            from vendas
           group by vendas.cliente_id
         ), dirigido as (
-         select pagamentos.venda_id,
-            sum(pagamentos.valor) as total
-           from pagamentos
-          where pagamentos.venda_id is not null
-          group by pagamentos.venda_id
+         select p.venda_id,
+            sum(p.valor) as total
+           from pagamentos p
+             join vendas vd2 on vd2.id = p.venda_id and vd2.cliente_id = p.cliente_id
+          where p.venda_id is not null
+          group by p.venda_id
         ), base as (
          select v.id,
             v.cliente_id,
@@ -186,8 +187,7 @@ create or replace view public.clientes_com_saldo as
      left join pg on pg.cliente_id = c.id
      left join pool on pool.cliente_id = c.id;
 
--- CREATE OR REPLACE VIEW zera as opções da view: repete security_invoker (a RLS de vendas/pagamentos vale para quem consulta).
-alter view public.clientes_com_saldo set (security_invoker = true);
+-- (security_invoker declarado no próprio CREATE OR REPLACE: nunca existe um instante sem ele; a RLS de vendas/pagamentos vale para quem consulta.)
 
 -- ── 5) estimativa do aviso das vendas antigas (mesma alocação) ──────────────────────────────────
 create or replace function public.contar_vendas_sem_vencimento()
@@ -221,7 +221,9 @@ begin
   ),
   dirigido as (
     select p.venda_id, sum(p.valor) as total
-    from public.pagamentos p join meus m on m.cliente_id = p.cliente_id
+    from public.pagamentos p
+      join meus m on m.cliente_id = p.cliente_id
+      join public.vendas vd2 on vd2.id = p.venda_id and vd2.cliente_id = p.cliente_id
     where p.venda_id is not null
     group by p.venda_id
   ),
@@ -280,6 +282,6 @@ $$;
 -- drop trigger if exists trg_valida_pagamento_venda on public.pagamentos;
 -- drop function if exists public.valida_pagamento_venda();
 -- drop index if exists public.idx_pagamentos_venda;
--- (recriar reconciliar_pago_cliente, clientes_com_saldo (+ alter view ... set (security_invoker = true)) e
+-- (recriar reconciliar_pago_cliente, clientes_com_saldo (com security_invoker = true) e
 --  contar_vendas_sem_vencimento com as versões anteriores: reconciliar_pago_cliente_rpc.sql,
 --  fifo_ordem_vencimento_efetivo.sql e vencimento_vendas_antigas_3c.sql)

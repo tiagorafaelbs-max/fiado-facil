@@ -41,7 +41,7 @@ Aplicar em
 ```
 - Lista = vendas em aberto do cliente (da alocação do app, `lib/alocacao.ts`) com o que falta de cada uma. Vendas lançadas **offline e ainda não sincronizadas** aparecem desabilitadas ("sincronizando…"): o id real só existe depois do envio.
 - "Parcelado": as parcelas herdam a venda escolhida.
-- Funciona offline: o `venda_id` entra no payload da fila (já vai em `registrarPagamento`); a validação do banco roda quando sincroniza (se a venda foi apagada nesse meio-tempo, o erro 23514 vira mensagem clara).
+- Funciona offline: o `venda_id` entra no payload da fila (já vai em `registrarPagamento`); a validação do banco roda quando sincroniza. **Se a venda foi apagada antes disso, o banco devolve 23514 e a fila tentaria para sempre: na implementação, ao receber 23514 a fila reenvia o pagamento SEM `venda_id` (vira pagamento solto, o dinheiro entra) e avisa o usuário** (recomendação do Fiscal).
 - Funcionário usa igual (RLS de inserir pagamento já cobre; a trava confere cliente/negócio).
 - Plano: **grátis e Pro** (nenhuma trava).
 
