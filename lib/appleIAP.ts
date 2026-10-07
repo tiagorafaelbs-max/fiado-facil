@@ -8,6 +8,7 @@ import {
 import { supabase } from './supabase'
 
 const isIOS = Platform.OS === 'ios'
+const isAndroid = Platform.OS === 'android'
 
 export const SKU_MENSAL = 'com.fiadofacil.app.pro.monthly'
 export const SKU_ANUAL  = 'com.fiadofacil.app.pro.annual'
@@ -22,7 +23,7 @@ let iapPronto = false
 let iapIniciando: Promise<void> | null = null
 
 export async function garantirConexaoIAP(): Promise<boolean> {
-  if (!isIOS) return false
+  if (!isIOS && !isAndroid) return false
   if (iapPronto) return true
   if (!iapIniciando) {
     iapIniciando = (async () => {

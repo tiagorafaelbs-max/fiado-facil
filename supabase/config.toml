@@ -9,3 +9,8 @@
 # processado até alguém notar).
 [functions.apple-server-notifications]
 verify_jwt = false
+
+# Avisos do Google Play chegam por Pub/Sub push autenticado com OIDC (nao e JWT do Supabase).
+# Sem isto o deploy padrao (verify_jwt = true) responderia 401 a todo aviso de renovacao/cancelamento.
+[functions.google-play-rtdn]
+verify_jwt = false

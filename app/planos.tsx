@@ -1,6 +1,6 @@
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  Alert, Linking, Platform, ActivityIndicator, AppState,
+  Alert, Linking, Platform, ActivityIndicator,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter, useFocusEffect } from 'expo-router'
@@ -25,6 +25,10 @@ import {
   SKU_MENSAL, SKU_ANUAL, SKUS, MODULOS_CACHE_KEY,
   garantirConexaoIAP, enviarParaVerificacaoApple, verificarComprasApplePendentes,
 } from '../lib/appleIAP'
+import {
+  comprarAssinaturaGoogle, enviarParaVerificacaoGoogle, concluirCompraGoogle,
+  compraDoPlano, verificarComprasGooglePendentes,
+} from '../lib/googleIAP'
 
 const isIOS = Platform.OS === 'ios'
 
@@ -52,19 +56,15 @@ const RECURSOS_PRO = [
 export default function PlanosScreen() {
   const router = useRouter()
   const { souFuncionario } = useTenant()
-  const [loading, setLoading] = useState<'monthly' | 'annual' | 'restore' | 'verificar' | null>(null)
+  const [loading, setLoading] = useState<'monthly' | 'annual' | 'restore' | null>(null)
   const [precoMensal, setPrecoMensal] = useState('R$ 19,90')
   const [precoAnual, setPrecoAnual]   = useState('R$ 149,90')
-  const [aguardandoMp, setAguardandoMp] = useState(false)
   const [ativando, setAtivando] = useState(false)
-  const appStateRef  = useRef(AppState.currentState)
-  const appStateSub  = useRef<ReturnType<typeof AppState.addEventListener> | null>(null)
 
-  // Inicializa IAP no iOS -- a conexão é compartilhada com o AppleBackfillListener
+  // Inicializa IAP (iOS: App Store; Android: Google Play) -- a conexão é compartilhada com o AppleBackfillListener
   // global (app/_layout.tsx), então esta tela nunca fecha a conexão sozinha (endConnection
   // derrubaria a verificação em segundo plano do app inteiro).
   useEffect(() => {
-    if (!isIOS) return
     let purchaseUpdateSub: ReturnType<typeof purchaseUpdatedListener>
     let purchaseErrorSub: ReturnType<typeof purchaseErrorListener>
 
@@ -81,8 +81,15 @@ export default function PlanosScreen() {
           // Os tipos do IAP v15 não listam 'failed', mas o valor pode chegar em runtime.
           const estado = String(purchase.purchaseState)
           const stateOk = estado !== 'pending' && estado !== 'failed'
+          if (!isIOS && estado === 'pending') {
+            // Google Play: pagamento ainda não confirmado (ex.: boleto/dinheiro). Não ativa nada agora.
+            Alert.alert('Pagamento pendente', 'Assim que o Google Play confirmar o pagamento, seu plano Pro será ativado.')
+            setLoading(null)
+            return
+          }
           if (receipt && stateOk) {
-            await handleApplePurchaseSuccess(purchase)
+            if (isIOS) await handleApplePurchaseSuccess(purchase)
+            else await handleGooglePurchaseSuccess(purchase)
           }
         })
 
@@ -117,59 +124,8 @@ export default function PlanosScreen() {
   // do AppleBackfillListener global.
   useFocusEffect(useCallback(() => {
     if (isIOS) verificarComprasApplePendentes()
+    else verificarComprasGooglePendentes()
   }, []))
-
-  // Android: detecta retorno do MercadoPago pelo AppState
-  useEffect(() => {
-    if (isIOS || !aguardandoMp) return
-
-    appStateSub.current = AppState.addEventListener('change', async (nextState) => {
-      if (appStateRef.current.match(/inactive|background/) && nextState === 'active') {
-        // Usuário voltou ao app — verifica se o pagamento foi processado
-        await verificarPlanoPosMP()
-      }
-      appStateRef.current = nextState
-    })
-
-    return () => {
-      appStateSub.current?.remove()
-      appStateSub.current = null
-    }
-  }, [aguardandoMp])
-
-  async function verificarPlanoPosMP() {
-    setLoading('verificar')
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
-
-      const { data } = await supabase
-        .from('perfis')
-        .select('plano, modulos')
-        .eq('id', session.user.id)
-        .single()
-
-      if (data?.plano === 'pro') {
-        // Invalida cache local para forçar reload dos módulos em todas as telas
-        await AsyncStorage.removeItem(MODULOS_CACHE_KEY)
-        setAguardandoMp(false)
-        Alert.alert(
-          '🎉 Plano Pro ativo!',
-          'Sua assinatura foi confirmada. Aproveite todos os recursos Pro!',
-          [{ text: 'Continuar', onPress: () => router.back() }],
-        )
-      } else {
-        Alert.alert(
-          'Pagamento em processamento',
-          'Ainda não confirmamos seu pagamento. Isso pode levar alguns minutos. Tente "Verificar assinatura" em instantes.',
-        )
-      }
-    } catch {
-      // silencioso — usuário pode tentar novamente
-    } finally {
-      setLoading(null)
-    }
-  }
 
   async function handleApplePurchaseSuccess(purchase: Purchase) {
     setAtivando(true)
@@ -230,51 +186,90 @@ export default function PlanosScreen() {
     }
   }
 
-  async function handleAssinarAndroid(plan_type: 'monthly' | 'annual') {
-    Alert.alert(
-      'Assinar FiadoApp Pro',
-      'Você será redirecionado para o pagamento seguro no Mercado Pago. Ao concluir, volte ao app para confirmar.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Continuar',
-          onPress: async () => {
-            setLoading(plan_type)
-            try {
-              const { data: { session } } = await supabase.auth.getSession()
-              if (!session) {
-                Alert.alert('Erro', 'Faça login para assinar.')
-                return
-              }
-              const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL
-              const resp = await fetch(`${supabaseUrl}/functions/v1/subscribe`, {
-                method: 'POST',
-                headers: {
-                  Authorization: `Bearer ${session.access_token}`,
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ plan_type }),
-              })
-              const data = await resp.json()
-              if (!resp.ok || !data.init_point) {
-                Alert.alert('Erro', 'Não foi possível iniciar o pagamento. Tente novamente.')
-                return
-              }
-              setAguardandoMp(true)
-              await Linking.openURL(data.init_point)
-            } catch {
-              Alert.alert('Erro', 'Verifique sua conexão e tente novamente.')
-            } finally {
-              setLoading(null)
-            }
-          },
-        },
-      ],
-    )
+  async function handleGooglePurchaseSuccess(purchase: Purchase) {
+    setAtivando(true)
+    try {
+      // O servidor consulta o Google, confere que a compra é desta conta e ativa o Pro.
+      const r = await enviarParaVerificacaoGoogle(purchase)
+      if (r === 'ok') {
+        await concluirCompraGoogle(purchase)
+        Alert.alert(
+          '🎉 Assinatura ativa!',
+          'Seu plano Pro foi ativado. Aproveite todos os recursos!',
+          [{ text: 'Continuar', onPress: () => router.back() }],
+        )
+      } else if (r === 'pendente') {
+        Alert.alert('Pagamento pendente', 'Assim que o Google Play confirmar o pagamento, seu plano Pro será ativado.')
+      } else if (r === 'recusada') {
+        Alert.alert('Não foi possível ativar', 'Esta compra não pertence a esta conta do FiadoApp ou não é válida. Se você acabou de assinar, fale com o suporte.')
+      } else {
+        Alert.alert(
+          'Compra registrada',
+          'Sua compra foi feita no Google Play, mas não conseguimos ativar agora (conexão). Abra os Planos de novo ou use "Restaurar compras".',
+        )
+      }
+    } finally {
+      setAtivando(false)
+      setLoading(null)
+    }
+  }
+
+  async function handleAssinarAndroid(sku: string, planType: 'monthly' | 'annual') {
+    setLoading(planType)
+    try {
+      // Quem já é Pro (inclusive pelo Mercado Pago, que segue valendo até o fim do período) não
+      // assina de novo: evitaria cobrança dupla.
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        Alert.alert('Erro', 'Faça login para assinar.')
+        setLoading(null)
+        return
+      }
+      const { data: perfil } = await supabase.from('perfis').select('plano').eq('id', session.user.id).maybeSingle()
+      if (perfil?.plano === 'pro') {
+        Alert.alert('Você já é Pro', 'Seu plano Pro já está ativo. Para trocar de plano, aguarde o fim do período atual.')
+        setLoading(null)
+        return
+      }
+      await comprarAssinaturaGoogle(sku)
+      // Resultado chega via purchaseUpdatedListener
+    } catch (err: any) {
+      if (err?.code !== ErrorCode.UserCancelled) {
+        const msg = err?.message === 'loja_indisponivel'
+          ? 'Não foi possível conectar ao Google Play. Verifique sua conexão e tente novamente.'
+          : err?.message === 'oferta_indisponivel'
+            ? 'Este plano não está disponível no momento. Tente novamente mais tarde.'
+            : 'Não foi possível iniciar a compra. Verifique sua conexão e tente novamente.'
+        Alert.alert('Erro na compra', msg)
+      }
+      setLoading(null)
+    }
+  }
+
+  async function handleRestaurarGoogle() {
+    setLoading('restore')
+    try {
+      const conectado = await garantirConexaoIAP()
+      if (!conectado) {
+        Alert.alert('Loja indisponível', 'Não foi possível conectar ao Google Play. Verifique sua conexão e tente novamente.')
+        setLoading(null)
+        return
+      }
+      const compra = compraDoPlano((await getAvailablePurchases()) as Purchase[])
+      if (!compra) {
+        Alert.alert('Sem compras anteriores', 'Não encontramos uma assinatura ativa nesta conta do Google Play.')
+        setLoading(null)
+        return
+      }
+      await handleGooglePurchaseSuccess(compra)
+    } catch {
+      Alert.alert('Erro', 'Não foi possível restaurar a compra. Tente novamente.')
+      setLoading(null)
+    }
   }
 
   async function handleRestaurar() {
-    if (!isIOS) return
+    if (!isIOS) return handleRestaurarGoogle()
     setLoading('restore')
     try {
       await restorePurchases()
@@ -300,12 +295,12 @@ export default function PlanosScreen() {
     if (isIOS) {
       handleAssinarIOS(plan_type === 'monthly' ? SKU_MENSAL : SKU_ANUAL, plan_type)
     } else {
-      handleAssinarAndroid(plan_type)
+      handleAssinarAndroid(plan_type === 'monthly' ? SKU_MENSAL : SKU_ANUAL, plan_type)
     }
   }
 
-  const labelMensal = isIOS ? `${precoMensal}/mês` : 'R$ 19,90/mês'
-  const labelAnual  = isIOS ? `${precoAnual}/ano`  : 'R$ 149,90/ano'
+  const labelMensal = `${precoMensal}/mês`
+  const labelAnual  = `${precoAnual}/ano`
 
   // Assinatura é decisão e responsabilidade só do dono do negócio -- centraliza aqui
   // em vez de esconder cada botão/alerta espalhado pelo app que levaria pra esta tela.
@@ -414,23 +409,17 @@ export default function PlanosScreen() {
         }
       </TouchableOpacity>
 
-      {/* Android: botão verificar após retorno do MP */}
-      {!isIOS && aguardandoMp && (
-        <TouchableOpacity style={estilos.btnVerificar} onPress={verificarPlanoPosMP} disabled={loading !== null}>
-          {loading === 'verificar'
-            ? <ActivityIndicator color={C.white} size="small" />
-            : <Text style={estilos.btnVerificarTexto}>Verificar minha assinatura</Text>
-          }
-        </TouchableOpacity>
-      )}
-
-      {/* iOS: nota legal + restaurar */}
-      {isIOS && (
+      {/* Nota legal + restaurar (cada loja com o seu texto) */}
+      {(
         <>
           <Text style={estilos.appleNota}>
-            O pagamento será cobrado na sua conta Apple ID ao confirmar a compra. A assinatura é renovada
-            automaticamente, a menos que seja cancelada pelo menos 24 horas antes do fim do período vigente.
-            Gerencie ou cancele em Ajustes {'>'} [seu nome] {'>'} Assinaturas.
+            {isIOS
+              ? <>O pagamento será cobrado na sua conta Apple ID ao confirmar a compra. A assinatura é renovada
+                automaticamente, a menos que seja cancelada pelo menos 24 horas antes do fim do período vigente.
+                Gerencie ou cancele em Ajustes {'>'} [seu nome] {'>'} Assinaturas.</>
+              : <>O pagamento será cobrado na sua conta do Google Play ao confirmar a compra. A assinatura é renovada
+                automaticamente, a menos que seja cancelada antes do fim do período vigente. Gerencie ou cancele na
+                Play Store {'>'} Pagamentos e assinaturas {'>'} Assinaturas.</>}
           </Text>
           <TouchableOpacity style={estilos.btnRestaurar} onPress={handleRestaurar} disabled={loading !== null}>
             {loading === 'restore'
@@ -450,7 +439,7 @@ export default function PlanosScreen() {
         ].map((d, i) => (
           <View key={i} style={estilos.depoimentoCard}>
             <Text style={estilos.depoimentoTexto}>"{d.texto}"</Text>
-            <Text style={estilos.depoimentoAutor}>{d.nome} · Avaliação publicada na App Store</Text>
+            <Text style={estilos.depoimentoAutor}>{d.nome}{isIOS ? ' · Avaliação publicada na App Store' : ''}</Text>
           </View>
         ))}
       </View>
@@ -460,7 +449,7 @@ export default function PlanosScreen() {
         <Ionicons name="shield-checkmark-outline" size={22} color={C.green} />
         <View style={{ flex: 1 }}>
           <Text style={estilos.garantiaTitulo}>Cancele quando quiser</Text>
-          <Text style={estilos.garantiaSub}>Sem fidelidade e sem multa. Cancele a qualquer momento nas configurações da sua conta {isIOS ? 'Apple ID' : 'do Mercado Pago'}.</Text>
+          <Text style={estilos.garantiaSub}>Sem fidelidade e sem multa. Cancele a qualquer momento nas configurações da sua conta {isIOS ? 'Apple ID' : 'do Google Play'}.</Text>
         </View>
       </View>
 
@@ -470,8 +459,10 @@ export default function PlanosScreen() {
           <Text style={estilos.legalLink}>Política de Privacidade</Text>
         </TouchableOpacity>
         <Text style={estilos.legalSep}> · </Text>
-        <TouchableOpacity onPress={() => Linking.openURL('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/')}>
-          <Text style={estilos.legalLink}>Termos de Uso (EULA)</Text>
+        <TouchableOpacity onPress={() => (isIOS
+          ? Linking.openURL('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/')
+          : router.push('/termos'))}>
+          <Text style={estilos.legalLink}>{isIOS ? 'Termos de Uso (EULA)' : 'Termos de Uso'}</Text>
         </TouchableOpacity>
       </View>
 
@@ -520,8 +511,6 @@ const estilos = StyleSheet.create({
   anualSub: { fontSize: 13, color: C.green },
   anualBadge: { backgroundColor: C.green, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
   anualBadgeTexto: { fontSize: 13, fontWeight: '800', color: C.white },
-  btnVerificar: { backgroundColor: C.green, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginBottom: 16 },
-  btnVerificarTexto: { color: C.white, fontWeight: '700', fontSize: 15 },
   appleNota: { fontSize: 11, color: C.text3, lineHeight: 16, textAlign: 'center', marginBottom: 16, paddingHorizontal: 4 },
   garantiaBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, backgroundColor: C.white, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: C.border },
   garantiaTitulo: { fontSize: 14, fontWeight: '700', color: C.text, marginBottom: 2 },

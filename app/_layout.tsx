@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar'
 import { Component, ReactNode, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { verificarComprasApplePendentes } from '../lib/appleIAP'
+import { verificarComprasGooglePendentes } from '../lib/googleIAP'
 import { registrarDispositivo } from '../lib/dispositivo'
 import { ehLinkDeAuth, processarLinkAuth } from '../lib/linkAuth'
 
@@ -55,7 +56,7 @@ function AuthListener() {
   return null
 }
 
-// iOS-only: reconcilia assinatura Apple em segundo plano ao abrir o app (item 1a/2
+// Reconcilia a assinatura da loja (Apple no iOS, Google Play no Android) em segundo plano ao abrir o app (item 1a/2
 // do pedido do Tiago em 29/09) -- pega tanto assinantes antigos sem
 // apple_original_transaction_id vinculado quanto compras que o purchaseUpdatedListener
 // da tela de planos perdeu. Nunca mostra alerta; falha em silêncio.
@@ -63,12 +64,12 @@ function AppleBackfillListener() {
   const appStateRef = useRef(AppState.currentState)
 
   useEffect(() => {
-    if (Platform.OS !== 'ios') return
-    verificarComprasApplePendentes()
+    const reconciliar = () => (Platform.OS === 'ios' ? verificarComprasApplePendentes() : verificarComprasGooglePendentes())
+    reconciliar()
 
     const sub = AppState.addEventListener('change', (nextState) => {
       if (appStateRef.current.match(/inactive|background/) && nextState === 'active') {
-        verificarComprasApplePendentes()
+        reconciliar()
       }
       appStateRef.current = nextState
     })
