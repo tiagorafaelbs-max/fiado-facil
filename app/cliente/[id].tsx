@@ -1024,6 +1024,8 @@ export default function DetalheClienteScreen() {
             )}
             </ScrollView>
             <View style={[estilos.modalRodape, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+              {/* O erro também aparece aqui: com a lista de vendas aberta o campo Valor sai da tela ao rolar */}
+              {!!erroPagamento && <Text style={estilos.erroRodape} accessibilityRole="alert">{erroPagamento}</Text>}
               {!online && (
                 <Text style={estilos.avisoOffline}>Sem internet — o pagamento fica salvo e sincroniza quando reconectar.</Text>
               )}
@@ -1369,6 +1371,7 @@ const estilos = StyleSheet.create({
   vazio: { alignItems: 'center', gap: 8, paddingVertical: 24 },
   vazioTexto: { fontSize: 14, color: C.text2 },
   modal: { flex: 1, padding: 24, paddingTop: 12, backgroundColor: C.bg },
+  erroRodape: { fontSize: 13, color: C.red, fontWeight: '600', marginBottom: 8, lineHeight: 18 },
   modalRodape: { paddingTop: 10, borderTopWidth: 1, borderTopColor: C.border, backgroundColor: C.bg },
   modalHandle: { width: 40, height: 4, borderRadius: 99, backgroundColor: C.border, alignSelf: 'center', marginBottom: 20 },
   formaBox: { marginBottom: 12 },
