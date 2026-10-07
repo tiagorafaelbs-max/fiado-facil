@@ -486,3 +486,9 @@ Checklist §8.1: lista do lote ✅ · typecheck ✅ · testes (o projeto ainda n
 - iOS (runtime 3ae31820…): update 01a11882-1973-7ddd-99d1-47a2080a2cea, group 30d3de85-c63f-433e-9439-60b0e8ebfd00
 - Rollback Android (só com ordem): npx eas update:republish --group e42a4650-36a9-421d-ae94-ff98313f948d --platform android --message "Rollback" --non-interactive --json
 - A branch android-cobranca-mp (Mercado Pago/Google Billing) NÃO foi publicada nem enviada.
+
+## Backlog — Google Play Billing (branch android-google-billing)
+- Troca de plano/reassinatura: se o EXPIRED do token antigo chegar antes do token novo ser gravado, o usuário é rebaixado por segundos até o verify/RTDN do novo. Ideia: ao interpretar token com linkedPurchaseToken, gravar o novo primeiro.
+- Mensagem do app quando o verify recusa uma compra expirada: hoje diz "não pertence a esta conta"; diferenciar "assinatura expirada".
+- O listener de compra só vive na tela Planos: compra concluída com a tela fechada ativa ao reabrir o app (reconciliação) ou pelo RTDN.
+- Quem é Pro pela Apple e também assina o Google (raro) pode ser rebaixado quando o Google expirar; solução definitiva: a Apple passar a gravar em subscriptions (provider apple).
