@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { supabase } from '../lib/supabase'
 import { listarAbertas, type ItemAberto, type PagamentoAlocavel, type VendaAlocavel } from '../lib/alocacao'
-import { listarLancamentosPendentes } from './useOffline'
+import { assinarEventosDaFila, listarLancamentosPendentes } from './useOffline'
 import { useTenant } from './useTenant'
 
 const chaveCache = (clienteId: string) => `@fiado_aberto_cliente:${clienteId}`
@@ -20,14 +20,18 @@ export function useAbertasDoCliente(clienteId: string | undefined) {
 
   const carregar = useCallback(async () => {
     if (!clienteId || !tenantId) return
+    // client_op_id dos pagamentos que o servidor (ou a cópia local) já tem: um pagamento que já chegou ao servidor mas ainda
+    // não saiu da fila não pode contar duas vezes.
+    let opsDoServidor = new Set<string>()
     try {
       const [{ data: v, error: ev }, { data: p, error: ep }] = await Promise.all([
         supabase.from('vendas').select('id, descricao, valor, data_venda, data_vencimento').eq('cliente_id', clienteId).eq('usuario_id', tenantId),
-        supabase.from('pagamentos').select('valor, venda_id').eq('cliente_id', clienteId).eq('usuario_id', tenantId),
+        supabase.from('pagamentos').select('valor, venda_id, client_op_id').eq('cliente_id', clienteId).eq('usuario_id', tenantId),
       ])
       if (ev || ep) throw ev ?? ep
       setVendas((v ?? []) as VendaAlocavel[])
-      setPagamentos((p ?? []) as PagamentoAlocavel[])
+      setPagamentos((p ?? []).map(x => ({ valor: x.valor, venda_id: x.venda_id })) as PagamentoAlocavel[])
+      opsDoServidor = new Set((p ?? []).map(x => x.client_op_id).filter(Boolean) as string[])
       setCarregou(true)
       AsyncStorage.setItem(chaveCache(clienteId), JSON.stringify({ v, p })).catch(() => {})
     } catch {
@@ -36,19 +40,24 @@ export function useAbertasDoCliente(clienteId: string | undefined) {
         const bruto = await AsyncStorage.getItem(chaveCache(clienteId))
         if (bruto) {
           const { v, p } = JSON.parse(bruto)
-          setVendas(v ?? []); setPagamentos(p ?? []); setCarregou(true)
+          setVendas(v ?? []); setPagamentos((p ?? []).map((x: any) => ({ valor: x.valor, venda_id: x.venda_id }))); setCarregou(true)
+          opsDoServidor = new Set((p ?? []).map((x: any) => x.client_op_id).filter(Boolean))
         }
       } catch { /* sem cópia: a lista fica indisponível */ }
     }
     // o que ainda está só na fila (pagamentos entram na conta; vendas só são contadas)
     try {
       const fila = await listarLancamentosPendentes(clienteId)
-      setFilaPagamentos(fila.filter(op => op.tabela === 'pagamentos').map(op => ({ valor: Number(op.dados.valor ?? 0), venda_id: op.dados.venda_id ?? null })))
+      setFilaPagamentos(fila
+        .filter(op => op.tabela === 'pagamentos' && !(op.dados.client_op_id && opsDoServidor.has(op.dados.client_op_id)))
+        .map(op => ({ valor: Number(op.dados.valor ?? 0), venda_id: op.dados.venda_id ?? null })))
       setVendasNaFila(fila.filter(op => op.tabela === 'vendas').length)
     } catch { /* ignora */ }
   }, [clienteId, tenantId])
 
   useEffect(() => { carregar() }, [carregar])
+  // a fila mudou (enfileirou / sincronizou): recarrega para não ficar com lista velha
+  useEffect(() => assinarEventosDaFila(() => { carregar() }), [carregar])
 
   const abertas: ItemAberto[] = useMemo(
     () => listarAbertas(vendas, [...pagamentos, ...filaPagamentos]),

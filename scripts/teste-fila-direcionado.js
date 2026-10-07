@@ -138,6 +138,17 @@ function carregar(rel, stubs, cache = {}) {
     ok('outro erro do banco: fica na fila, sem reenvio e sem aviso', qtd === 0 && a.chamadas.length === 1 && JSON.parse(a.armazenamento.get('@fiado_fila_offline')).length === 1 && a.alertas.length === 0)
   }
 
+  // 7) 23514 de OUTRO check (mensagem diferente) NÃO vira reenvio sem venda_id
+  {
+    const a = novoAmbiente({ online: false, respostas: [{ error: { code: '23514', message: 'new row violates check constraint "pagamentos_valor_check"' } }] })
+    const cache = {}
+    const useVendas = carregar('hooks/useVendas.ts', a.stubs, cache).useVendas()
+    await useVendas.registrarPagamento({ cliente_id: 'c1', valor: 5, venda_id: 'v1' })
+    const off = carregar('hooks/useOffline.ts', a.stubs, cache)
+    const qtd = await off.sincronizarFila()
+    ok('23514 de outro CHECK: não reenvia sem venda_id; fica na fila', qtd === 0 && a.chamadas.length === 1 && a.alertas.length === 0)
+  }
+
   console.log(falhas === 0 ? '\nTODOS OS TESTES PASSARAM' : `\n${falhas} FALHA(S)`)
   process.exit(falhas ? 1 : 0)
 })().catch((e) => { console.error('ERRO NO TESTE', e); process.exit(2) })

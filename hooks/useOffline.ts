@@ -138,7 +138,7 @@ async function sincronizarFilaInterno(): Promise<number> {
           .from(op.tabela)
           .upsert(payload, { onConflict: 'client_op_id', ignoreDuplicates: true })
           .abortSignal(sinalComTimeout())
-        if (error?.code === '23514' && op.tabela === 'pagamentos' && payload.venda_id) {
+        if (error?.code === '23514' && /venda escolhida/i.test(error.message ?? '') && op.tabela === 'pagamentos' && payload.venda_id) {
           // 23514 = a venda escolhida foi apagada (ou não é deste cliente) antes de sincronizar. Sem isto a operação
           // ficaria na fila para sempre e o dinheiro nunca entraria: reenvia SEM venda_id (o client_op_id é o mesmo,
           // então não duplica) e avisa o usuário no fim.

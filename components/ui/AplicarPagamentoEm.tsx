@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { format } from 'date-fns'
@@ -24,6 +24,11 @@ const dia = (iso: string) => format(new Date(iso + 'T12:00:00'), 'd MMM', { loca
 export function AplicarPagamentoEm({ abertas, valor, escolhida, aoEscolher, vendasSincronizando = 0, listaIndisponivel, erro }: Props) {
   const modoEscolher = escolhida !== null
   const itemEscolhido = abertas.find(a => a.id === escolhida) ?? null
+  // A venda escolhida deixou de estar em aberto (a lista recarregou e outro pagamento a quitou): pede nova escolha.
+  useEffect(() => {
+    if (escolhida && !abertas.some(a => a.id === escolhida)) aoEscolher(abertas.length > 0 ? '' : null)
+  }, [abertas, escolhida])
+
   const previa = useMemo(() => (itemEscolhido && valor > 0 ? previaDaAplicacao(itemEscolhido, valor) : null), [itemEscolhido, valor])
 
   return (
