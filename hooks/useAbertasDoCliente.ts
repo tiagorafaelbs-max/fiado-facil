@@ -20,39 +20,41 @@ export function useAbertasDoCliente(clienteId: string | undefined) {
 
   const carregar = useCallback(async () => {
     if (!clienteId || !tenantId) return
-    // client_op_id dos pagamentos que o servidor (ou a cópia local) já tem: um pagamento que já chegou ao servidor mas ainda
-    // não saiu da fila não pode contar duas vezes.
-    let opsDoServidor = new Set<string>()
+    // Tudo é lido primeiro e os estados são atualizados JUNTOS no fim: se o servidor já tem um pagamento que ainda
+    // está na fila, ele não pode contar duas vezes nem por um instante (a venda escolhida sumiria da lista).
+    let v: any[] | null = null
+    let p: any[] | null = null
     try {
-      const [{ data: v, error: ev }, { data: p, error: ep }] = await Promise.all([
+      const [rv, rp] = await Promise.all([
         supabase.from('vendas').select('id, descricao, valor, data_venda, data_vencimento').eq('cliente_id', clienteId).eq('usuario_id', tenantId),
         supabase.from('pagamentos').select('valor, venda_id, client_op_id').eq('cliente_id', clienteId).eq('usuario_id', tenantId),
       ])
-      if (ev || ep) throw ev ?? ep
-      setVendas((v ?? []) as VendaAlocavel[])
-      setPagamentos((p ?? []).map(x => ({ valor: x.valor, venda_id: x.venda_id })) as PagamentoAlocavel[])
-      opsDoServidor = new Set((p ?? []).map(x => x.client_op_id).filter(Boolean) as string[])
-      setCarregou(true)
+      if (rv.error || rp.error) throw rv.error ?? rp.error
+      v = rv.data ?? []
+      p = rp.data ?? []
       AsyncStorage.setItem(chaveCache(clienteId), JSON.stringify({ v, p })).catch(() => {})
     } catch {
       // sem rede: usa a última cópia deste aparelho
       try {
         const bruto = await AsyncStorage.getItem(chaveCache(clienteId))
-        if (bruto) {
-          const { v, p } = JSON.parse(bruto)
-          setVendas(v ?? []); setPagamentos((p ?? []).map((x: any) => ({ valor: x.valor, venda_id: x.venda_id }))); setCarregou(true)
-          opsDoServidor = new Set((p ?? []).map((x: any) => x.client_op_id).filter(Boolean))
-        }
+        if (bruto) { const c = JSON.parse(bruto); v = c.v ?? []; p = c.p ?? [] }
       } catch { /* sem cópia: a lista fica indisponível */ }
     }
     // o que ainda está só na fila (pagamentos entram na conta; vendas só são contadas)
-    try {
-      const fila = await listarLancamentosPendentes(clienteId)
-      setFilaPagamentos(fila
-        .filter(op => op.tabela === 'pagamentos' && !(op.dados.client_op_id && opsDoServidor.has(op.dados.client_op_id)))
-        .map(op => ({ valor: Number(op.dados.valor ?? 0), venda_id: op.dados.venda_id ?? null })))
-      setVendasNaFila(fila.filter(op => op.tabela === 'vendas').length)
-    } catch { /* ignora */ }
+    let fila: Awaited<ReturnType<typeof listarLancamentosPendentes>> = []
+    try { fila = await listarLancamentosPendentes(clienteId) } catch { /* ignora */ }
+
+    // client_op_id dos pagamentos que o servidor (ou a cópia local) já tem
+    const opsDoServidor = new Set<string>((p ?? []).map(x => x.client_op_id).filter(Boolean))
+    if (v !== null && p !== null) {
+      setVendas(v as VendaAlocavel[])
+      setPagamentos(p.map(x => ({ valor: x.valor, venda_id: x.venda_id })) as PagamentoAlocavel[])
+      setCarregou(true)
+    }
+    setFilaPagamentos(fila
+      .filter(op => op.tabela === 'pagamentos' && !(op.dados.client_op_id && opsDoServidor.has(op.dados.client_op_id)))
+      .map(op => ({ valor: Number(op.dados.valor ?? 0), venda_id: op.dados.venda_id ?? null })))
+    setVendasNaFila(fila.filter(op => op.tabela === 'vendas').length)
   }, [clienteId, tenantId])
 
   useEffect(() => { carregar() }, [carregar])
