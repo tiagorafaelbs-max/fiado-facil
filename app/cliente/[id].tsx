@@ -953,7 +953,7 @@ export default function DetalheClienteScreen() {
               </TouchableOpacity>
             </View>
 
-            <Campo label="Valor total (R$)" value={valorPagamento} onChangeText={v => setValorPagamento(formatarInputMoeda(v))} keyboardType="decimal-pad" placeholder="0,00" erro={erroPagamento} />
+            <Campo label="Valor total (R$)" value={valorPagamento} onChangeText={v => { setValorPagamento(formatarInputMoeda(v)); setErroPagamento('') }} keyboardType="decimal-pad" placeholder="0,00" erro={erroPagamento} />
 
             {tipoPagamento === 'parcelado' && (
               <View style={{ marginBottom: 16 }}>
@@ -988,7 +988,7 @@ export default function DetalheClienteScreen() {
               abertas={abertas}
               valor={parseFloat(valorPagamento.replace(',', '.')) || 0}
               escolhida={aplicarEm}
-              aoEscolher={setAplicarEm}
+              aoEscolher={v => { setAplicarEm(v); setErroPagamento('') }}
               vendasSincronizando={vendasNaFila}
               listaIndisponivel={!listaCarregou && !online}
             />

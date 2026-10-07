@@ -258,11 +258,11 @@ export default function NovoPagamentoScreen() {
 
                 {/* Atalhos rápidos */}
                 <View style={s.atalhos}>
-                  <TouchableOpacity style={s.atalho} onPress={() => setValor(String(saldo).replace('.', ','))}>
+                  <TouchableOpacity style={s.atalho} onPress={() => { setValor(String(saldo).replace('.', ',')); setErroValor('') }}>
                     <Text style={s.atalhoTexto}>Total ({formatarMoeda(saldo)})</Text>
                   </TouchableOpacity>
                   {saldo >= 20 && (
-                    <TouchableOpacity style={s.atalho} onPress={() => setValor(String((saldo / 2).toFixed(2)).replace('.', ','))}>
+                    <TouchableOpacity style={s.atalho} onPress={() => { setValor(String((saldo / 2).toFixed(2)).replace('.', ',')); setErroValor('') }}>
                       <Text style={s.atalhoTexto}>Metade</Text>
                     </TouchableOpacity>
                   )}
@@ -272,7 +272,7 @@ export default function NovoPagamentoScreen() {
                   abertas={abertas}
                   valor={parseFloat(valor.replace(',', '.')) || 0}
                   escolhida={aplicarEm}
-                  aoEscolher={setAplicarEm}
+                  aoEscolher={v => { setAplicarEm(v); setErroValor('') }}
                   vendasSincronizando={vendasNaFila}
                   listaIndisponivel={!listaCarregou && offline}
                 />
