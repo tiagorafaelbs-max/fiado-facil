@@ -480,3 +480,9 @@ Reteste do Tiago (Samsung A51, Android 54 + OTA 01a101bd): chips OK; 3c na conta
 
 ## Antes de pedir o build ao Tiago
 Checklist §8.1: lista do lote ✅ · typecheck ✅ · testes (o projeto ainda não tem) · E2E local (teste manual dos fluxos: busca, cliente, pagamento, desfazer venda, excluir cliente, **assinatura Android/IAP com o app minificado — prioridade alta por causa do item 8**) · versão proposta: **1.0.12** (iOS build 82 / Android vc 44) · plataformas: iOS + Android.
+
+## OTAs de 07/10 (3): pagamento direcionado + erro some ao corrigir o valor (commit 7ba84a9)
+- Android (runtime 61a2955d…): update 01a11880-4ad6-7a00-84f2-5493b6940143, group d0c26901-a0f2-414c-b63e-30763e50cf64
+- iOS (runtime 3ae31820…): update 01a11882-1973-7ddd-99d1-47a2080a2cea, group 30d3de85-c63f-433e-9439-60b0e8ebfd00
+- Rollback Android (só com ordem): npx eas update:republish --group e42a4650-36a9-421d-ae94-ff98313f948d --platform android --message "Rollback" --non-interactive --json
+- A branch android-cobranca-mp (Mercado Pago/Google Billing) NÃO foi publicada nem enviada.
