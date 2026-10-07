@@ -15,6 +15,8 @@ import { agendarNotificacoesVencimento } from '../hooks/useNotificacoes'
 import { Avatar } from '../components/ui/Avatar'
 import { Campo } from '../components/ui/Campo'
 import { Botao } from '../components/ui/Botao'
+import { AplicarPagamentoEm } from '../components/ui/AplicarPagamentoEm'
+import { useAbertasDoCliente } from '../hooks/useAbertasDoCliente'
 import { formatarMoeda, formatarInputMoeda } from '../lib/validacao'
 import { KeyboardToolbar } from '../components/ui/KeyboardToolbar'
 import { C } from '../constants/colors'
@@ -34,6 +36,9 @@ export default function NovoPagamentoScreen() {
   // achado do Fiscal, esta tela nem usa a lista de vendas.
   const { registrarPagamento } = useVendas(clienteSelecionado?.id)
   const [saldo, setSaldo] = useState(0)
+  // "Aplicar em": null = parcela mais antiga (padrão); '' = escolhendo, ainda sem venda; id = venda escolhida
+  const [aplicarEm, setAplicarEm] = useState<string | null>(null)
+  const { abertas, vendasNaFila, carregou: listaCarregou } = useAbertasDoCliente(clienteSelecionado?.id)
   const [valor, setValor] = useState('')
   const [observacao, setObservacao] = useState('')
   const [dataPagamento, setDataPagamento] = useState('')
@@ -51,6 +56,7 @@ export default function NovoPagamentoScreen() {
     setValor('')
     setObservacao('')
     setErroValor('')
+    setAplicarEm(null)
     setSucesso(false)
   }, [buscar]))
 
@@ -61,6 +67,7 @@ export default function NovoPagamentoScreen() {
 
   async function selecionarCliente(cliente: Cliente) {
     setClienteSelecionado(cliente)
+    setAplicarEm(null)
     setBusca('')
     // Busca saldo atualizado
     const { data } = tenantId
@@ -89,6 +96,10 @@ export default function NovoPagamentoScreen() {
       setErroValor(`Valor maior que o saldo devedor (${formatarMoeda(saldo)}).`)
       return
     }
+    if (aplicarEm === '') {
+      setErroValor('Toque na venda que foi paga ou volte para "Parcela mais antiga".')
+      return
+    }
 
     setSalvando(true)
     try {
@@ -109,6 +120,7 @@ export default function NovoPagamentoScreen() {
         data_pagamento: dataPagISO,
         observacao: observacao.trim() || undefined,
         forma_pagamento: formaPagamento,
+        venda_id: aplicarEm || undefined,   // venda escolhida: o banco quita ela primeiro; a sobra segue a ordem normal
       })
 
       await tocar()
@@ -225,7 +237,7 @@ export default function NovoPagamentoScreen() {
                   </View>
                   <TouchableOpacity
                     style={s.trocarBtn}
-                    onPress={() => { setClienteSelecionado(null); setSaldo(0); setValor('') }}
+                    onPress={() => { setClienteSelecionado(null); setSaldo(0); setValor(''); setAplicarEm(null) }}
                   >
                     <Text style={s.trocarTexto}>Trocar</Text>
                   </TouchableOpacity>
@@ -255,6 +267,15 @@ export default function NovoPagamentoScreen() {
                     </TouchableOpacity>
                   )}
                 </View>
+
+                <AplicarPagamentoEm
+                  abertas={abertas}
+                  valor={parseFloat(valor.replace(',', '.')) || 0}
+                  escolhida={aplicarEm}
+                  aoEscolher={setAplicarEm}
+                  vendasSincronizando={vendasNaFila}
+                  listaIndisponivel={!listaCarregou && offline}
+                />
 
                 {/* Forma de pagamento */}
                 <Text style={s.cardLabel}>Forma de pagamento</Text>

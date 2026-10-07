@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import {
   View, Text, ScrollView, TouchableOpacity,
   StyleSheet, Alert, Modal, ActivityIndicator, Platform, Image, useWindowDimensions,
@@ -21,6 +21,9 @@ import { cobrarViaWhatsApp, montarExtratoWhatsApp, buscarVencimentosEmAberto, mo
 import { usePerfilCobranca } from '../../hooks/usePerfilCobranca'
 import { useNomesEquipe } from '../../hooks/useNomesEquipe'
 import { SeloEquipe } from '../../components/ui/SeloEquipe'
+import { AplicarPagamentoEm } from '../../components/ui/AplicarPagamentoEm'
+import { useAbertasDoCliente } from '../../hooks/useAbertasDoCliente'
+import { alocarPagamentos, parcialDirecionada } from '../../lib/alocacao'
 import { agendarNotificacoesVencimento } from '../../hooks/useNotificacoes'
 import { gerarExtratoCliente } from '../../lib/pdf'
 import { gerarPayloadPix } from '../../lib/pix'
@@ -37,7 +40,7 @@ import { ptBR } from 'date-fns/locale'
 import type { Cliente, Venda } from '../../types'
 
 interface Pagamento {
-  id: string; valor: number; data_pagamento: string; observacao?: string
+  id: string; valor: number; data_pagamento: string; observacao?: string; venda_id?: string | null
   criado_por?: string; criado_em?: string
 }
 
@@ -111,6 +114,9 @@ export default function DetalheClienteScreen() {
   const [tentativa, setTentativa] = useState(0)
   const [pagamentos, setPagamentos] = useState<Pagamento[]>([])
   const nomesEquipe = useNomesEquipe()
+  // "Aplicar em": null = parcela mais antiga (padrão); '' = escolhendo, ainda sem venda; id = venda escolhida
+  const [aplicarEm, setAplicarEm] = useState<string | null>(null)
+  const { abertas, vendasNaFila, carregou: listaCarregou, recarregar: recarregarAbertas } = useAbertasDoCliente(id)
   const [modalPagamento, setModalPagamento] = useState(false)
   const [modalPix, setModalPix] = useState(false)
   const [valorPagamento, setValorPagamento] = useState('')
@@ -205,7 +211,7 @@ export default function DetalheClienteScreen() {
     const cacheKey = PAGAMENTOS_CACHE_PREFIX + id
     try {
       const { data, error } = await supabase.from('pagamentos')
-        .select('id, valor, data_pagamento, observacao, criado_por, criado_em')
+        .select('id, valor, data_pagamento, observacao, criado_por, criado_em, venda_id')
         .eq('cliente_id', id).eq('usuario_id', tenantId).order('data_pagamento', { ascending: false })
       if (error) throw error
       setPagamentos(data ?? [])
@@ -270,6 +276,19 @@ export default function DetalheClienteScreen() {
       .then(({ data }) => { if (data) setPerfil(data) })
   }, [tenantId])
 
+  // Quanto cada venda já recebeu (pagamento direcionado primeiro, FIFO no resto) -- mesma conta do banco.
+  const alocacao = useMemo(
+    () => alocarPagamentos(
+      vendas.map(v => ({ id: v.id, valor: v.valor, data_venda: v.data_venda, data_vencimento: v.data_vencimento })),
+      pagamentos.map(p => ({ valor: p.valor, venda_id: p.venda_id ?? null })),
+    ),
+    [vendas, pagamentos],
+  )
+  const descricaoDaVenda = useMemo(() => Object.fromEntries(vendas.map(v => [v.id, v.descricao])) as Record<string, string>, [vendas])
+
+  // Ao abrir o registro de pagamento, atualiza a lista de vendas em aberto (e volta para "parcela mais antiga").
+  useEffect(() => { if (modalPagamento) { setAplicarEm(null); recarregarAbertas() } }, [modalPagamento])
+
   // Saldo do servidor + o que está só na fila (venda soma, pagamento subtrai) --
   // sem isso dois pagamentos offline seguidos passavam da checagem de saldo.
   function saldoComPendentes(): number {
@@ -283,6 +302,8 @@ export default function DetalheClienteScreen() {
     setErroPagamento('')
     if (isNaN(valor) || valor <= 0) { setErroPagamento('Informe um valor válido.'); return }
     if (cliente && valor > saldoComPendentes()) { setErroPagamento('Valor maior que o saldo devedor.'); return }
+    if (aplicarEm === '') { setErroPagamento('Toque na venda que foi paga ou volte para "Parcela mais antiga".'); return }
+    const vendaId = aplicarEm || undefined   // venda escolhida (o banco quita ela primeiro; o que sobra segue a ordem normal)
     setSalvando(true)
     try {
       if (tipoPagamento === 'parcelado') {
@@ -293,10 +314,10 @@ export default function DetalheClienteScreen() {
           d.setMonth(d.getMonth() + i)
           const dataISO = d.toISOString().split('T')[0]
           const obs = `Parcela ${i + 1}/${numParcelas}${observacaoPagamento ? ' · ' + observacaoPagamento : ''}`
-          await registrarPagamento({ cliente_id: id, valor: valorParcela, observacao: obs, data_pagamento: dataISO })
+          await registrarPagamento({ cliente_id: id, valor: valorParcela, observacao: obs, data_pagamento: dataISO, venda_id: vendaId })
         }
       } else {
-        await registrarPagamento({ cliente_id: id, valor, observacao: observacaoPagamento || undefined })
+        await registrarPagamento({ cliente_id: id, valor, observacao: observacaoPagamento || undefined, venda_id: vendaId })
       }
       // Fecha e limpa a tela na hora -- o pagamento já está salvo (direto ou na
       // fila offline) neste ponto. Recarregar cliente/pagamentos continua em
@@ -304,7 +325,7 @@ export default function DetalheClienteScreen() {
       // chamadas de rede sem timeout prendiam o spinner por 10-15s mesmo já com
       // o pagamento salvo, e se o app fosse fechado nesse meio-tempo passava a
       // impressão de que o pagamento tinha se perdido (não tinha).
-      setModalPagamento(false); setValorPagamento(''); setObservacaoPagamento(''); setFormaPagamento(''); setTipoPagamento('total'); setNumParcelas(2)
+      setModalPagamento(false); setValorPagamento(''); setObservacaoPagamento(''); setFormaPagamento(''); setTipoPagamento('total'); setNumParcelas(2); setAplicarEm(null)
       tocar()
       agendarNotificacoesVencimento() // reagenda notificações refletindo o novo estado de dívidas
       carregarCliente(); carregarPagamentos()
@@ -828,6 +849,10 @@ export default function DetalheClienteScreen() {
                       {v.categoria && <View style={estilos.catBadge}><Text style={estilos.catBadgeTexto}>{v.categoria}</Text></View>}
                       {v.data_vencimento && <Text style={estilos.lancVenc}>Vence: {format(new Date(v.data_vencimento + 'T12:00:00'), "d MMM", { locale: ptBR })}</Text>}
                     </View>
+                    {(() => {
+                      const parcial = parcialDirecionada(alocacao.get(v.id))
+                      return parcial ? <Text style={estilos.lancParcial}>{formatarMoeda(parcial.pago)} pagos de {formatarMoeda(parcial.de)}</Text> : null
+                    })()}
                     {v.criado_por && nomesEquipe[v.criado_por] && <SeloEquipe nome={nomesEquipe[v.criado_por]} />}
                     {v.foto_url && (
                       <Image source={{ uri: v.foto_url }} style={estilos.fotoThumb} resizeMode="cover" />
@@ -864,6 +889,7 @@ export default function DetalheClienteScreen() {
                   <View style={{ flex: 1 }}>
                     <Text style={estilos.lancDesc}>{p.observacao ? p.observacao : 'Pagamento recebido'}</Text>
                     <Text style={estilos.lancData}>{format(new Date(p.data_pagamento + 'T12:00:00'), "d MMM yyyy", { locale: ptBR })}</Text>
+                    {p.venda_id && descricaoDaVenda[p.venda_id] ? <Text style={estilos.lancDestino} numberOfLines={1}>→ {descricaoDaVenda[p.venda_id]}</Text> : null}
                     {p.criado_por && nomesEquipe[p.criado_por] && <SeloEquipe nome={nomesEquipe[p.criado_por]} />}
                   </View>
                   <View style={estilos.lancAcoes}>
@@ -900,7 +926,7 @@ export default function DetalheClienteScreen() {
                 <Text style={estilos.modalTitulo}>Registrar pagamento</Text>
                 <Text style={estilos.modalSub}>Saldo devedor: {formatarMoeda(cliente.saldo_devedor ?? 0)}</Text>
               </View>
-              <TouchableOpacity style={estilos.fecharBtn} onPress={() => { setModalPagamento(false); setValorPagamento(''); setObservacaoPagamento(''); setFormaPagamento(''); setErroPagamento(''); setTipoPagamento('total'); setNumParcelas(2) }}>
+              <TouchableOpacity style={estilos.fecharBtn} onPress={() => { setModalPagamento(false); setValorPagamento(''); setObservacaoPagamento(''); setFormaPagamento(''); setErroPagamento(''); setTipoPagamento('total'); setNumParcelas(2); setAplicarEm(null) }}>
                 <Ionicons name="close" size={20} color={C.text2} />
               </TouchableOpacity>
             </View>
@@ -953,6 +979,15 @@ export default function DetalheClienteScreen() {
                 )}
               </View>
             )}
+
+            <AplicarPagamentoEm
+              abertas={abertas}
+              valor={parseFloat(valorPagamento.replace(',', '.')) || 0}
+              escolhida={aplicarEm}
+              aoEscolher={setAplicarEm}
+              vendasSincronizando={vendasNaFila}
+              listaIndisponivel={!listaCarregou && !online}
+            />
 
             <View style={estilos.formaBox}>
               <Text style={estilos.formaLabel}>Forma de pagamento</Text>
@@ -1316,6 +1351,8 @@ const estilos = StyleSheet.create({
   avisoOffline: { fontSize: 12, color: C.text2, textAlign: 'center', marginBottom: 10 },
   lancData: { fontSize: 12, color: C.text2 },
   lancVenc: { fontSize: 11, color: C.yellow, fontWeight: '600' },
+  lancParcial: { fontSize: 11, color: C.yellow, fontWeight: '700', marginTop: 3 },
+  lancDestino: { fontSize: 12, color: C.greenDark, fontWeight: '700', marginTop: 2 },
   catBadge: { backgroundColor: C.greenLight, borderRadius: 99, paddingHorizontal: 7, paddingVertical: 2 },
   catBadgeTexto: { fontSize: 10, color: C.green, fontWeight: '600' },
   lancAcoes: { alignItems: 'flex-end', gap: 6, flexShrink: 0 },

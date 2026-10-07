@@ -1,6 +1,6 @@
 # Pagar uma venda específica (pedido de cliente revendedora Natura) — DESENHO PARA REVISÃO
 
-Status: **desenho + migration para revisão. Migration NÃO aplicada. Nenhum código de tela foi alterado.**
+Status (07/10): **migration APLICADA em produção (aprovada pelo Tiago); telas implementadas e revisadas; OTA AGUARDANDO o teste do Tiago no Samsung (runtimes 61a2955d Android e 3ae31820 iOS).**
 Arquivos: `supabase/migrations/pagamento_direcionado_a_venda.sql`, `supabase/simulacoes/pagamento_direcionado_simulacao.sql`, `lib/alocacao.ts` (lógica pura, ainda sem uso nas telas).
 
 ## O pedido
@@ -46,6 +46,18 @@ Aplicar em
 - Plano: **grátis e Pro** (nenhuma trava).
 
 **Histórico do cliente:** no pagamento, "→ Batons e presente" (descrição da venda; "→ venda removida" não aparece porque o `venda_id` vira nulo). Na venda com pagamento direcionado parcial: "R$ 100,00 pagos de R$ 157,80". Só aparece para venda que recebeu pagamento direcionado (o limite do FIFO continua como hoje).
+
+## Conferência da migration (07/10)
+- Antes (transação revertida, migration inteira + cenários): view nova × antiga = 0 clientes com status/saldo diferente (2.364; 268 vencidos, 190 atenção); `contar_vendas_sem_vencimento` do maior dono idêntico (23/5/18/20/4); cenários D1–D6 e funcionário todos como esperado.
+- A reconciliação dos 425 clientes do maior dono mudou 4 vendas de pago=true para false — **a função ANTIGA muda as mesmas 4** (desvio que já existia nos dados, não vem da migration; não foi alterado nada).
+- Depois de aplicar: vendas pagas 803, vencidos 268, atenção 190 (iguais a antes); view `security_invoker=true`, anon sem acesso; tempo da view 2.020 ms (antes 2.021 ms); índice e trigger criados; get_advisors: nenhum aviso novo ligado à migration (e o FK de pagamentos.venda_id passou a ter índice).
+
+## Telas implementadas
+- `components/ui/AplicarPagamentoEm.tsx` (seletor + prévia "Esta venda fica quitada. R$ X vão para a venda mais antiga em aberto."), `hooks/useAbertasDoCliente.ts` (vendas em aberto com cópia local para uso offline), `lib/alocacao.ts` (mesma conta do banco).
+- `app/cliente/[id].tsx`: modal de pagamento, histórico ("→ descrição da venda" no pagamento; "R$ X pagos de R$ Y" na venda).
+- `app/novo-pagamento.tsx`: mesmo seletor.
+- `hooks/useOffline.ts`: 23514 na sincronização = reenvia sem venda_id e avisa.
+- Testes: `node scripts/teste-alocacao.js` (inclui a comparação com o resultado do banco em 304 vendas / 60 clientes reais, 40 com direcionado) e `node scripts/teste-fila-direcionado.js`.
 
 ## Ordem de entrega
 1. Você revisa/aprova a migration → eu aplico (com roteiros em transação revertida, como nas anteriores).

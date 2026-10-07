@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import NetInfo from '@react-native-community/netinfo'
-import { Platform } from 'react-native'
+import { Alert, Platform } from 'react-native'
 import { supabase } from '../lib/supabase'
 import { reconciliarPagoCliente } from '../lib/reconciliacao'
 
@@ -115,6 +115,8 @@ async function sincronizarFilaInterno(): Promise<number> {
 
   let sincronizados = 0
   const idsSincronizados = new Set<string>()
+  // Pagamentos que o banco recusou por a venda escolhida não existir mais: reenviados sem venda_id (viram pagamento normal).
+  const pagamentosSoltos: number[] = []
   // Clientes afetados por venda/pagamento sincronizado com sucesso — precisam
   // ter a flag `pago` recalculada (FIFO) contra o estado real do banco, algo
   // que não dava para fazer enquanto a operação só existia na fila local.
@@ -136,7 +138,20 @@ async function sincronizarFilaInterno(): Promise<number> {
           .from(op.tabela)
           .upsert(payload, { onConflict: 'client_op_id', ignoreDuplicates: true })
           .abortSignal(sinalComTimeout())
-        if (error) throw error
+        if (error?.code === '23514' && op.tabela === 'pagamentos' && payload.venda_id) {
+          // 23514 = a venda escolhida foi apagada (ou não é deste cliente) antes de sincronizar. Sem isto a operação
+          // ficaria na fila para sempre e o dinheiro nunca entraria: reenvia SEM venda_id (o client_op_id é o mesmo,
+          // então não duplica) e avisa o usuário no fim.
+          const { venda_id: _removida, ...semVenda } = payload
+          const reenvio = await supabase
+            .from(op.tabela)
+            .upsert(semVenda, { onConflict: 'client_op_id', ignoreDuplicates: true })
+            .abortSignal(sinalComTimeout())
+          if (reenvio.error) throw reenvio.error
+          pagamentosSoltos.push(Number(payload.valor ?? 0))
+        } else if (error) {
+          throw error
+        }
         if ((op.tabela === 'vendas' || op.tabela === 'pagamentos') && payload.cliente_id) {
           clientesParaReconciliar.add(payload.cliente_id)
         }
@@ -164,6 +179,14 @@ async function sincronizarFilaInterno(): Promise<number> {
     const restantes = filaAtual.filter(op => !idsSincronizados.has(op.id))
     await AsyncStorage.setItem(FILA_KEY, JSON.stringify(restantes))
   })
+
+  if (pagamentosSoltos.length > 0 && Platform.OS !== 'web') {
+    const total = pagamentosSoltos.reduce((a, b) => a + b, 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+    Alert.alert(
+      'Pagamento ajustado',
+      `A venda escolhida foi apagada antes de sincronizar. ${pagamentosSoltos.length === 1 ? 'O pagamento' : 'Os pagamentos'} de ${total} ${pagamentosSoltos.length === 1 ? 'foi registrado' : 'foram registrados'} como pagamento normal (parcela mais antiga).`,
+    )
+  }
 
   for (const clienteId of clientesParaReconciliar) {
     try {

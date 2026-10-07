@@ -12,6 +12,7 @@ export interface VendaAlocavel {
   valor: number
   data_venda: string
   data_vencimento?: string | null
+  descricao?: string
 }
 
 export interface PagamentoAlocavel {
@@ -80,4 +81,50 @@ export function alocarPagamentos(vendas: VendaAlocavel[], pagamentos: PagamentoA
 export function parcialDirecionada(a: AlocacaoVenda | undefined): { pago: number; de: number } | null {
   if (!a || a.quitada || a.dirigido <= 0) return null
   return { pago: a.dirigido, de: a.valor }
+}
+
+// Vendas em aberto do cliente, na ordem FIFO, com o que ainda falta de cada uma — a lista de "escolher venda" no
+// registro de pagamento. Vendas com id local_ (lançadas offline e ainda não enviadas) ficam de fora: o id real só
+// existe depois do envio, e o banco só aceita venda_id de venda que já existe.
+export interface ItemAberto {
+  id: string
+  descricao: string
+  valor: number
+  data_venda: string
+  data_vencimento: string | null
+  falta: number
+  dirigido: number
+}
+
+export function listarAbertas(vendas: VendaAlocavel[], pagamentos: PagamentoAlocavel[]): ItemAberto[] {
+  const reais = vendas.filter(v => !v.id.startsWith('local_'))
+  const alocacao = alocarPagamentos(reais, pagamentos)
+  return [...reais]
+    .sort((a, b) => {
+      const ea = vencimentoEfetivoISO(a.data_venda, a.data_vencimento)
+      const eb = vencimentoEfetivoISO(b.data_venda, b.data_vencimento)
+      if (ea !== eb) return ea < eb ? -1 : 1
+      if (a.data_venda !== b.data_venda) return a.data_venda < b.data_venda ? -1 : 1
+      return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
+    })
+    .filter(v => !alocacao.get(v.id)!.quitada)
+    .map(v => {
+      const a = alocacao.get(v.id)!
+      return {
+        id: v.id,
+        descricao: v.descricao ?? 'Venda',
+        valor: a.valor,
+        data_venda: v.data_venda,
+        data_vencimento: v.data_vencimento ?? null,
+        falta: a.restante,
+        dirigido: a.dirigido,
+      }
+    })
+}
+
+// O que acontece se o lojista aplicar `valor` na venda escolhida (texto mostrado ANTES de salvar).
+export function previaDaAplicacao(item: ItemAberto, valor: number): { quitada: boolean; sobra: number; ficaFaltando: number } {
+  const falta = cent(item.falta)
+  const v = cent(valor)
+  return { quitada: v >= falta, sobra: Math.max(0, v - falta) / 100, ficaFaltando: Math.max(0, falta - v) / 100 }
 }
