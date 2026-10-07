@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react'
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native'
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -60,7 +60,7 @@ export function AplicarPagamentoEm({ abertas, valor, escolhida, aoEscolher, vend
 
       {modoEscolher && (
         <>
-          <ScrollView style={estilos.lista} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+          <View style={estilos.lista}>
             {abertas.map(a => {
               const marcada = a.id === escolhida
               return (
@@ -84,7 +84,7 @@ export function AplicarPagamentoEm({ abertas, valor, escolhida, aoEscolher, vend
                 </TouchableOpacity>
               )
             })}
-          </ScrollView>
+          </View>
 
           {vendasSincronizando > 0 && (
             <Text style={estilos.aviso}>
@@ -124,7 +124,7 @@ const estilos = StyleSheet.create({
   opcaoAtiva: { backgroundColor: C.green, borderColor: C.green },
   opcaoTexto: { fontSize: 13, fontWeight: '700', color: C.text2 },
   opcaoTextoAtivo: { color: C.white },
-  lista: { maxHeight: 220, marginTop: 10, borderWidth: 1, borderColor: C.border, borderRadius: 12, backgroundColor: C.card },
+  lista: { marginTop: 10, borderWidth: 1, borderColor: C.border, borderRadius: 12, backgroundColor: C.card, overflow: 'hidden' },
   linha: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: C.border },
   linhaMarcada: { backgroundColor: C.greenLight },
   descricao: { fontSize: 14, fontWeight: '700', color: C.text },

@@ -5,6 +5,7 @@ import {
   KeyboardAvoidingView, Linking
 } from 'react-native'
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import QRCode from 'react-native-qrcode-svg'
@@ -99,6 +100,7 @@ export default function DetalheClienteScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const navigation = useNavigation()
   const router = useRouter()
+  const insets = useSafeAreaInsets()
   const { usuario } = useAuth()
   const { vendas, carregando, buscar, criar, registrarPagamento, excluirVenda, editarVenda, excluirPagamento } = useVendas(id)
   const { width } = useWindowDimensions()
@@ -919,7 +921,7 @@ export default function DetalheClienteScreen() {
       {/* Modal pagamento */}
       <Modal visible={modalPagamento} animationType="slide" presentationStyle="formSheet">
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <View style={estilos.modal}>
+          <View style={[estilos.modal, { paddingBottom: 0 }]}>
             <View style={estilos.modalHandle} />
             <View style={estilos.modalHeader}>
               <View>
@@ -931,6 +933,8 @@ export default function DetalheClienteScreen() {
               </TouchableOpacity>
             </View>
 
+            {/* O conteúdo rola; o botão Confirmar fica fixo no rodapé (com 4+ vendas na lista ele sumia da tela) */}
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 12 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             {/* Seletor à vista / parcelado */}
             <View style={estilos.tipoPagRow}>
               <TouchableOpacity
@@ -1018,14 +1022,17 @@ export default function DetalheClienteScreen() {
                 <Text style={estilos.btnVerPixTexto}>Ver QR Code Pix</Text>
               </TouchableOpacity>
             )}
-            {!online && (
-              <Text style={estilos.avisoOffline}>Sem internet — o pagamento fica salvo e sincroniza quando reconectar.</Text>
-            )}
-            <Botao
-              titulo={tipoPagamento === 'parcelado' ? `Confirmar ${numParcelas}x parcelas` : 'Confirmar pagamento'}
-              onPress={handlePagamento}
-              carregando={salvando}
-            />
+            </ScrollView>
+            <View style={[estilos.modalRodape, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+              {!online && (
+                <Text style={estilos.avisoOffline}>Sem internet — o pagamento fica salvo e sincroniza quando reconectar.</Text>
+              )}
+              <Botao
+                titulo={tipoPagamento === 'parcelado' ? `Confirmar ${numParcelas}x parcelas` : 'Confirmar pagamento'}
+                onPress={handlePagamento}
+                carregando={salvando}
+              />
+            </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -1362,6 +1369,7 @@ const estilos = StyleSheet.create({
   vazio: { alignItems: 'center', gap: 8, paddingVertical: 24 },
   vazioTexto: { fontSize: 14, color: C.text2 },
   modal: { flex: 1, padding: 24, paddingTop: 12, backgroundColor: C.bg },
+  modalRodape: { paddingTop: 10, borderTopWidth: 1, borderTopColor: C.border, backgroundColor: C.bg },
   modalHandle: { width: 40, height: 4, borderRadius: 99, backgroundColor: C.border, alignSelf: 'center', marginBottom: 20 },
   formaBox: { marginBottom: 12 },
   formaLabel: { fontSize: 13, fontWeight: '600', color: C.text2, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
