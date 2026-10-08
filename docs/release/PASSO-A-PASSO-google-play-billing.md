@@ -1,5 +1,15 @@
 # Google Play Billing — passo a passo manual (Tiago)
 
+> **CONFIGURAÇÃO REAL (08/10/2026) — feita e conferida.** Onde o texto abaixo sugere nomes (`play-billing`, `pubsub-push`), vale o real:
+> - Projeto Google Cloud: `norse-geode-503018-a2`
+> - Conta de serviço (única, para os DOIS papéis: chamar a API do Play e assinar o push do Pub/Sub): `google-play-submit@norse-geode-503018-a2.iam.gserviceaccount.com` (já existia; tem "Ver dados financeiros" e "Gerenciar pedidos e assinaturas" no Play Console; a chave é o `google-service-account.json` da raiz do projeto, que nunca vai ao git)
+> - Tópico: `projects/norse-geode-503018-a2/topics/play-rtdn` (publisher: `google-play-developer-notifications@system.gserviceaccount.com`)
+> - Assinatura push: `play-rtdn-push` → `https://eyipcpwmwtajrywouxub.supabase.co/functions/v1/google-play-rtdn`, OIDC com a conta acima, audience = a mesma URL
+> - Produtos: `com.fiadofacil.app.pro.monthly` (plano base `mensal`, R$ 19,90) e `com.fiadofacil.app.pro.annual` (plano base `anual`, R$ 149,90); testador de licença: lista "Billing teste" = tiagorafael.bs@gmail.com
+> - Segredos na Supabase (cadastrados): `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`, `GOOGLE_RTDN_AUDIENCE`, `GOOGLE_RTDN_SA_EMAIL`, `GOOGLE_PLAY_PACKAGE_NAME`
+> - Notificação de teste do Play Console recebida e OIDC validado (08/10, 12:48 UTC).
+> - Se uma compra real der 401 do Google: causa provável é propagação de permissão (até 24–36 h). Não mudar permissões nem código; guardar o log.
+
 Faça nesta ordem. Tempo total: ~1 a 1,5 h, mais a espera de propagação do Google. Os menus do Google mudam de nome com frequência; se um nome estiver diferente, procure o equivalente.
 
 Valores que vão aparecer várias vezes:
@@ -45,34 +55,34 @@ Conferido sem build: o binário Android 54 (versionCode 54) já tem a permissão
 
 ## Parte C — Google Cloud (acesso da API)
 
-1. Abra https://console.cloud.google.com e **selecione o projeto vinculado ao Play Console** (Play Console → Configurações → **Acesso à API** mostra qual é o projeto; se não houver, clique em "Criar novo projeto" ali e depois volte ao Google Cloud nele). Anote o **ID do projeto** (ex.: `fiadoapp-123456`); vamos chamar de `PROJETO`.
+1. Abra https://console.cloud.google.com e **selecione o projeto vinculado ao Play Console** (Play Console → Configurações → **Acesso à API** mostra qual é o projeto; se não houver, clique em "Criar novo projeto" ali e depois volte ao Google Cloud nele). Anote o **ID do projeto** (ex.: `fiadoapp-123456`); vamos chamar de `norse-geode-503018-a2`.
 2. **APIs e serviços** → **Biblioteca** → procure **Google Play Android Developer API** → **Ativar**.
 3. **IAM e administrador** → **Contas de serviço** → **Criar conta de serviço**:
-   - Nome: `play-billing` → Criar e continuar → pule as permissões (não precisa de papel no Google Cloud) → Concluir.
-   - Anote o e-mail da conta: `play-billing@PROJETO.iam.gserviceaccount.com`.
+   - Nome: `google-play-submit` → Criar e continuar → pule as permissões (não precisa de papel no Google Cloud) → Concluir.
+   - Anote o e-mail da conta: `google-play-submit@norse-geode-503018-a2.iam.gserviceaccount.com`.
 4. Clique na conta criada → aba **Chaves** → **Adicionar chave** → **Criar nova chave** → **JSON** → Criar. Um arquivo `.json` é baixado. **Guarde fora de pastas de projeto e nunca envie por chat.**
    - Se o botão de criar chave estiver bloqueado ("política da organização"): em **IAM e administrador → Políticas da organização**, desative `iam.disableServiceAccountKeyCreation` para o projeto (ou me avise).
-5. **Dar acesso à conta no Play Console:** Play Console (fora do app) → **Usuários e permissões** → **Convidar novos usuários** → e-mail `play-billing@PROJETO.iam.gserviceaccount.com`.
+5. **Dar acesso à conta no Play Console:** Play Console (fora do app) → **Usuários e permissões** → **Convidar novos usuários** → e-mail `google-play-submit@norse-geode-503018-a2.iam.gserviceaccount.com`.
    - Prefira dar as permissões só **do app FiadoApp** (aba "Permissões do app"): **Ver informações financeiras, pedidos e respostas da pesquisa de cancelamento** e **Gerenciar pedidos e assinaturas**. (Permissões de conta valem para todos os apps.)
    - Convidar. (Pode levar de minutos a algumas horas para a API reconhecer.)
 
 ## Parte D — Pub/Sub (avisos de renovação/cancelamento em tempo real)
 
-1. Google Cloud, projeto `PROJETO`: **APIs e serviços** → **Biblioteca** → **Cloud Pub/Sub API** → **Ativar**.
-2. **Pub/Sub** → **Tópicos** → **Criar tópico**: ID `play-rtdn` (desmarque "adicionar assinatura padrão") → Criar. O nome completo fica `projects/PROJETO/topics/play-rtdn`.
+1. Google Cloud, projeto `norse-geode-503018-a2`: **APIs e serviços** → **Biblioteca** → **Cloud Pub/Sub API** → **Ativar**.
+2. **Pub/Sub** → **Tópicos** → **Criar tópico**: ID `play-rtdn` (desmarque "adicionar assinatura padrão") → Criar. O nome completo fica `projects/norse-geode-503018-a2/topics/play-rtdn`.
 3. Abra o tópico → aba **Permissões** (ou "Informações") → **Adicionar principal**:
    - Principal: `google-play-developer-notifications@system.gserviceaccount.com`
    - Papel: **Pub/Sub Publisher** → Salvar.
-4. Conta de serviço para o push (separada da anterior): **IAM → Contas de serviço → Criar**: nome `pubsub-push` → e-mail `pubsub-push@PROJETO.iam.gserviceaccount.com`. Sem papéis.
-5. **Só se aparecer erro de permissão ao criar a assinatura push** (projetos antigos): dar permissão do Pub/Sub para "assinar" tokens dessa conta: **IAM e administrador → IAM → Conceder acesso**: principal `service-NUMERO_DO_PROJETO@gcp-sa-pubsub.iam.gserviceaccount.com` (o número do projeto aparece em **Configurações do projeto**), papel **Criador de token de conta de serviço** (Service Account Token Creator). Salvar.
+4. Conta de serviço para o push (separada da anterior): **IAM → Contas de serviço → Criar**: nome `google-play-submit` → e-mail `google-play-submit@norse-geode-503018-a2.iam.gserviceaccount.com`. Sem papéis.
+5. **Só se aparecer erro de permissão ao criar a assinatura push** (projetos antigos): dar permissão do Pub/Sub para "assinar" tokens dessa conta: **IAM e administrador → IAM → Conceder acesso**: principal `service-NUMERO_DO_norse-geode-503018-a2@gcp-sa-pubsub.iam.gserviceaccount.com` (o número do projeto aparece em **Configurações do projeto**), papel **Criador de token de conta de serviço** (Service Account Token Creator). Salvar.
 6. **Pub/Sub → Assinaturas → Criar assinatura**:
    - ID: `play-rtdn-push` · Tópico: `play-rtdn`
    - Tipo de entrega: **Push**
    - URL do endpoint: `https://eyipcpwmwtajrywouxub.supabase.co/functions/v1/google-play-rtdn`
-   - Marque **Ativar autenticação**: conta de serviço `pubsub-push@PROJETO.iam.gserviceaccount.com`; **Público (audience)**: o mesmo endereço do endpoint (cole igual).
+   - Marque **Ativar autenticação**: conta de serviço `google-play-submit@norse-geode-503018-a2.iam.gserviceaccount.com`; **Público (audience)**: o mesmo endereço do endpoint (cole igual).
    - Prazo de confirmação: 30 s. Política de repetição: **Recuo exponencial** (min 10 s, máx 600 s). Criar.
 7. **Play Console** → app → **Monetizar com o Google Play** → **Configuração de monetização** → **Notificações para desenvolvedores em tempo real**:
-   - Nome do tópico: `projects/PROJETO/topics/play-rtdn`
+   - Nome do tópico: `projects/norse-geode-503018-a2/topics/play-rtdn`
    - Tipo de notificação: **Somente notificações de assinatura**
    - Salvar → **Enviar notificação de teste** (só vai funcionar depois que eu publicar a função; antes disso o teste aparece como erro no Pub/Sub e é reenviado, sem problema).
 
@@ -86,7 +96,7 @@ Painel: https://supabase.com/dashboard/project/eyipcpwmwtajrywouxub/functions/se
 |---|---|
 | `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` | o conteúdo **inteiro** do arquivo `.json` baixado na Parte C (passo 4), colado como uma linha ou várias; copiar do arquivo e colar |
 | `GOOGLE_RTDN_AUDIENCE` | `https://eyipcpwmwtajrywouxub.supabase.co/functions/v1/google-play-rtdn` |
-| `GOOGLE_RTDN_SA_EMAIL` | `pubsub-push@PROJETO.iam.gserviceaccount.com` |
+| `GOOGLE_RTDN_SA_EMAIL` | `google-play-submit@norse-geode-503018-a2.iam.gserviceaccount.com` |
 | `GOOGLE_PLAY_PACKAGE_NAME` | `com.fiadofacil.app` |
 
 Depois de colar o JSON na Supabase, **apague o arquivo `.json` do computador** (ou guarde num cofre de senhas). Nunca commitar.
