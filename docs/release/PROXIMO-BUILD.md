@@ -492,3 +492,10 @@ Checklist §8.1: lista do lote ✅ · typecheck ✅ · testes (o projeto ainda n
 - Mensagem do app quando o verify recusa uma compra expirada: hoje diz "não pertence a esta conta"; diferenciar "assinatura expirada".
 - O listener de compra só vive na tela Planos: compra concluída com a tela fechada ativa ao reabrir o app (reconciliação) ou pelo RTDN.
 - Quem é Pro pela Apple e também assina o Google (raro) pode ser rebaixado quando o Google expirar; solução definitiva: a Apple passar a gravar em subscriptions (provider apple).
+
+## OTA Android 08/10 — assinatura pelo Google Play (branch android-google-billing, commit a0dc62c)
+- Update ID: 01a11b94-bffe-743b-a70e-4312da4c622e · Group ID: 8f24d517-892a-499d-8a53-47ed5e1a224a · runtime 61a2955d95431f5815a796a21f192ddebd4da50e
+- Rollback (só com ordem; volta ao último Android bom): npx eas update:republish --group d0c26901-a0f2-414c-b63e-30763e50cf64 --platform android --message "Rollback" --non-interactive --json
+- Servidor já no ar: migration google_play_billing, funções google-play-verify e google-play-rtdn (OIDC validado em 08/10 12:48 UTC), segredos GOOGLE_*.
+- Push desta branch para a main: só após o teste de compra no Samsung.
+- Se a compra real der 401 do Google: provável propagação de permissão (24–36 h); não mudar permissões nem código, guardar o log.
