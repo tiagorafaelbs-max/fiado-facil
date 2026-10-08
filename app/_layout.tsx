@@ -73,7 +73,17 @@ function AppleBackfillListener() {
       }
       appStateRef.current = nextState
     })
-    return () => sub.remove()
+
+    // Android: se a verificação rodou ANTES da sessão estar pronta (ela sai sem fazer nada), tenta de
+    // novo assim que a sessão carrega ou o usuário entra. Fora do callback do auth (chamar o supabase
+    // de dentro dele pode travar).
+    const auth = Platform.OS === 'android'
+      ? supabase.auth.onAuthStateChange((evento) => {
+          if (evento === 'SIGNED_IN' || evento === 'INITIAL_SESSION') setTimeout(reconciliar, 0)
+        }).data.subscription
+      : null
+
+    return () => { sub.remove(); auth?.unsubscribe() }
   }, [])
 
   return null

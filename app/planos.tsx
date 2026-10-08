@@ -204,8 +204,8 @@ export default function PlanosScreen() {
         Alert.alert('Não foi possível ativar', 'Esta compra não pertence a esta conta do FiadoApp ou não é válida. Se você acabou de assinar, fale com o suporte.')
       } else {
         Alert.alert(
-          'Compra registrada',
-          'Sua compra foi feita no Google Play, mas não conseguimos ativar agora (conexão). Abra os Planos de novo ou use "Restaurar compras".',
+          'Compra recebida',
+          'Seu pagamento foi feito no Google Play. Estamos ativando o Pro — isso pode levar alguns minutos. Se não ativar sozinho, toque em Restaurar compras.',
         )
       }
     } finally {

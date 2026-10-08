@@ -97,8 +97,16 @@ export function compraDoPlano(compras: Purchase[] | undefined | null): Purchase 
 
 // Silenciosa (sem alertas): compra paga que o app não chegou a ativar (app fechado no meio, rede
 // caiu). Só roda para quem ainda não é Pro: o Pro já ativo é mantido pelos avisos do Google (RTDN).
-export async function verificarComprasGooglePendentes(): Promise<boolean> {
-  if (!isAndroid) return false
+let reconciliando: Promise<boolean> | null = null
+
+export function verificarComprasGooglePendentes(): Promise<boolean> {
+  if (!isAndroid) return Promise.resolve(false)
+  // Abrir o app, voltar ao primeiro plano e entrar na conta podem chamar quase juntos: uma por vez.
+  if (!reconciliando) reconciliando = reconciliarGoogle().finally(() => { reconciliando = null })
+  return reconciliando
+}
+
+async function reconciliarGoogle(): Promise<boolean> {
   try {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return false
