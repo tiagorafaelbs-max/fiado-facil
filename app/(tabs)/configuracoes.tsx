@@ -3,7 +3,6 @@ import {
   View, Text, ScrollView, TouchableOpacity,
   StyleSheet, Alert, Platform, Switch, Modal, TextInput, Linking
 } from 'react-native'
-import * as StoreReview from 'expo-store-review'
 import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import * as Sharing from 'expo-sharing'
@@ -209,19 +208,19 @@ export default function ConfiguracoesScreen() {
     }
   }
 
+  // Abre direto a página de avaliação da loja. Não usa StoreReview.requestReview(): a loja pode
+  // simplesmente não mostrar nada e o botão pareceria morto.
   async function abrirAvaliacaoManual() {
-    const storeUrl = Platform.OS === 'ios'
+    const url = Platform.OS === 'ios'
       ? 'itms-apps://itunes.apple.com/app/id6783416254?action=write-review'
       : 'market://details?id=com.fiadofacil.app'
+    const fallback = Platform.OS === 'ios'
+      ? 'https://apps.apple.com/app/id6783416254?action=write-review'
+      : 'https://play.google.com/store/apps/details?id=com.fiadofacil.app'
     try {
-      const disponivel = await StoreReview.isAvailableAsync()
-      if (disponivel) {
-        await StoreReview.requestReview()
-      } else {
-        await Linking.openURL(storeUrl).catch(() => {})
-      }
+      await Linking.openURL(url)
     } catch {
-      await Linking.openURL(storeUrl).catch(() => {})
+      await Linking.openURL(fallback).catch(() => {})
     }
   }
 
@@ -680,7 +679,7 @@ export default function ConfiguracoesScreen() {
       {/* Suporte */}
       <View style={estilos.card}>
         <Text style={[estilos.cardTitulo, { marginBottom: 8 }]}>⭐ Suporte</Text>
-        <AcaoRow icone="star-outline" label="Avaliar o FiadoApp" onPress={abrirAvaliacaoManual} />
+        <AcaoRow icone="thumbs-up-outline" label="⭐ Avaliar o FiadoApp" onPress={abrirAvaliacaoManual} />
         <AcaoRow icone="chatbubble-ellipses-outline" label="Sugestões e reclamações"
           onPress={() => {
             const msg = encodeURIComponent('Olá! Quero enviar uma sugestão/reclamação sobre o FiadoApp:\n\n')

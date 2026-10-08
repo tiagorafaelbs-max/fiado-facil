@@ -10,6 +10,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useClientes } from '../hooks/useClientes'
 import { useVendas } from '../hooks/useVendas'
 import { useTenant } from '../hooks/useTenant'
+import { pedirAvaliacaoNoSucesso } from '../hooks/useAvaliacaoApp'
 import { useBeep } from '../hooks/useBeep'
 import { agendarNotificacoesVencimento } from '../hooks/useNotificacoes'
 import { Avatar } from '../components/ui/Avatar'
@@ -126,6 +127,7 @@ export default function NovoPagamentoScreen() {
       await tocar()
       agendarNotificacoesVencimento() // reagenda notificações refletindo o novo estado de dívidas
       setSucesso(true)
+      pedirAvaliacaoNoSucesso('pagamento')
       setValor('')
       setObservacao('')
       setTimeout(() => router.replace('/(tabs)'), 2000)

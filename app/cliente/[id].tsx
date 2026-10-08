@@ -18,6 +18,7 @@ import { BadgeStatus } from '../../components/ui/BadgeStatus'
 import { Campo } from '../../components/ui/Campo'
 import { Botao } from '../../components/ui/Botao'
 import { KeyboardToolbar, KEYBOARD_TOOLBAR_ID } from '../../components/ui/KeyboardToolbar'
+import { pedirAvaliacaoNoSucesso } from '../../hooks/useAvaliacaoApp'
 import { cobrarViaWhatsApp, montarExtratoWhatsApp, buscarVencimentosEmAberto, modeloUsaVencimento } from '../../lib/whatsapp'
 import { usePerfilCobranca } from '../../hooks/usePerfilCobranca'
 import { useNomesEquipe } from '../../hooks/useNomesEquipe'
@@ -331,6 +332,7 @@ export default function DetalheClienteScreen() {
       tocar()
       agendarNotificacoesVencimento() // reagenda notificações refletindo o novo estado de dívidas
       carregarCliente(); carregarPagamentos()
+      pedirAvaliacaoNoSucesso('pagamento')
     } catch (e: any) {
       setErroPagamento(e.message)
     } finally {
@@ -362,6 +364,7 @@ export default function DetalheClienteScreen() {
         ? await buscarVencimentosEmAberto(tenantId, [cliente.id])
         : {}
       await cobrarViaWhatsApp(cliente, cliente.saldo_devedor ?? 0, perfilCobranca, { vencimento: vencimentos[cliente.id] })
+      pedirAvaliacaoNoSucesso('cobranca_whatsapp')
     } catch (e: any) {
       await reverterUsoWpp()
       if (Platform.OS === 'web') window.alert(e.message)

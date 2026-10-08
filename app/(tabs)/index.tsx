@@ -13,7 +13,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useDashboard } from '../../hooks/useDashboard'
 import { useOffline, assinarEventosDaFila } from '../../hooks/useOffline'
 import { useNotificacoes } from '../../hooks/useNotificacoes'
-import { useAvaliacaoApp } from '../../hooks/useAvaliacaoApp'
 import { useModulos } from '../../hooks/useModulos'
 import { useTenant } from '../../hooks/useTenant'
 import { useChecklistDia0 } from '../../hooks/useChecklistDia0'
@@ -59,7 +58,6 @@ export default function DashboardScreen() {
   const [carregandoVendas, setCarregandoVendas] = useState(false)
   const [saldoOculto, setSaldoOculto] = useState(false)
   useNotificacoes()
-  useAvaliacaoApp()
 
   useEffect(() => {
     AsyncStorage.getItem('@fiado_saldo_oculto').then(v => { if (v === '1') setSaldoOculto(true) })

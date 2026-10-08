@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useTenant } from '../hooks/useTenant'
 import { usePerfilCobranca } from '../hooks/usePerfilCobranca'
+import { pedirAvaliacaoNoSucesso } from '../hooks/useAvaliacaoApp'
 import { montarUrlWhatsApp, buscarVencimentosEmAberto, modeloUsaVencimento } from '../lib/whatsapp'
 import { resolverTenantId } from '../lib/tenant'
 import { Avatar } from '../components/ui/Avatar'
@@ -175,7 +176,7 @@ export default function RankingScreen() {
       { vencimento: vencimentos[c.id] },
     )
     if (Platform.OS === 'web') window.open(url, '_blank')
-    else require('react-native').Linking.openURL(url)
+    else require('react-native').Linking.openURL(url).then(() => pedirAvaliacaoNoSucesso('cobranca_whatsapp')).catch(() => {})
   }
 
   const porConsumo = [...clientes].sort((a, b) => b.totalComprado - a.totalComprado).slice(0, 10)

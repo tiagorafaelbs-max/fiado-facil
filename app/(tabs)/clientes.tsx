@@ -13,6 +13,7 @@ import { useClientes } from '../../hooks/useClientes'
 import { assinarEventosDaFila } from '../../hooks/useOffline'
 import { useModulos } from '../../hooks/useModulos'
 import { useContadorWhatsApp } from '../../hooks/useContadorWhatsApp'
+import { pedirAvaliacaoNoSucesso } from '../../hooks/useAvaliacaoApp'
 import { usePerfilCobranca } from '../../hooks/usePerfilCobranca'
 import { montarUrlWhatsApp, buscarVencimentosEmAberto, modeloUsaVencimento, type PerfilCobranca } from '../../lib/whatsapp'
 import { useAuth } from '../../hooks/useAuth'
@@ -130,6 +131,7 @@ export default function ClientesScreen() {
     }
     try {
       await abrirWhatsApp(c, perfilCobranca, tenantId)
+      pedirAvaliacaoNoSucesso('cobranca_whatsapp')
     } catch {
       await reverterUsoWpp()
     }
