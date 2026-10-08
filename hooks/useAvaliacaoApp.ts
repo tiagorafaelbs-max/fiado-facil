@@ -18,7 +18,33 @@ let emAndamento = false
 // qualquer falha é silenciosa e nunca atrapalha o fluxo que a chamou.
 export function pedirAvaliacaoNoSucesso(evento: EventoSucesso): void {
   if (Platform.OS === 'web') return
+  if (evento === 'cobranca_whatsapp') {
+    // O app acabou de abrir o WhatsApp: o momento certo é quando o lojista VOLTA (cobrou e voltou).
+    esperarRetornoAoApp(() => pedir(evento).catch(() => {}))
+    return
+  }
   pedir(evento).catch(() => {})
+}
+
+const PRAZO_RETORNO_MS = 15 * 60 * 1000
+let assinaturaRetorno: ReturnType<typeof AppState.addEventListener> | null = null
+let prazoRetorno: ReturnType<typeof setTimeout> | null = null
+
+function esperarRetornoAoApp(aoVoltar: () => void) {
+  limparEsperaRetorno()   // só uma espera por vez: cobranças seguidas não empilham pedidos
+  prazoRetorno = setTimeout(limparEsperaRetorno, PRAZO_RETORNO_MS)
+  let saiu = AppState.currentState !== 'active'
+  assinaturaRetorno = AppState.addEventListener('change', (estado) => {
+    if (estado !== 'active') { saiu = true; return }
+    if (!saiu) return
+    limparEsperaRetorno()
+    aoVoltar()
+  })
+}
+
+function limparEsperaRetorno() {
+  assinaturaRetorno?.remove(); assinaturaRetorno = null
+  if (prazoRetorno) { clearTimeout(prazoRetorno); prazoRetorno = null }
 }
 
 async function pedir(evento: EventoSucesso) {
@@ -39,6 +65,12 @@ async function pedir(evento: EventoSucesso) {
       const antigo = await AsyncStorage.getItem(CHAVE_ANTIGA)
       tentativas = antigo === 'true' ? 1 : 0
       ultima = antigo === 'true' ? Date.now() : NaN
+      if (antigo === 'true') {
+        // Converte UMA vez: sem gravar, cada chamada recomeçaria a contagem de 60 dias para sempre.
+        await AsyncStorage.setItem(CHAVE_TENTATIVAS, String(tentativas))
+        await AsyncStorage.setItem(CHAVE_ULTIMA, String(ultima))
+        await AsyncStorage.removeItem(CHAVE_ANTIGA)
+      }
     }
 
     // Cobrança por WhatsApp só abre a PRIMEIRA vez que o pedido é feito; depois disso quem pede é o pagamento recebido.

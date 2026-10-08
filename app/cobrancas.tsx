@@ -12,6 +12,7 @@ import { useModulos } from '../hooks/useModulos'
 import { useTenant } from '../hooks/useTenant'
 import { useContadorWhatsApp } from '../hooks/useContadorWhatsApp'
 import { usePerfilCobranca } from '../hooks/usePerfilCobranca'
+import { pedirAvaliacaoNoSucesso } from '../hooks/useAvaliacaoApp'
 import { Avatar } from '../components/ui/Avatar'
 import { AvisoVencimentoAntigas } from '../components/ui/AvisoVencimentoAntigas'
 import { formatarMoeda } from '../lib/validacao'
@@ -179,6 +180,7 @@ export default function CobrancasScreen() {
     } else {
       try {
         await Linking.openURL(url)
+        pedirAvaliacaoNoSucesso('cobranca_whatsapp')
       } catch {
         await reverterUso()
         Alert.alert('Erro', 'Não foi possível abrir o WhatsApp. Verifique se está instalado.')
@@ -314,6 +316,7 @@ export default function CobrancasScreen() {
     } else {
       try {
         await Linking.openURL(url)
+        pedirAvaliacaoNoSucesso('cobranca_whatsapp')
       } catch {
         await reverterUso()
         Alert.alert('Erro', 'Não foi possível abrir o WhatsApp. Verifique se está instalado.')

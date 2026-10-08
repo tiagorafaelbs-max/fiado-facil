@@ -20,4 +20,8 @@ t('2ª tentativa antes de 60 dias não', !pode({ ...base, tentativas: 1, ultimaT
 t('2ª tentativa com 60 dias sim', pode({ ...base, tentativas: 1, ultimaTentativa: AGORA - 60 * DIA }))
 t('3ª tentativa depois de 60 dias sim', pode({ ...base, tentativas: 2, ultimaTentativa: AGORA - 90 * DIA }))
 t('4ª tentativa nunca', !pode({ ...base, tentativas: 3, ultimaTentativa: AGORA - 400 * DIA }))
+// chave antiga convertida (1 tentativa, "ultima" = dia da conversão gravado uma vez)
+const conversao = AGORA - 61 * DIA
+t('chave antiga + 61 dias depois: pode pedir', pode({ ...base, tentativas: 1, ultimaTentativa: conversao }))
+t('chave antiga + 30 dias depois: ainda não', !pode({ ...base, tentativas: 1, ultimaTentativa: AGORA - 30 * DIA }))
 console.log(`${total - falhas}/${total} ok`); process.exit(falhas ? 1 : 0)
