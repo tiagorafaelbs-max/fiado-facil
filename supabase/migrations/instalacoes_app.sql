@@ -4,7 +4,8 @@
 -- Funil anônimo da instalação (abriu → cadastro → conta → entrou). Sem dado pessoal, sem vínculo com a conta.
 -- 'anon' e 'authenticated' só podem INSERIR (GRANT por coluna); nenhum SELECT/UPDATE/DELETE.
 -- A data é gravada SÓ com o dia (gatilho): o horário permitiria ligar a instalação ao created_at da conta.
--- Freio: 60 inserções por minuto e 5.000 por dia, por contadores sem ligação com instalações.
+-- Freio: 60 inserções por minuto e 5.000 por dia (dia = dia de São Paulo), por contadores sem ligação com instalações.
+-- A função do freio usa search_path vazio (tudo qualificado) e EXECUTE revogado.
 
 create table public.instalacoes_app (
   instalacao_id   uuid  not null,
@@ -43,7 +44,7 @@ create or replace function public.instalacoes_app_freio()
 returns trigger
 language plpgsql
 security definer
-set search_path to 'public'
+set search_path to ''
 as $function$
 declare
   n_min integer;
@@ -58,7 +59,7 @@ begin
     returning c.n into n_min;
 
   insert into public.instalacoes_contadores as c (tipo, janela, n)
-    values ('dia', date_trunc('day', now()), 1)
+    values ('dia', (date_trunc('day', now() at time zone 'America/Sao_Paulo')) at time zone 'America/Sao_Paulo', 1)
     on conflict (tipo, janela) do update set n = c.n + 1
     returning c.n into n_dia;
 
