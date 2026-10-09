@@ -1,5 +1,5 @@
 ﻿import { useState } from 'react'
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native'
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Platform } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
@@ -16,7 +16,6 @@ export default function CadastroScreen() {
   const [nomeNegocio, setNomeNegocio] = useState('')
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
-  const [confirmarSenha, setConfirmarSenha] = useState('')
   const [erros, setErros] = useState<Record<string, string>>({})
   const [carregando, setCarregando] = useState(false)
   const [sucesso, setSucesso] = useState(false)
@@ -27,7 +26,6 @@ export default function CadastroScreen() {
     if (sanitizarTexto(nomeNegocio).length < 2) novosErros.nomeNegocio = 'Informe o nome do seu negócio.'
     if (!validarEmail(email)) novosErros.email = 'E-mail inválido.'
     if (senha.length < 6) novosErros.senha = 'Senha deve ter pelo menos 6 caracteres.'
-    if (senha !== confirmarSenha) novosErros.confirmarSenha = 'Senhas não conferem.'
     setErros(novosErros)
     return Object.keys(novosErros).length === 0
   }
@@ -68,7 +66,9 @@ export default function CadastroScreen() {
 
   return (
     <ScrollView contentContainerStyle={estilos.scroll} keyboardShouldPersistTaps="handled">
-      <View style={[estilos.container, { paddingBottom: 24 + insets.bottom }]}>
+      {/* No Android o piso de 48 garante que "Já tem conta? Entrar" nunca fique atrás da barra de navegação (3 botões = 48dp),
+          mesmo se o aparelho reportar inset 0. */}
+      <View style={[estilos.container, { paddingBottom: 32 + Math.max(insets.bottom, Platform.OS === 'android' ? 48 : 0) }]}>
 
         <View style={estilos.header}>
           <TouchableOpacity onPress={() => router.back()} style={estilos.voltarBtn}>
@@ -85,7 +85,6 @@ export default function CadastroScreen() {
           <Campo label="Nome do seu negócio" value={nomeNegocio} onChangeText={setNomeNegocio} erro={erros.nomeNegocio} placeholder="Ex: Mercadinho do João" autoCapitalize="words" />
           <Campo label="E-mail" value={email} onChangeText={setEmail} erro={erros.email} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} placeholder="seu@email.com" />
           <Campo label="Senha" value={senha} onChangeText={setSenha} erro={erros.senha} secureTextEntry placeholder="Mínimo 6 caracteres" />
-          <Campo label="Confirmar senha" value={confirmarSenha} onChangeText={setConfirmarSenha} erro={erros.confirmarSenha} secureTextEntry placeholder="Repita a senha" />
 
           {erroGeral ? (
             <View style={estilos.erroBox}>

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Platform, Image } from 'react-native'
 import { useRouter } from 'expo-router'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useAuth } from '../hooks/useAuth'
+import { aparelhoJaTeveConta } from '../lib/primeiroAcesso'
 
 const VERDE = '#14352A'
 const AMBAR = '#E8A63A'
@@ -18,8 +19,10 @@ export default function SplashScreen() {
         router.replace(ok ? '/(tabs)' : '/tour')
       })
     } else {
-      AsyncStorage.getItem('@fiado_onboarding_ok').then(ok => {
-        router.replace(ok ? '/(auth)/login' : '/onboarding')
+      // Sem sessão: login só para quem já teve conta NESTE aparelho; aparelho novo sempre vê as boas-vindas
+      // (antes, quem fechava o app depois de "Pular"/"Já tenho conta" voltava direto para o login).
+      aparelhoJaTeveConta().then(jaTeve => {
+        router.replace(jaTeve ? '/(auth)/login' : '/onboarding')
       })
     }
   }, [session, carregando])
