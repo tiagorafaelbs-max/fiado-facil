@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet,
+  View, Text, TouchableOpacity, StyleSheet,
   TextInput, KeyboardAvoidingView, Platform
 } from 'react-native'
 import { useRouter } from 'expo-router'
@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { useAuth } from '../../hooks/useAuth'
 import { Botao } from '../../components/ui/Botao'
 import { Logo } from '../../components/ui/Logo'
+import { TelaComTeclado } from '../../components/ui/TelaComTeclado'
 import { validarEmail } from '../../lib/validacao'
 import { C } from '../../constants/colors'
 
@@ -21,6 +22,8 @@ export default function LoginScreen() {
   const [carregando, setCarregando] = useState(false)
   const [erroGeral, setErroGeral] = useState('')
   const [focado, setFocado] = useState<string | null>(null)
+  const refSenha = useRef<TextInput>(null)
+  const rolar = useRef<() => void>(() => {})   // preenchida pela TelaComTeclado: rola até o campo focado
 
   function validar(): boolean {
     const novosErros: typeof erros = {}
@@ -57,10 +60,10 @@ export default function LoginScreen() {
         </View>
 
         {/* Área do formulário com curva no topo */}
-        <ScrollView
+        <TelaComTeclado
+          rolarRef={rolar}
           style={estilos.scroll}
           contentContainerStyle={estilos.scrollContent}
-          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           <View style={estilos.formCard}>
@@ -85,9 +88,10 @@ export default function LoginScreen() {
                   autoCorrect={false}
                   placeholder="seu@email.com"
                   placeholderTextColor={C.text3}
-                  onFocus={() => setFocado('email')}
+                  onFocus={() => { setFocado('email'); rolar.current() }}
                   onBlur={() => setFocado(null)}
-                  onSubmitEditing={handleEntrar}
+                  onSubmitEditing={() => refSenha.current?.focus()}
+                  blurOnSubmit={false}
                   returnKeyType="next"
                 />
               </View>
@@ -104,6 +108,7 @@ export default function LoginScreen() {
               ]}>
                 <Ionicons name="lock-closed-outline" size={18} color={focado === 'senha' ? C.green : C.text3} style={{ marginRight: 8 }} />
                 <TextInput
+                  ref={refSenha}
                   style={estilos.input}
                   value={senha}
                   onChangeText={setSenha}
@@ -111,10 +116,10 @@ export default function LoginScreen() {
                   placeholder="••••••••"
                   placeholderTextColor={C.text3}
                   autoCapitalize="none"
-                  onFocus={() => setFocado('senha')}
+                  onFocus={() => { setFocado('senha'); rolar.current() }}
                   onBlur={() => setFocado(null)}
                   onSubmitEditing={handleEntrar}
-                  returnKeyType="done"
+                  returnKeyType="go"
                 />
                 <TouchableOpacity onPress={() => setVerSenha(v => !v)} style={estilos.olhinho}>
                   <Ionicons name={verSenha ? 'eye-off-outline' : 'eye-outline'} size={20} color={C.text2} />
@@ -165,7 +170,7 @@ export default function LoginScreen() {
               </View>
             ))}
           </View>
-        </ScrollView>
+        </TelaComTeclado>
       </View>
     </KeyboardAvoidingView>
   )

@@ -1,17 +1,20 @@
-﻿import { useState } from 'react'
+﻿import { useState, type Ref } from 'react'
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, TextInputProps, Platform } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { C } from '../../constants/colors'
 import { KEYBOARD_TOOLBAR_ID } from './KeyboardToolbar'
+import { useRolarParaFocado } from './TelaComTeclado'
 
 const NUMERIC_KEYBOARDS = ['decimal-pad', 'numeric', 'number-pad', 'phone-pad']
 
 interface Props extends TextInputProps {
   label: string
   erro?: string
+  inputRef?: Ref<TextInput>   // para o "próximo" do teclado (focar o campo seguinte)
 }
 
-export function Campo({ label, erro, secureTextEntry, ...props }: Props) {
+export function Campo({ label, erro, secureTextEntry, inputRef, onFocus, onBlur, ...props }: Props) {
+  const rolarParaFocado = useRolarParaFocado()
   const [focado, setFocado] = useState(false)
   const [verSenha, setVerSenha] = useState(false)
   const ehSenha = secureTextEntry === true
@@ -26,11 +29,12 @@ export function Campo({ label, erro, secureTextEntry, ...props }: Props) {
         erro ? estilos.inputErro : null,
       ]}>
         <TextInput
+          ref={inputRef}
           style={[estilos.input, props.multiline && estilos.inputMultiline]}
           placeholderTextColor={C.text3}
           secureTextEntry={ehSenha && !verSenha}
-          onFocus={(e) => { setFocado(true); props.onFocus?.(e) }}
-          onBlur={(e) => { setFocado(false); props.onBlur?.(e) }}
+          onFocus={(e) => { setFocado(true); onFocus?.(e); rolarParaFocado() }}
+          onBlur={(e) => { setFocado(false); onBlur?.(e) }}
           returnKeyType={ehNumerico ? 'done' : props.returnKeyType}
           returnKeyLabel={ehNumerico && Platform.OS === 'android' ? '✓' : undefined}
           blurOnSubmit={ehNumerico ? true : props.blurOnSubmit}

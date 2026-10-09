@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native'
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useAuth } from '../../hooks/useAuth'
 import { Campo } from '../../components/ui/Campo'
 import { Botao } from '../../components/ui/Botao'
+import { TelaComTeclado } from '../../components/ui/TelaComTeclado'
 import { validarEmail } from '../../lib/validacao'
 
 export default function RecuperarSenhaScreen() {
@@ -33,7 +34,7 @@ export default function RecuperarSenhaScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={estilos.scroll} keyboardShouldPersistTaps="handled">
+    <TelaComTeclado contentContainerStyle={estilos.scroll}>
       <View style={estilos.container}>
         <TouchableOpacity onPress={() => router.back()} style={estilos.voltar}>
           <Text style={estilos.voltarTexto}>← Voltar</Text>
@@ -50,10 +51,12 @@ export default function RecuperarSenhaScreen() {
           keyboardType="email-address"
           autoCapitalize="none"
           placeholder="seu@email.com"
+          returnKeyType="go"
+          onSubmitEditing={handleRecuperar}
         />
         <Botao titulo="Enviar link" onPress={handleRecuperar} carregando={carregando} />
       </View>
-    </ScrollView>
+    </TelaComTeclado>
   )
 }
 

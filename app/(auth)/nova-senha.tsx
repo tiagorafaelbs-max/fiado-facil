@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react'
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native'
+import { useEffect, useRef, useState } from 'react'
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, type TextInput } from 'react-native'
 import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '../../lib/supabase'
 import { useEstadoLink, definirEstadoLink, MENSAGEM_LINK_INVALIDO } from '../../lib/linkAuth'
 import { Campo } from '../../components/ui/Campo'
 import { Botao } from '../../components/ui/Botao'
+import { TelaComTeclado } from '../../components/ui/TelaComTeclado'
 
 export default function NovaSenhaScreen() {
   const router = useRouter()
@@ -17,6 +18,7 @@ export default function NovaSenhaScreen() {
   const [carregando, setCarregando] = useState(false)
   const [sucesso, setSucesso] = useState(false)
   const [esperaEsgotada, setEsperaEsgotada] = useState(false)
+  const refConfirmar = useRef<TextInput>(null)
 
   // O DeepLinkHandler (app/_layout.tsx) valida o link e grava o resultado em
   // lib/linkAuth. Quando esta tela abre antes dele terminar, espera um instante;
@@ -123,7 +125,7 @@ export default function NovaSenhaScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={estilos.scroll} keyboardShouldPersistTaps="handled">
+    <TelaComTeclado contentContainerStyle={estilos.scroll}>
       <View style={estilos.container}>
         <View style={estilos.header}>
           <View style={estilos.logoBox}>
@@ -145,6 +147,9 @@ export default function NovaSenhaScreen() {
             onChangeText={setSenha}
             secureTextEntry
             placeholder="Mínimo 6 caracteres"
+            returnKeyType="next"
+            blurOnSubmit={false}
+            onSubmitEditing={() => refConfirmar.current?.focus()}
           />
           <Campo
             label={veioDeConvite ? 'Confirmar senha' : 'Confirmar nova senha'}
@@ -152,6 +157,9 @@ export default function NovaSenhaScreen() {
             onChangeText={setConfirmar}
             secureTextEntry
             placeholder="Repita a senha"
+            inputRef={refConfirmar}
+            returnKeyType="go"
+            onSubmitEditing={handleSalvar}
           />
 
           {erro ? (
@@ -164,7 +172,7 @@ export default function NovaSenhaScreen() {
           <Botao titulo={veioDeConvite ? 'Criar senha e entrar' : 'Salvar nova senha'} onPress={handleSalvar} carregando={carregando} />
         </View>
       </View>
-    </ScrollView>
+    </TelaComTeclado>
   )
 }
 

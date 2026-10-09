@@ -1,11 +1,12 @@
-﻿import { useState } from 'react'
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Platform } from 'react-native'
+﻿import { useRef, useState } from 'react'
+import { View, Text, TouchableOpacity, StyleSheet, Platform, type TextInput } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useAuth } from '../../hooks/useAuth'
 import { Campo } from '../../components/ui/Campo'
 import { Botao } from '../../components/ui/Botao'
+import { TelaComTeclado } from '../../components/ui/TelaComTeclado'
 import { validarEmail, sanitizarTexto } from '../../lib/validacao'
 import { C } from '../../constants/colors'
 
@@ -20,6 +21,8 @@ export default function CadastroScreen() {
   const [carregando, setCarregando] = useState(false)
   const [sucesso, setSucesso] = useState(false)
   const [erroGeral, setErroGeral] = useState('')
+  const refEmail = useRef<TextInput>(null)
+  const refSenha = useRef<TextInput>(null)
 
   function validar(): boolean {
     const novosErros: Record<string, string> = {}
@@ -65,7 +68,7 @@ export default function CadastroScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={estilos.scroll} keyboardShouldPersistTaps="handled">
+    <TelaComTeclado contentContainerStyle={estilos.scroll}>
       {/* No Android o piso de 48 garante que "Já tem conta? Entrar" nunca fique atrás da barra de navegação (3 botões = 48dp),
           mesmo se o aparelho reportar inset 0. */}
       <View style={[estilos.container, { paddingBottom: 32 + Math.max(insets.bottom, Platform.OS === 'android' ? 48 : 0) }]}>
@@ -82,9 +85,12 @@ export default function CadastroScreen() {
         </View>
 
         <View style={estilos.card}>
-          <Campo label="Nome do seu negócio" value={nomeNegocio} onChangeText={setNomeNegocio} erro={erros.nomeNegocio} placeholder="Ex: Mercadinho do João" autoCapitalize="words" />
-          <Campo label="E-mail" value={email} onChangeText={setEmail} erro={erros.email} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} placeholder="seu@email.com" />
-          <Campo label="Senha" value={senha} onChangeText={setSenha} erro={erros.senha} secureTextEntry placeholder="Mínimo 6 caracteres" />
+          <Campo label="Nome do seu negócio" value={nomeNegocio} onChangeText={setNomeNegocio} erro={erros.nomeNegocio} placeholder="Ex: Mercadinho do João" autoCapitalize="words"
+            returnKeyType="next" blurOnSubmit={false} onSubmitEditing={() => refEmail.current?.focus()} />
+          <Campo label="E-mail" value={email} onChangeText={setEmail} erro={erros.email} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} placeholder="seu@email.com"
+            inputRef={refEmail} returnKeyType="next" blurOnSubmit={false} onSubmitEditing={() => refSenha.current?.focus()} />
+          <Campo label="Senha" value={senha} onChangeText={setSenha} erro={erros.senha} secureTextEntry placeholder="Mínimo 6 caracteres"
+            inputRef={refSenha} returnKeyType="go" onSubmitEditing={handleCadastrar} />
 
           {erroGeral ? (
             <View style={estilos.erroBox}>
@@ -104,7 +110,7 @@ export default function CadastroScreen() {
         </View>
 
       </View>
-    </ScrollView>
+    </TelaComTeclado>
   )
 }
 
