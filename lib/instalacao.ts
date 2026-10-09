@@ -28,7 +28,10 @@ async function instalacaoNova(): Promise<boolean> {
       const guardado = await AsyncStorage.getItem(CHAVE_NOVA)
       if (guardado === '1') return true
       if (guardado === '0') return false
-      const nova = !(await aparelhoJaTeveConta())
+      // Quem já tem sessão ativa é usuário antigo, mesmo sem as marcas locais (ex.: ainda não fez o tour):
+      // um aparelho realmente novo decide no "abriu", antes de qualquer sessão.
+      const { data: { session } } = await supabase.auth.getSession()
+      const nova = !session && !(await aparelhoJaTeveConta())
       await AsyncStorage.setItem(CHAVE_NOVA, nova ? '1' : '0')
       return nova
     })().catch(() => false)

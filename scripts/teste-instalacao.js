@@ -7,9 +7,10 @@ const js = ts.transpileModule(fs.readFileSync(path.join(raiz, 'lib/instalacao.ts
 let falhas = 0, total = 0
 const t = (n, ok) => { total++; if (!ok) { falhas++; console.log('FALHOU:', n) } }
 
-function ambiente({ armazem = {}, jaTeveConta = false, info = { plataforma: 'android', versao_app: '1.0.12', build: '54', runtime_version: '61a2955d' }, resposta = () => ({ error: null }) } = {}) {
+function ambiente({ armazem = {}, jaTeveConta = false, sessao = null, info = { plataforma: 'android', versao_app: '1.0.12', build: '54', runtime_version: '61a2955d' }, resposta = () => ({ error: null }) } = {}) {
   const chamadas = []
   const supabase = {
+    auth: { getSession: async () => ({ data: { session: sessao } }) },
     from: (tabela) => ({
       insert: (linha) => {
         const c = { tabela, linha, usouSelect: false }
@@ -51,6 +52,11 @@ function ambiente({ armazem = {}, jaTeveConta = false, info = { plataforma: 'and
   a = ambiente({ jaTeveConta: true })
   await a.registrarEtapa('abriu'); await a.registrarEtapa('entrou')
   t('aparelho que já tinha conta não entra no funil', a.chamadas.length === 0 && a.armazem['@fiado_instalacao_nova'] === '0')
+
+  // R1 do Fiscal: aparelho com sessão ativa na 1ª decisão é usuário antigo, nunca "novo"
+  a = ambiente({ sessao: { user: { id: 'u' } } })
+  await a.registrarEtapa('abriu')
+  t('usuário antigo com sessão ativa (sem marcas locais) fica fora do funil', a.chamadas.length === 0 && a.armazem['@fiado_instalacao_nova'] === '0')
 
   // 23505 (já gravada) conta como enviada; outro erro NÃO marca (tenta de novo depois)
   a = ambiente({ resposta: () => ({ error: { code: '23505' } }) })
