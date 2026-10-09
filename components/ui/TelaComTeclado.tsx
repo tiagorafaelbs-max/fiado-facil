@@ -19,7 +19,8 @@ const MARGEM_ACIMA_DO_CAMPO = 120
 //   por baixo do cadastro) continua montada e recebia os eventos do teclado da tela de cima, ficando rolada
 //   errado quando o usuário voltava;
 // - toques nos botões com o teclado aberto funcionam (keyboardShouldPersistTaps="handled").
-// No iOS só há a rolagem até o campo focado e a normalização (o espaço extra e o listener são só do Android).
+// No iOS só há a rolagem até o campo focado, a normalização e o automaticallyAdjustKeyboardInsets (o espaço extra
+// e o listener do teclado são só do Android).
 export const TelaComTeclado = forwardRef<ScrollView, ScrollViewProps & { children?: ReactNode; rolarRef?: MutableRefObject<() => void> }>(function TelaComTeclado(
   { children, contentContainerStyle, onLayout, onScroll, onContentSizeChange, rolarRef, ...resto }, refExterna,
 ) {
@@ -118,6 +119,9 @@ export const TelaComTeclado = forwardRef<ScrollView, ScrollViewProps & { childre
           if (!Keyboard.isVisible()) normalizarRolagem()     // o espaço extra saiu: reajusta a posição
         }}
         keyboardShouldPersistTaps="handled"
+        // iOS: o ScrollView ajusta sozinho o inset inferior quando o teclado abre (iPhone pequeno: Senha e botão
+        // não ficam atrás do teclado). Só vale no iOS; no Android quem cuida é o espaço extra acima.
+        automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
         contentContainerStyle={[contentContainerStyle, extra > 0 && { paddingBottom: extra + 24 }]}
       >
         {children}
