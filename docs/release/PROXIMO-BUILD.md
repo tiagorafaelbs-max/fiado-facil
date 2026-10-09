@@ -499,3 +499,8 @@ Checklist §8.1: lista do lote ✅ · typecheck ✅ · testes (o projeto ainda n
 - Servidor já no ar: migration google_play_billing, funções google-play-verify e google-play-rtdn (OIDC validado em 08/10 12:48 UTC), segredos GOOGLE_*.
 - Push desta branch para a main: só após o teste de compra no Samsung.
 - Se a compra real der 401 do Google: provável propagação de permissão (24–36 h); não mudar permissões nem código, guardar o log.
+
+## OTA Android 09/10 (2) — teclado nos formulários de autenticação (branch android-combinada, commit 3465474)
+- Update ID: 01a121da-c12c-7886-bb24-9153382fbd09 · Group ID: 43b366b1-a0c9-4126-8243-5866f2128694 · runtime 61a2955d95431f5815a796a21f192ddebd4da50e
+- Rollback (só com ordem): npx eas update:republish --group a4a48e57-75d0-483d-8436-115ca16dd24f --platform android --message "Rollback" --non-interactive --json
+- iOS NÃO recebeu esta mudança. Possível risco no iPhone pequeno (cadastro/recuperar/nova-senha sem KeyboardAvoidingView): correção futura por OTA = automaticallyAdjustKeyboardInsets no ScrollView do iOS dentro de TelaComTeclado; testar no iPhone antes.
