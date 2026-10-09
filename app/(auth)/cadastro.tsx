@@ -1,4 +1,4 @@
-﻿import { useRef, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet, Platform, type TextInput } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
@@ -7,6 +7,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { Campo } from '../../components/ui/Campo'
 import { Botao } from '../../components/ui/Botao'
 import { TelaComTeclado } from '../../components/ui/TelaComTeclado'
+import { registrarEtapa } from '../../lib/instalacao'
 import { validarEmail, sanitizarTexto } from '../../lib/validacao'
 import { C } from '../../constants/colors'
 
@@ -21,6 +22,7 @@ export default function CadastroScreen() {
   const [carregando, setCarregando] = useState(false)
   const [sucesso, setSucesso] = useState(false)
   const [erroGeral, setErroGeral] = useState('')
+  useEffect(() => { registrarEtapa('cadastro') }, [])   // funil anônimo: chegou à tela de criar conta
   const refEmail = useRef<TextInput>(null)
   const refSenha = useRef<TextInput>(null)
 

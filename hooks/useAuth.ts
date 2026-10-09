@@ -3,6 +3,7 @@ import { Platform } from 'react-native'
 import * as Notifications from 'expo-notifications'
 import { supabase } from '../lib/supabase'
 import { marcarAparelhoComConta } from '../lib/primeiroAcesso'
+import { registrarEtapa } from '../lib/instalacao'
 import type { Session, User } from '@supabase/supabase-js'
 
 export function useAuth() {
@@ -19,7 +20,7 @@ export function useAuth() {
       setSession(session)
       setUsuario(session?.user ?? null)
       setCarregando(false)
-      if (session) marcarAparelhoComConta()
+      if (session) { marcarAparelhoComConta(); registrarEtapa('entrou') }
     }).catch(() => {
       clearTimeout(timeout)
       setCarregando(false)
@@ -28,7 +29,10 @@ export function useAuth() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
       setUsuario(session?.user ?? null)
-      if (session) marcarAparelhoComConta()
+      if (session) {
+        marcarAparelhoComConta()
+        setTimeout(() => registrarEtapa('entrou'), 0)   // fora do callback do auth (chamar o supabase de dentro dele pode travar)
+      }
     })
 
     return () => subscription.unsubscribe()
@@ -48,6 +52,7 @@ export function useAuth() {
     if (error) throw error
     // Criou conta neste aparelho (mesmo sem confirmar o e-mail ainda): ao voltar, mostrar o login, não as boas-vindas.
     marcarAparelhoComConta()
+    registrarEtapa('conta')
     return data
   }
 

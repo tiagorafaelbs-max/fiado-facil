@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 import { verificarComprasApplePendentes } from '../lib/appleIAP'
 import { verificarComprasGooglePendentes } from '../lib/googleIAP'
 import { registrarDispositivo } from '../lib/dispositivo'
+import { iniciarFunilInstalacao } from '../lib/instalacao'
 import { ehLinkDeAuth, processarLinkAuth } from '../lib/linkAuth'
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { erro: string | null; stack: string | null }> {
@@ -89,6 +90,17 @@ function AppleBackfillListener() {
   return null
 }
 
+// Funil anônimo da instalação (docs/release/DESENHO-instalacoes-app.md): registra "abriu" ANTES de qualquer login,
+// só em aparelho novo. Sem dado pessoal; falha em silêncio e tenta de novo na próxima abertura.
+function FunilInstalacao() {
+  useEffect(() => {
+    iniciarFunilInstalacao()
+    const sub = AppState.addEventListener('change', (estado) => { if (estado === 'active') iniciarFunilInstalacao() })
+    return () => sub.remove()
+  }, [])
+  return null
+}
+
 // Registra plataforma e versão do app do usuário logado (dono ou funcionário) para suporte e métricas:
 // ao abrir, ao entrar e ao voltar para o app. A função limita as gravações (no máximo 1 a cada 3 h
 // se nada mudou) e nunca mostra erro.
@@ -139,6 +151,7 @@ export default function RootLayout() {
         <AuthListener />
         <AppleBackfillListener />
         <RegistroDispositivo />
+        <FunilInstalacao />
         <DeepLinkHandler />
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />
