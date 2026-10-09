@@ -14,7 +14,7 @@ const MARGEM_ACIMA_DO_CAMPO = 120
 // - rola até o campo focado quando o teclado abre e quando se troca de campo (Campo e inputs do login chamam
 //   useRolarParaFocado no onFocus);
 // - toques nos botões com o teclado aberto funcionam (keyboardShouldPersistTaps="handled").
-// No iOS não muda nada (lá o KeyboardAvoidingView/ScrollView já se viram).
+// No iOS só há a rolagem até o campo focado (o espaço extra e o listener do teclado são só do Android).
 export const TelaComTeclado = forwardRef<ScrollView, ScrollViewProps & { children?: ReactNode; rolarRef?: MutableRefObject<() => void> }>(function TelaComTeclado(
   { children, contentContainerStyle, onLayout, rolarRef, ...resto }, refExterna,
 ) {
@@ -55,7 +55,9 @@ export const TelaComTeclado = forwardRef<ScrollView, ScrollViewProps & { childre
   function aoMedir(e: LayoutChangeEvent) {
     const h = e.nativeEvent.layout.height
     setAlturaAtual(h)
-    if (tecladoAltura === 0) alturaSemTeclado.current = h
+    // Só mede a área "sem teclado" com o teclado realmente fechado (Keyboard.isVisible, não o estado React):
+    // evita guardar uma altura já encolhida se o onLayout chegar antes do keyboardDidShow.
+    if (!Keyboard.isVisible()) alturaSemTeclado.current = h
     onLayout?.(e)
   }
 
