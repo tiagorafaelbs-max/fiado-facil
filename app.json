@@ -2,7 +2,7 @@
   "expo": {
     "name": "FiadoApp",
     "slug": "fiado-facil",
-    "version": "1.0.12",
+    "version": "1.0.13",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -30,6 +30,7 @@
     "android": {
       "package": "com.fiadofacil.app",
       "versionCode": 54,
+      "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
@@ -100,7 +101,9 @@
       "policy": "fingerprint"
     },
     "updates": {
-      "url": "https://u.expo.dev/d8d7d3b3-83de-4260-84a8-8da259550bfe"
+      "url": "https://u.expo.dev/d8d7d3b3-83de-4260-84a8-8da259550bfe",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 3000
     }
   }
 }
