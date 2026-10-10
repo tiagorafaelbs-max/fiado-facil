@@ -19,6 +19,7 @@ import { Avatar } from '../../components/ui/Avatar'
 import { formatarMoeda } from '../../lib/validacao'
 import { KeyboardToolbar, KEYBOARD_TOOLBAR_ID } from '../../components/ui/KeyboardToolbar'
 import { C } from '../../constants/colors'
+import { evento } from '../../lib/instalacao'
 import { format, startOfMonth, endOfMonth, subMonths, startOfYear, endOfYear, subYears, parse, isValid, getMonth, getYear } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import * as Print from 'expo-print'
@@ -452,6 +453,7 @@ export default function RelatoriosScreen() {
     if (!c.telefone) return
     const permitido = await registrarUsoWpp()
     if (!permitido) {
+      evento('limite', 'cobrancas')   // funil de compra (anônimo)
       Alert.alert(
         'Limite atingido',
         `Você usou ${limiteWpp} cobranças WhatsApp este mês (plano gratuito).\n\nFaça upgrade para cobranças ilimitadas.`,

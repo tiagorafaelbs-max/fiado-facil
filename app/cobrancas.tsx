@@ -19,6 +19,7 @@ import { LinkPersonalizarMensagem } from '../components/ui/LinkPersonalizarMensa
 import { formatarMoeda } from '../lib/validacao'
 import { montarUrlWhatsApp, buscarVencimentosEmAberto, modeloUsaVencimento } from '../lib/whatsapp'
 import { C } from '../constants/colors'
+import { evento } from '../lib/instalacao'
 import { format, differenceInDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
@@ -160,6 +161,7 @@ export default function CobrancasScreen() {
     }
     const permitido = await registrarUso()
     if (!permitido) {
+      evento('limite', 'cobrancas')   // funil de compra (anônimo)
       Alert.alert(
         'Limite atingido',
         `Você usou ${limite} cobranças WhatsApp este mês (plano gratuito).\n\nFaça upgrade para cobranças ilimitadas.`,
@@ -295,6 +297,7 @@ export default function CobrancasScreen() {
     }
     const permitido = await registrarUso()
     if (!permitido) {
+      evento('limite', 'cobrancas')   // funil de compra (anônimo)
       Alert.alert(
         'Limite atingido',
         `Você usou ${limite} cobranças WhatsApp este mês (plano gratuito).\n\nFaça upgrade para cobranças ilimitadas.`,

@@ -25,6 +25,7 @@ import { Botao } from '../../components/ui/Botao'
 import { KeyboardToolbar } from '../../components/ui/KeyboardToolbar'
 import { formatarMoeda, validarTelefone, sanitizarTexto, formatarInputMoeda } from '../../lib/validacao'
 import { C } from '../../constants/colors'
+import { evento } from '../../lib/instalacao'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import type { Cliente } from '../../types'
@@ -119,6 +120,7 @@ export default function ClientesScreen() {
   async function handleCobrarLista(c: { id: string; nome: string; saldo: number; telefone: string }) {
     const permitido = await registrarUsoWpp()
     if (!permitido) {
+      evento('limite', 'cobrancas')   // funil de compra (anônimo)
       Alert.alert(
         'Limite atingido',
         `Você usou ${limiteWpp} cobranças WhatsApp este mês (plano gratuito).\n\nFaça upgrade para cobranças ilimitadas.`,
@@ -277,6 +279,7 @@ export default function ClientesScreen() {
       fecharModal()
     } catch (e: any) {
       if (e.code === 'LIMITE_CLIENTES') {
+        evento('limite', 'clientes')   // funil de compra (anônimo)
         fecharModal()
         Alert.alert(
           'Você chegou a 10 clientes',
