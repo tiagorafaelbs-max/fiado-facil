@@ -19,6 +19,7 @@ import { Campo } from '../../components/ui/Campo'
 import { Botao } from '../../components/ui/Botao'
 import { KeyboardToolbar, KEYBOARD_TOOLBAR_ID } from '../../components/ui/KeyboardToolbar'
 import { pedirAvaliacaoNoSucesso } from '../../hooks/useAvaliacaoApp'
+import { LinkPersonalizarMensagem } from '../../components/ui/LinkPersonalizarMensagem'
 import { cobrarViaWhatsApp, montarExtratoWhatsApp, buscarVencimentosEmAberto, modeloUsaVencimento } from '../../lib/whatsapp'
 import { usePerfilCobranca } from '../../hooks/usePerfilCobranca'
 import { useNomesEquipe } from '../../hooks/useNomesEquipe'
@@ -779,6 +780,13 @@ export default function DetalheClienteScreen() {
             )}
           </View>
         ) : null}
+
+        {/* Atalho para personalizar a mensagem de cobrança (só o dono edita) */}
+        {temSaldo && cliente.telefone && !souFuncionario && (
+          <View style={{ marginBottom: 10 }}>
+            <LinkPersonalizarMensagem plano={perfil?.plano ?? null} />
+          </View>
+        )}
 
         {/* Tier 3: extrato — secundário neutro */}
         <View style={estilos.acoesTier}>

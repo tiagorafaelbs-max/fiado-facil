@@ -15,6 +15,7 @@ import { usePerfilCobranca } from '../hooks/usePerfilCobranca'
 import { pedirAvaliacaoNoSucesso } from '../hooks/useAvaliacaoApp'
 import { Avatar } from '../components/ui/Avatar'
 import { AvisoVencimentoAntigas } from '../components/ui/AvisoVencimentoAntigas'
+import { LinkPersonalizarMensagem } from '../components/ui/LinkPersonalizarMensagem'
 import { formatarMoeda } from '../lib/validacao'
 import { montarUrlWhatsApp, buscarVencimentosEmAberto, modeloUsaVencimento } from '../lib/whatsapp'
 import { C } from '../constants/colors'
@@ -426,6 +427,13 @@ export default function CobrancasScreen() {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Atalho para personalizar a mensagem de cobrança (só o dono edita) */}
+      {!souFuncionario && (
+        <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
+          <LinkPersonalizarMensagem plano={plano} />
+        </View>
+      )}
 
       {/* Resumo + botão cobrar todos */}
       {dadosAba.length > 0 && (
