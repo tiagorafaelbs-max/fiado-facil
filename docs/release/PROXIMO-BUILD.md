@@ -504,3 +504,19 @@ Checklist §8.1: lista do lote ✅ · typecheck ✅ · testes (o projeto ainda n
 - Update ID: 01a121da-c12c-7886-bb24-9153382fbd09 · Group ID: 43b366b1-a0c9-4126-8243-5866f2128694 · runtime 61a2955d95431f5815a796a21f192ddebd4da50e
 - Rollback (só com ordem): npx eas update:republish --group a4a48e57-75d0-483d-8436-115ca16dd24f --platform android --message "Rollback" --non-interactive --json
 - iOS NÃO recebeu esta mudança. Possível risco no iPhone pequeno (cadastro/recuperar/nova-senha sem KeyboardAvoidingView): correção futura por OTA = automaticallyAdjustKeyboardInsets no ScrollView do iOS dentro de TelaComTeclado; testar no iPhone antes.
+
+## BUILDS 10/10 — Android 55 e iOS 1.0.13 (89) · branch build-1.0.13 (commits 2a9eee5, c1c687e, 0834583)
+- Android: build 98a692ab-59ca-4f16-860b-676e24b8c4cb · versionCode 55 · versão 1.0.13 · runtime ca835dc1688a4fabe66bb17e8c6399f31c0bbbd9 · enviado ao Play (faixa interna) · submissão c660c7c0-ed3d-46cf-8897-78d198c5c1d2
+- iOS: build b44d988b-3f12-41ca-b87f-7007104a0151 · buildNumber 89 · versão 1.0.13 · runtime 7f2b7439b3967e49dda69faea89f30c090347e01 · enviado ao TestFlight · submissão d58c3260-21f0-452c-9714-3dd3298633b6
+- Mudanças do lote: version 1.0.13; updates.fallbackToCacheTimeout 3000 (+ checkAutomatically ON_LOAD); android.softwareKeyboardLayoutMode "resize" (já era o padrão); JS já testado e embutido. Sem expo-camera.
+- RECEITAS DE OTA (conferidas com eas fingerprint:generate em 10/10):
+  - iOS 1.0.13 (89): app.json como está commitado na build-1.0.13 → 7f2b7439… (iOS).
+  - Android 1.0.13 (55): app.json da build-1.0.13 com ios.buildNumber 88 TEMPORÁRIO (versionCode 55, version 1.0.13) → ca835dc1… (Android). O fingerprint de cada plataforma inclui o número de build da OUTRA, por isso o 88.
+  - Binários antigos: Android 54 → 61a2955d… (version 1.0.12 e ios.buildNumber 87 temporários); iOS 88 → 3ae31820… (version 1.0.12, buildNumber 88). Publicar para eles numa branch separada da build-1.0.13 (o fingerprint da build nova não casa com os antigos). Enquanto houver uso nos binários 54/88, OTA para os DOIS lados.
+- Risco registrado: com fallbackToCacheTimeout 3000, uma OTA com defeito entra já no 1º abrir; manter o rollback (eas update:republish --group <último bom>) sempre pronto.
+- Runtimes previstos antes do autoIncrement (ba42ef4f…/c95db959…) NÃO valem: o versionCode e o buildNumber entram no fingerprint.
+- App Store Connect (Tiago): URL de privacidade https://fiadoapp.app.br/privacidade, idioma pt-BR, App Privacy (ID do dispositivo e Interação com o produto, não vinculados) no mesmo envio do 1.0.13.
+- Teste obrigatório antes de promover: instalar do zero (aparelho novo) no A51 e no iPhone: 1º abrir já mostra boas-vindas e o cadastro novo; teclado ok; uma linha abriu em instalacoes_app no 1º abrir; compra de teste e Restaurar; abertura com rede ruim não passa de ~3 s a mais.
+
+## google-play-rtdn v2 (10/10, commit 0e16665)
+- 401/403 do Google (e falha de login da conta de serviço 401/403) loga 1 linha e responde 200, para o Pub/Sub parar de reenviar (eram ~80 mil chamadas/24 h por causa da permissão financeira ainda ausente). A reconciliação no app (ao abrir, entrar ou Restaurar compras) ativa a compra depois. Rollback: redeploy da versão anterior (commit 1894cb5 ou a1fd6d7).
