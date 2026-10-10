@@ -520,3 +520,17 @@ Checklist §8.1: lista do lote ✅ · typecheck ✅ · testes (o projeto ainda n
 
 ## google-play-rtdn v2 (10/10, commit 0e16665)
 - 401/403 do Google (e falha de login da conta de serviço 401/403) loga 1 linha e responde 200, para o Pub/Sub parar de reenviar (eram ~80 mil chamadas/24 h por causa da permissão financeira ainda ausente). A reconciliação no app (ao abrir, entrar ou Restaurar compras) ativa a compra depois. Rollback: redeploy da versão anterior (commit 1894cb5 ou a1fd6d7).
+
+## OTAs 10/10 — funil de compra anônimo + preço da loja só em BRL (4 runtimes, em sequência)
+Código: commit a34f7e6 (android-combinada, para os binários 54/88) e merge 2542e36 (build-1.0.13, para os binários 55/89). Migration instalacoes_app_funil_compra aplicada (CHECK de 11 etapas, coluna detalhe, PK instalacao_id+etapa+dia, GRANT INSERT(detalhe)); teste REST: insert 201, duplicata 409, detalhe com espaço/61 chars 400, pedir a linha de volta e GET 401; linhas de teste apagadas; advisors sem item novo.
+| Binário | Runtime | Update ID | Group ID | Rollback |
+|---|---|---|---|---|
+| Android 54 | 61a2955d95431f5815a796a21f192ddebd4da50e | 01a1267d-9f04-7264-82a9-7f65bf9ce8bd | 531df258-f4cb-4dd3-a528-a82cf7c0c95b | eas update:republish --group b3749c28-2113-4a00-a0d3-ed86573dd6f4 --platform android |
+| iOS 88 | 3ae318201a1cf5804d57706fc7612163c0b7e35f | 01a1267f-6e71-79b1-b57b-8601bf408b89 | 8c2a3ed9-922b-4be1-9a93-35a200c68bf2 | eas update:republish --group b9a8414b-49cd-4a8f-903d-7d5026f95699 --platform ios |
+| Android 55 | ca835dc1688a4fabe66bb17e8c6399f31c0bbbd9 | 01a12681-a7af-73c2-92e9-f8cf2f06c1a0 | f31175c4-3c9b-42f6-b600-c966e7954497 | eas update:roll-back-to-embedded --channel production --runtime-version ca835dc1688a4fabe66bb17e8c6399f31c0bbbd9 --platform android (primeira OTA deste runtime: volta ao JS embutido) |
+| iOS 89 | 7f2b7439b3967e49dda69faea89f30c090347e01 | 01a12683-35d7-7122-ae97-2bba5d99a907 | 5ea818f1-9ad7-4401-886a-abb781927e7d | eas update:roll-back-to-embedded --channel production --runtime-version 7f2b7439b3967e49dda69faea89f30c090347e01 --platform ios |
+- Conteúdo: eventos anônimos do funil de compra (limite, planos, compra, compra_cancelou, compra_erro com código, compra_ok, loja_erro com motivo; 1 por etapa por dia; ID próprio sorteado a cada dia, diferente do ID da instalação); Planos mostra o preço da loja só se a moeda for BRL, senão "R$ 19,90/mês" e "R$ 149,90/ano"; política do app informa as etapas.
+- Limitação: só o PRIMEIRO código de erro de cada dia fica gravado (detalhe fora da chave).
+- Lojas, no mesmo dia: Play "Atividade no app → Interações com o app" (coletado, não compartilhado, análise, não vinculado); Apple "Dados de uso → Interação com o produto" (a App Privacy é do Tiago).
+- Conta de teste 5fc75db6 virou Pro por compra do TestFlight: NÃO contar como venda; deixar expirar sozinha.
+- Smoke test pendente (Tiago): Planos com conta de teste mostra R$ (não $2.99) e grava loja_erro moeda_USD; assinar e cancelar grava compra_cancelou; bater o limite grava limite.
