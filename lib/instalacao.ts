@@ -27,6 +27,7 @@ const CHAVE_ID = '@fiado_instalacao_id'
 const CHAVE_ETAPAS = '@fiado_etapas_enviadas'
 const CHAVE_NOVA = '@fiado_instalacao_nova'   // '1' = aparelho NOVO no 1º uso (entra no funil de instalação); '0' = já usava o app antes
 const CHAVE_EVENTOS_DIA = '@fiado_eventos_do_dia'
+const CHAVE_ID_COMPRA_DIA = '@fiado_id_compra_dia'
 const TIMEOUT_MS = 6000
 
 const emAndamento = new Set<string>()
@@ -69,6 +70,20 @@ async function lerEnviadas(): Promise<EtapaFunil[]> {
   }
 }
 
+// ID do funil de COMPRA: sorteado de novo a CADA DIA e diferente do ID da instalação. Dentro do dia a sequência
+// planos → compra → erro/ok fica ligada (é o funil que interessa); entre dias, e com o funil de instalação (que revela
+// o dia do cadastro), não há ligação: o histórico de uso/assinatura não aponta para uma pessoa.
+async function idDoFunilDeCompra(hoje: string): Promise<string> {
+  try {
+    const bruto = await AsyncStorage.getItem(CHAVE_ID_COMPRA_DIA)
+    const lido = bruto ? JSON.parse(bruto) : null
+    if (lido && lido.dia === hoje && typeof lido.id === 'string') return lido.id
+  } catch { /* sorteia outro */ }
+  const novo = gerarUUID()
+  await AsyncStorage.setItem(CHAVE_ID_COMPRA_DIA, JSON.stringify({ dia: hoje, id: novo }))
+  return novo
+}
+
 // Só o que o banco aceita em "detalhe": letras, números e _ . : - (até 60). Nunca texto livre.
 export function limparDetalhe(d?: unknown): string | null {
   if (d === undefined || d === null) return null
@@ -82,8 +97,7 @@ export function diaDeSaoPaulo(agora = Date.now()): string {
 }
 
 // Insert único: devolve true se a linha ficou gravada (ou já estava: 23505).
-async function enviar(info: InfoApp, etapa: string, detalhe: string | null): Promise<boolean> {
-  const instalacao_id = await lerOuCriarId()
+async function enviar(info: InfoApp, etapa: string, detalhe: string | null, instalacao_id: string): Promise<boolean> {
   const controlador = new AbortController()
   const timer = setTimeout(() => controlador.abort(), TIMEOUT_MS)
   let erro: { code?: string } | null = null
@@ -115,7 +129,7 @@ export async function registrarEtapa(etapa: EtapaFunil): Promise<void> {
     const enviadas = await lerEnviadas()
     if (enviadas.includes(etapa)) return
 
-    if (await enviar(info, etapa, null)) {
+    if (await enviar(info, etapa, null, await lerOuCriarId())) {
       await AsyncStorage.setItem(CHAVE_ETAPAS, JSON.stringify([...enviadas, etapa]))
     }
   } catch {
@@ -143,7 +157,7 @@ export async function registrarEvento(etapa: EventoCompra, detalhe?: unknown): P
     } catch { /* recomeça */ }
     if (feitos.includes(etapa)) return
 
-    if (await enviar(info, etapa, limparDetalhe(detalhe))) {
+    if (await enviar(info, etapa, limparDetalhe(detalhe), await idDoFunilDeCompra(hoje))) {
       await AsyncStorage.setItem(CHAVE_EVENTOS_DIA, JSON.stringify({ dia: hoje, feitos: [...feitos, etapa] }))
     }
   } catch {

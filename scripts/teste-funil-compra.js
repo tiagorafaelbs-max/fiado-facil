@@ -7,6 +7,7 @@ const js = ts.transpileModule(fs.readFileSync(path.join(raiz, 'lib/instalacao.ts
 let falhas = 0, total = 0
 const t = (n, ok) => { total++; if (!ok) { falhas++; console.log('FALHOU:', n) } }
 
+let contadorUuid = 0
 function ambiente({ armazem = {}, jaTeveConta = false, sessao = null, info = { plataforma: 'ios', versao_app: '1.0.13', build: '89', runtime_version: '7f2b7439' }, resposta = () => ({ error: null }), agora } = {}) {
   const chamadas = []
   const supabase = {
@@ -25,7 +26,7 @@ function ambiente({ armazem = {}, jaTeveConta = false, sessao = null, info = { p
     '@react-native-async-storage/async-storage': { __esModule: true, default: AsyncStorage },
     './dispositivo': { lerInfoApp: () => info },
     './primeiroAcesso': { aparelhoJaTeveConta: async () => jaTeveConta },
-    './uuid': { gerarUUID: () => '22222222-2222-4222-8222-222222222222' },
+    './uuid': { gerarUUID: () => '22222222-2222-4222-8222-' + String(++contadorUuid).padStart(12, '0') },
     './supabase': { supabase },
   }
   const m = { exports: {} }
@@ -74,6 +75,15 @@ function ambiente({ armazem = {}, jaTeveConta = false, sessao = null, info = { p
   await a.registrarEvento('planos')
   t('sem rede não lança', true)
 
+  // R1 do Fiscal: o ID do funil de compra NÃO é o da instalação e muda a cada dia
+  a = ambiente({ agora: { v: Date.parse('2026-10-10T15:00:00Z') } })
+  await a.registrarEtapa('abriu')                  // funil de instalação (aparelho novo)
+  await a.registrarEvento('planos'); await a.registrarEvento('compra')
+  const idInst = a.chamadas[0].linha.instalacao_id, idCompra1 = a.chamadas[1].linha.instalacao_id, idCompra2 = a.chamadas[2].linha.instalacao_id
+  t('ID do funil de compra é diferente do ID da instalação', idCompra1 !== idInst)
+  t('dentro do dia a sequência continua ligada (mesmo ID)', idCompra1 === idCompra2)
+  t('o ID da instalação continua o mesmo de sempre', a.armazem['@fiado_instalacao_id'] === idInst)
+
   // novo dia: envia de novo (dia de São Paulo)
   const agora = { v: Date.parse('2026-10-10T15:00:00Z') }
   a = ambiente({ agora })
@@ -84,6 +94,7 @@ function ambiente({ armazem = {}, jaTeveConta = false, sessao = null, info = { p
   agora.v = Date.parse('2026-10-11T03:30:00Z')   // 00:30 de 11/10 em São Paulo
   await a.registrarEvento('planos')
   t('dia seguinte: envia de novo', a.chamadas.length === 2)
+  t('dia seguinte gera ID novo no funil de compra', a.chamadas[0].linha.instalacao_id !== a.chamadas[1].linha.instalacao_id)
   t('dia de São Paulo é UTC-3', a.diaDeSaoPaulo(Date.parse('2026-10-11T02:59:00Z')) === '2026-10-10' && a.diaDeSaoPaulo(Date.parse('2026-10-11T03:00:00Z')) === '2026-10-11')
 
   // web (sem info): nada
