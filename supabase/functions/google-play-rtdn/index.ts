@@ -55,6 +55,13 @@ Deno.serve(async (req) => {
   try {
     const consulta = await consultarAssinatura(token)
     if (!consulta.ok) {
+      // 401/403 do Google = permissão da conta de serviço (configuração), não falha passageira: reenviar não
+      // resolve e o Pub/Sub repetiria o aviso sem parar (80 mil chamadas/dia). Registra 1 linha e confirma (200);
+      // a reconciliação no app (ao abrir / entrar / Restaurar compras) ativa a assinatura depois.
+      if (consulta.http === 401 || consulta.http === 403) {
+        console.warn(`[rtdn] Google negou a consulta (http ${consulta.http}); respondendo 200, a reconciliação no app cobre depois`)
+        return new Response('OK', { status: 200 })
+      }
       return consulta.definitivo ? new Response('OK', { status: 200 }) : new Response('Retry', { status: 502 })
     }
     const info = interpretar(consulta.bruta)
@@ -84,7 +91,12 @@ Deno.serve(async (req) => {
     await aplicarAssinatura(supabase, userId, token, info)
     return new Response('OK', { status: 200 })
   } catch (e) {
-    console.error('[rtdn]', (e as Error)?.message ?? e)
+    const msg = (e as Error)?.message ?? String(e)
+    if (/^OAuth Google (401|403)/.test(msg)) {
+      console.warn(`[rtdn] ${msg}; respondendo 200, a reconciliação no app cobre depois`)
+      return new Response('OK', { status: 200 })
+    }
+    console.error('[rtdn]', msg)
     return new Response('Retry', { status: 500 })
   }
 })
