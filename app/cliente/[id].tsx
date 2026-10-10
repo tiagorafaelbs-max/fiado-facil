@@ -37,6 +37,7 @@ import { useTenant } from '../../hooks/useTenant'
 import { useOffline, assinarEventosDaFila, listarLancamentosPendentes, type OperacaoOffline } from '../../hooks/useOffline'
 import { formatarMoeda, formatarInputMoeda, validarDataBR } from '../../lib/validacao'
 import { C } from '../../constants/colors'
+import { evento } from '../../lib/instalacao'
 import { useBeep } from '../../hooks/useBeep'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -342,6 +343,7 @@ export default function DetalheClienteScreen() {
   }
 
   async function avisarLimiteWpp() {
+    evento('limite', 'cobrancas')   // funil de compra (anônimo)
     Alert.alert(
       'Limite atingido',
       `Você usou ${limiteWpp} cobranças WhatsApp este mês (plano gratuito).\n\nFaça upgrade para cobranças ilimitadas.`,

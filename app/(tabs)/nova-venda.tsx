@@ -20,6 +20,7 @@ import * as Contacts from 'expo-contacts'
 import { montarUrlWhatsApp, buscarVencimentosEmAberto, modeloUsaVencimento } from '../../lib/whatsapp'
 import { usePerfilCobranca } from '../../hooks/usePerfilCobranca'
 import { C } from '../../constants/colors'
+import { evento } from '../../lib/instalacao'
 import { useCategorias } from '../../hooks/useCategorias'
 import { useOffline } from '../../hooks/useOffline'
 import { useDiaCobranca } from '../../hooks/useDiaCobranca'
@@ -408,6 +409,7 @@ export default function NovaVendaScreen() {
       setNomeNovoCliente(''); setTelNovoCliente('')
     } catch (e: any) {
       if (e.code === 'LIMITE_CLIENTES') {
+        evento('limite', 'clientes')   // funil de compra (anônimo)
         setModalNovoCliente(false)
         Alert.alert(
           'Você chegou a 10 clientes',
@@ -434,6 +436,7 @@ export default function NovaVendaScreen() {
     if (!clienteSucesso?.telefone) return
     const permitido = await registrarUsoWpp()
     if (!permitido) {
+      evento('limite', 'cobrancas')   // funil de compra (anônimo)
       Alert.alert(
         'Limite atingido',
         `Você usou ${limiteWpp} cobranças WhatsApp este mês (plano gratuito).\n\nFaça upgrade para cobranças ilimitadas.`,

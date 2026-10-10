@@ -21,6 +21,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { supabase } from '../lib/supabase'
 import { C } from '../constants/colors'
 import { useTenant } from '../hooks/useTenant'
+import { evento } from '../lib/instalacao'
+import { escolherPreco } from '../lib/precoPlano'
 import {
   SKU_MENSAL, SKU_ANUAL, SKUS, MODULOS_CACHE_KEY,
   garantirConexaoIAP, enviarParaVerificacaoApple, verificarComprasApplePendentes,
@@ -55,11 +57,23 @@ const RECURSOS_PRO = [
 
 export default function PlanosScreen() {
   const router = useRouter()
-  const { souFuncionario } = useTenant()
+  const { souFuncionario, papelConfirmado } = useTenant()
   const [loading, setLoading] = useState<'monthly' | 'annual' | 'restore' | null>(null)
   const [precoMensal, setPrecoMensal] = useState('R$ 19,90')
   const [precoAnual, setPrecoAnual]   = useState('R$ 149,90')
   const [ativando, setAtivando] = useState(false)
+
+  // Funil de compra (anônimo, 1x por dia): abriu a tela Planos. Só o dono (funcionário vê a tela de bloqueio).
+  useEffect(() => {
+    if (papelConfirmado && !souFuncionario) evento('planos')
+  }, [papelConfirmado, souFuncionario])
+
+  // Erro de compra: cancelar é uma etapa própria; o resto leva só o CÓDIGO do erro (nunca texto livre).
+  function registrarFalhaCompra(err: any) {
+    if (err?.code === ErrorCode.UserCancelled) { evento('compra_cancelou'); return }
+    const interno = ['loja_indisponivel', 'oferta_indisponivel', 'sem_sessao'].includes(err?.message) ? err.message : null
+    evento('compra_erro', err?.code ?? interno ?? 'desconhecido')
+  }
 
   // Inicializa IAP (iOS: App Store; Android: Google Play) -- a conexão é compartilhada com o AppleBackfillListener
   // global (app/_layout.tsx), então esta tela nunca fecha a conexão sozinha (endConnection
@@ -71,7 +85,7 @@ export default function PlanosScreen() {
     async function setupIAP() {
       try {
         const conectado = await garantirConexaoIAP()
-        if (!conectado) return
+        if (!conectado) { evento('loja_erro', 'sem_conexao_loja'); return }
 
         purchaseUpdateSub = purchaseUpdatedListener(async (purchase: Purchase) => {
           // IAP v15 / Nitro: receipt está em purchaseToken (JWS) ou transactionReceipt
@@ -94,6 +108,7 @@ export default function PlanosScreen() {
         })
 
         purchaseErrorSub = purchaseErrorListener((error: PurchaseError) => {
+          registrarFalhaCompra(error)
           if (error.code !== ErrorCode.UserCancelled) {
             Alert.alert('Erro na compra', error.message ?? 'Tente novamente.')
           }
@@ -101,13 +116,21 @@ export default function PlanosScreen() {
         })
 
         const subs = await fetchProducts({ skus: SKUS, type: 'subs' }) ?? []
+        if (subs.length === 0) evento('loja_erro', 'produtos_vazio')
         for (const sub of subs) {
-          const price = (sub as any).displayPrice ?? (sub as any).localizedPrice ?? ''
-          const pid   = (sub as any).id ?? (sub as any).productId ?? ''
-          if (pid === SKU_MENSAL && price) setPrecoMensal(price)
-          if (pid === SKU_ANUAL  && price) setPrecoAnual(price)
+          const pid = (sub as any).id ?? (sub as any).productId ?? ''
+          // Só mostra o preço da loja se a moeda for BRL (conta de teste/loja de outro país devolve "$2.99" enquanto a
+          // cobrança real é em reais): senão fica o texto fixo (R$ 19,90/mês e R$ 149,90/ano).
+          const escolha = escolherPreco(sub as any)
+          if (escolha.tipo === 'loja') {
+            if (pid === SKU_MENSAL) setPrecoMensal(escolha.preco)
+            if (pid === SKU_ANUAL) setPrecoAnual(escolha.preco)
+          } else if (escolha.moeda) {
+            evento('loja_erro', 'moeda_' + escolha.moeda)
+          }
         }
       } catch (e: any) {
+        evento('loja_erro', 'excecao_produtos')
         console.warn('[IAP] setupIAP falhou:', e?.message ?? e)
       }
     }
@@ -137,6 +160,7 @@ export default function PlanosScreen() {
       // confirmada pela Apple já ficou 1h16 sem ativar por uma falha transitória aqui).
       const ok = await enviarParaVerificacaoApple(purchase)
       if (ok) {
+        evento('compra_ok')
         Alert.alert(
           '🎉 Assinatura ativa!',
           'Bem-vindo ao FiadoApp Pro! Seus benefícios já estão disponíveis.',
@@ -179,6 +203,7 @@ export default function PlanosScreen() {
       })
       // Resultado chega via purchaseUpdatedListener
     } catch (err: any) {
+      registrarFalhaCompra(err)
       if (err?.code !== ErrorCode.UserCancelled) {
         Alert.alert('Erro na compra', `Código: ${err?.code ?? 'desconhecido'}\n${err?.message ?? ''}`)
       }
@@ -192,6 +217,7 @@ export default function PlanosScreen() {
       // O servidor consulta o Google, confere que a compra é desta conta e ativa o Pro.
       const r = await enviarParaVerificacaoGoogle(purchase)
       if (r === 'ok') {
+        evento('compra_ok')
         await concluirCompraGoogle(purchase)
         Alert.alert(
           '🎉 Assinatura ativa!',
@@ -234,6 +260,7 @@ export default function PlanosScreen() {
       await comprarAssinaturaGoogle(sku)
       // Resultado chega via purchaseUpdatedListener
     } catch (err: any) {
+      registrarFalhaCompra(err)
       if (err?.code !== ErrorCode.UserCancelled) {
         const msg = err?.message === 'loja_indisponivel'
           ? 'Não foi possível conectar ao Google Play. Verifique sua conexão e tente novamente.'
@@ -292,6 +319,7 @@ export default function PlanosScreen() {
   }
 
   function handleAssinar(plan_type: 'monthly' | 'annual') {
+    evento('compra')   // funil de compra: tocou em Assinar
     if (isIOS) {
       handleAssinarIOS(plan_type === 'monthly' ? SKU_MENSAL : SKU_ANUAL, plan_type)
     } else {
