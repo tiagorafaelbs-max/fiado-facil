@@ -73,7 +73,15 @@ async function lerEnviadas(): Promise<EtapaFunil[]> {
 // ID do funil de COMPRA: sorteado de novo a CADA DIA e diferente do ID da instalação. Dentro do dia a sequência
 // planos → compra → erro/ok fica ligada (é o funil que interessa); entre dias, e com o funil de instalação (que revela
 // o dia do cadastro), não há ligação: o histórico de uso/assinatura não aponta para uma pessoa.
-async function idDoFunilDeCompra(hoje: string): Promise<string> {
+let idCompraEmMemoria: { dia: string; promessa: Promise<string> } | null = null
+
+// A promessa fica em memória: dois eventos quase juntos na 1ª chamada do dia (ex.: limite e planos) dividem o mesmo sorteio.
+function idDoFunilDeCompra(hoje: string): Promise<string> {
+  if (!idCompraEmMemoria || idCompraEmMemoria.dia !== hoje) idCompraEmMemoria = { dia: hoje, promessa: sortearOuLerIdDoDia(hoje) }
+  return idCompraEmMemoria.promessa
+}
+
+async function sortearOuLerIdDoDia(hoje: string): Promise<string> {
   try {
     const bruto = await AsyncStorage.getItem(CHAVE_ID_COMPRA_DIA)
     const lido = bruto ? JSON.parse(bruto) : null
