@@ -592,3 +592,12 @@ Código: 8f54327 (build-1.0.13, 55/89) e 6fdb4dc (android-combinada, 54/88). lib
 
 ## BILLING GOOGLE — VALIDADO (11/10, confirmado pelo Tiago)
 - Ciclo completo aprovado: compra de teste 13:04 → Pro ativo; renovações 13:09/13:14/13:19/13:34 com rtdn 200; expiração 13:39 rebaixou o plano para gratuito e subscriptions = expired.
+
+## OTAs 11/10 (4) — agenda: contato sem nome não sobrescreve o nome digitado (publicadas; Fiscal aprovou, Hermes aceita /\p{L}/u)
+Código: 4a0a0b3 (build-1.0.13, 55/89) e 5ae2a01 (android-combinada, 54/88). Hashes conferidos.
+| Binário | Update ID | Group ID | Rollback (só com ordem) |
+|---|---|---|---|
+| iOS 89 | 01a12b34-ef6c-7a2c-b28d-d3ab9107f14e | 643c2c8c-ec50-4284-915e-e5a1ebd2e8e4 | eas update:republish --group 717f526a-a59c-4b48-befd-624735a0b768 --platform ios |
+| Android 55 | 01a12b36-d741-76ce-b2e3-f74caa2088c9 | b887df62-0397-4051-9ea8-3b712eeae2c1 | eas update:republish --group 0470a9d3-354f-4439-8d12-efffa650fc27 --platform android |
+| iOS 88 | 01a12b38-c470-7f99-947c-9630f6317823 | 72758b6b-2f9e-49b4-8776-2cefc2e220ad | eas update:republish --group fa718202-8c1a-4c66-b6d8-b73422313423 --platform ios |
+| Android 54 | 01a12b3a-9597-7f12-92ce-11c9e4b72d0a | daf12aad-1cbb-4ac8-86a4-3d9564afe30c | eas update:republish --group 0ee3dae3-bd54-4217-ac01-014fd694fc11 --platform android |
