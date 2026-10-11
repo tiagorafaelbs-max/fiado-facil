@@ -255,6 +255,7 @@ export default function ClientesScreen() {
 
   function fecharModal() {
     setModalAberto(false)
+    setModalContatosAberto(false)
     setNome(''); setTelefone(''); setEmpresa(''); setEndereco('')
     setObservacao(''); setLimiteCredito(''); setErros({}); setErroGeral('')
     setBuscaContato('')
@@ -620,126 +621,126 @@ export default function ClientesScreen() {
         )
       )}
 
-      {/* Modal seleção de contatos da agenda */}
-      <Modal visible={modalContatosAberto} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setModalContatosAberto(false)}>
-        <View style={{ flex: 1, backgroundColor: C.bg }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, gap: 12, borderBottomWidth: 1, borderBottomColor: C.border }}>
-            <TouchableOpacity onPress={() => setModalContatosAberto(false)}>
-              <Ionicons name="close" size={24} color={C.text} />
-            </TouchableOpacity>
-            <Text style={{ fontSize: 18, fontWeight: '700', color: C.text, flex: 1 }}>Selecionar contato</Text>
-          </View>
-          <View style={{ paddingHorizontal: 16, paddingVertical: 10 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: C.card, borderRadius: 12, paddingHorizontal: 12, gap: 8, borderWidth: 1, borderColor: C.border }}>
-              <Ionicons name="search" size={18} color={C.text2} />
-              <TextInput
-                style={{ flex: 1, height: 44, color: C.text, fontSize: 15 }}
-                placeholder="Buscar contato..."
-                placeholderTextColor={C.text2}
-                value={buscaContato}
-                onChangeText={setBuscaContato}
-                autoFocus
-              />
-              {buscaContato.length > 0 && (
-                <TouchableOpacity onPress={() => setBuscaContato('')}>
-                  <Ionicons name="close-circle" size={18} color={C.text2} />
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-          <FlatList
-            data={contatosFiltrados}
-            keyExtractor={(c, i) => c.id ?? String(i)}
-            keyboardShouldPersistTaps="handled"
-            renderItem={({ item: c }) => (
-              <TouchableOpacity
-                style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12, borderBottomWidth: 1, borderBottomColor: C.border }}
-                onPress={() => selecionarContato(c)}
-              >
-                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: C.greenLight, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={{ fontSize: 16, fontWeight: '700', color: C.green }}>{(c.name ?? '?')[0].toUpperCase()}</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 15, fontWeight: '600', color: C.text }}>{c.name}</Text>
-                  {c.phoneNumbers?.[0]?.number ? (
-                    <Text style={{ fontSize: 13, color: C.text2 }}>{c.phoneNumbers[0].number}</Text>
-                  ) : null}
-                </View>
-                <Ionicons name="person-add-outline" size={18} color={C.green} />
-              </TouchableOpacity>
-            )}
-            ListEmptyComponent={
-              <View style={{ padding: 32, alignItems: 'center' }}>
-                <Text style={{ color: C.text2, fontSize: 15 }}>Nenhum contato encontrado</Text>
-              </View>
-            }
-          />
-        </View>
-      </Modal>
-
       {/* Modal novo cliente */}
-      <Modal visible={modalAberto} animationType="slide" presentationStyle="pageSheet">
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <View style={estilos.modalContainer}>
-            <View style={estilos.modalHandle} />
-            <ScrollView contentContainerStyle={[estilos.modal, { paddingBottom: estilos.modal.padding + insets.bottom }]} keyboardShouldPersistTaps="handled">
-              <View style={estilos.modalHeader}>
-                <View>
-                  <Text style={estilos.modalTitulo}>Novo cliente</Text>
-                  <Text style={estilos.modalSub}>Preencha os dados do cliente</Text>
-                </View>
-                <TouchableOpacity style={estilos.fecharBtn} onPress={fecharModal}>
-                  <Ionicons name="close" size={20} color={C.text2} />
-                </TouchableOpacity>
+      <Modal visible={modalAberto} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => (modalContatosAberto ? setModalContatosAberto(false) : fecharModal())}>
+        {modalContatosAberto ? (
+          // Lista da agenda dentro do mesmo Modal: no iOS um Modal não abre por cima de outro.
+          <View style={{ flex: 1, backgroundColor: C.bg }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, gap: 12, borderBottomWidth: 1, borderBottomColor: C.border }}>
+              <TouchableOpacity onPress={() => setModalContatosAberto(false)}>
+                <Ionicons name="chevron-back" size={24} color={C.text} />
+              </TouchableOpacity>
+              <Text style={{ fontSize: 18, fontWeight: '700', color: C.text, flex: 1 }}>Selecionar contato</Text>
+            </View>
+            <View style={{ paddingHorizontal: 16, paddingVertical: 10 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: C.card, borderRadius: 12, paddingHorizontal: 12, gap: 8, borderWidth: 1, borderColor: C.border }}>
+                <Ionicons name="search" size={18} color={C.text2} />
+                <TextInput
+                  style={{ flex: 1, height: 44, color: C.text, fontSize: 15 }}
+                  placeholder="Buscar contato..."
+                  placeholderTextColor={C.text2}
+                  value={buscaContato}
+                  onChangeText={setBuscaContato}
+                  autoFocus
+                />
+                {buscaContato.length > 0 && (
+                  <TouchableOpacity onPress={() => setBuscaContato('')}>
+                    <Ionicons name="close-circle" size={18} color={C.text2} />
+                  </TouchableOpacity>
+                )}
               </View>
-
-              <Campo
-                label="Nome *"
-                value={nome}
-                onChangeText={setNome}
-                erro={erros.nome}
-                placeholder="Nome do cliente"
-                autoCapitalize="words"
-              />
-
-              {/* Campo telefone com botão de agenda */}
-              <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
-                <View style={{ flex: 1 }}>
-                  <Campo
-                    label="Telefone / WhatsApp"
-                    value={telefone}
-                    onChangeText={setTelefone}
-                    erro={erros.telefone}
-                    placeholder="(00) 00000-0000"
-                    keyboardType="phone-pad"
-                  />
-                </View>
+            </View>
+            <FlatList
+              data={contatosFiltrados}
+              keyExtractor={(c, i) => c.id ?? String(i)}
+              keyboardShouldPersistTaps="handled"
+              renderItem={({ item: c }) => (
                 <TouchableOpacity
-                  style={estilos.agendaBtn}
-                  onPress={abrirAgenda}
+                  style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12, borderBottomWidth: 1, borderBottomColor: C.border }}
+                  onPress={() => selecionarContato(c)}
                 >
-                  <Ionicons name="people-outline" size={22} color={C.white} />
+                  <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: C.greenLight, alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ fontSize: 16, fontWeight: '700', color: C.green }}>{(c.name ?? '?')[0].toUpperCase()}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 15, fontWeight: '600', color: C.text }}>{c.name}</Text>
+                    {c.phoneNumbers?.[0]?.number ? (
+                      <Text style={{ fontSize: 13, color: C.text2 }}>{c.phoneNumbers[0].number}</Text>
+                    ) : null}
+                  </View>
+                  <Ionicons name="person-add-outline" size={18} color={C.green} />
                 </TouchableOpacity>
-              </View>
-              <Campo label="Empresa (opcional)" value={empresa} onChangeText={setEmpresa} placeholder="Ex: Mercado do João" autoCapitalize="words" />
-              <Campo label="Endereço (opcional)" value={endereco} onChangeText={setEndereco} placeholder="Ex: Rua das Flores, 123" autoCapitalize="words" />
-              <Campo label="Observação" value={observacao} onChangeText={setObservacao} placeholder="Opcional" multiline numberOfLines={3} />
-              {/* Limite de crédito é decisão do dono do negócio */}
-              {modulos.limite_credito && !souFuncionario && (
-                <Campo label="Limite de crédito (R$)" value={limiteCredito} onChangeText={v => setLimiteCredito(formatarInputMoeda(v))} keyboardType="decimal-pad" placeholder="Ex: 200,00 (opcional)" />
               )}
-
-              {erroGeral ? (
-                <View style={estilos.erroBox}>
-                  <Ionicons name="alert-circle" size={16} color={C.red} />
-                  <Text style={estilos.erroTexto}>{erroGeral}</Text>
+              ListEmptyComponent={
+                <View style={{ padding: 32, alignItems: 'center' }}>
+                  <Text style={{ color: C.text2, fontSize: 15 }}>Nenhum contato encontrado</Text>
                 </View>
-              ) : null}
-
-              <Botao titulo="Salvar cliente" onPress={handleCriar} carregando={salvando} />
-            </ScrollView>
+              }
+            />
           </View>
-        </KeyboardAvoidingView>
+        ) : (
+          <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <View style={estilos.modalContainer}>
+              <View style={estilos.modalHandle} />
+              <ScrollView contentContainerStyle={[estilos.modal, { paddingBottom: estilos.modal.padding + insets.bottom }]} keyboardShouldPersistTaps="handled">
+                <View style={estilos.modalHeader}>
+                  <View>
+                    <Text style={estilos.modalTitulo}>Novo cliente</Text>
+                    <Text style={estilos.modalSub}>Preencha os dados do cliente</Text>
+                  </View>
+                  <TouchableOpacity style={estilos.fecharBtn} onPress={fecharModal}>
+                    <Ionicons name="close" size={20} color={C.text2} />
+                  </TouchableOpacity>
+                </View>
+  
+                <Campo
+                  label="Nome *"
+                  value={nome}
+                  onChangeText={setNome}
+                  erro={erros.nome}
+                  placeholder="Nome do cliente"
+                  autoCapitalize="words"
+                />
+  
+                {/* Campo telefone com botão de agenda */}
+                <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
+                  <View style={{ flex: 1 }}>
+                    <Campo
+                      label="Telefone / WhatsApp"
+                      value={telefone}
+                      onChangeText={setTelefone}
+                      erro={erros.telefone}
+                      placeholder="(00) 00000-0000"
+                      keyboardType="phone-pad"
+                    />
+                  </View>
+                  <TouchableOpacity
+                    style={estilos.agendaBtn}
+                    onPress={abrirAgenda}
+                  >
+                    <Ionicons name="people-outline" size={22} color={C.white} />
+                  </TouchableOpacity>
+                </View>
+                <Campo label="Empresa (opcional)" value={empresa} onChangeText={setEmpresa} placeholder="Ex: Mercado do João" autoCapitalize="words" />
+                <Campo label="Endereço (opcional)" value={endereco} onChangeText={setEndereco} placeholder="Ex: Rua das Flores, 123" autoCapitalize="words" />
+                <Campo label="Observação" value={observacao} onChangeText={setObservacao} placeholder="Opcional" multiline numberOfLines={3} />
+                {/* Limite de crédito é decisão do dono do negócio */}
+                {modulos.limite_credito && !souFuncionario && (
+                  <Campo label="Limite de crédito (R$)" value={limiteCredito} onChangeText={v => setLimiteCredito(formatarInputMoeda(v))} keyboardType="decimal-pad" placeholder="Ex: 200,00 (opcional)" />
+                )}
+  
+                {erroGeral ? (
+                  <View style={estilos.erroBox}>
+                    <Ionicons name="alert-circle" size={16} color={C.red} />
+                    <Text style={estilos.erroTexto}>{erroGeral}</Text>
+                  </View>
+                ) : null}
+  
+                <Botao titulo="Salvar cliente" onPress={handleCriar} carregando={salvando} />
+              </ScrollView>
+            </View>
+          </KeyboardAvoidingView>
+        )}
       </Modal>
 
     </View>
