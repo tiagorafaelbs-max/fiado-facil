@@ -15,6 +15,11 @@ export function normalizarTelefone(tel: string): string {
   return d
 }
 
+// Contato da agenda sem nome vem com o próprio número no lugar do nome. Só vale como nome se tiver alguma letra.
+export function nomeDeContatoValido(nome?: string | null): boolean {
+  return !!nome && /\p{L}/u.test(nome)
+}
+
 export function validarTelefone(tel: string): boolean {
   const limpo = normalizarTelefone(tel)
   return limpo.length >= 10 && limpo.length <= 11

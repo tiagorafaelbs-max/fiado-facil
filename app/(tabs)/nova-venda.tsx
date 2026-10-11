@@ -15,7 +15,7 @@ import { useTenant } from '../../hooks/useTenant'
 import { Avatar } from '../../components/ui/Avatar'
 import { Campo } from '../../components/ui/Campo'
 import { Botao } from '../../components/ui/Botao'
-import { sanitizarTexto, validarTelefone, normalizarTelefone, formatarMoeda, formatarInputMoeda, validarDataBR } from '../../lib/validacao'
+import { sanitizarTexto, validarTelefone, normalizarTelefone, nomeDeContatoValido, formatarMoeda, formatarInputMoeda, validarDataBR } from '../../lib/validacao'
 import { carregarContatos } from '../../lib/contatos'
 import { montarUrlWhatsApp, buscarVencimentosEmAberto, modeloUsaVencimento } from '../../lib/whatsapp'
 import { usePerfilCobranca } from '../../hooks/usePerfilCobranca'
@@ -131,7 +131,8 @@ export default function NovaVendaScreen() {
     function selecionarContato(index: number) {
       const c = contatos[index]
       if (!c) return
-      setNomeNovoCliente(c.name!)
+      // contato sem nome (a agenda devolve o número) não sobrescreve o nome já digitado
+      if (nomeDeContatoValido(c.name)) setNomeNovoCliente(c.name!)
       const tel = normalizarTelefone(c.phoneNumbers?.[0]?.number ?? '')
       setTelNovoCliente(tel)
     }

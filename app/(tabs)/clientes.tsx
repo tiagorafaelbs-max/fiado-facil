@@ -24,7 +24,7 @@ import { Avatar } from '../../components/ui/Avatar'
 import { Campo } from '../../components/ui/Campo'
 import { Botao } from '../../components/ui/Botao'
 import { KeyboardToolbar } from '../../components/ui/KeyboardToolbar'
-import { formatarMoeda, validarTelefone, normalizarTelefone, sanitizarTexto, formatarInputMoeda } from '../../lib/validacao'
+import { formatarMoeda, validarTelefone, normalizarTelefone, nomeDeContatoValido, sanitizarTexto, formatarInputMoeda } from '../../lib/validacao'
 import { C } from '../../constants/colors'
 import { evento } from '../../lib/instalacao'
 import { format } from 'date-fns'
@@ -184,7 +184,8 @@ export default function ClientesScreen() {
   }
 
   function selecionarContato(contato: Contacts.ExistingContact) {
-    setNome(contato.name ?? '')
+    // contato sem nome (a agenda devolve o número) não sobrescreve o nome já digitado
+    if (nomeDeContatoValido(contato.name)) setNome(contato.name!)
     const tel = contato.phoneNumbers?.[0]?.number ?? ''
     setTelefone(normalizarTelefone(tel))
     setModalContatosAberto(false)

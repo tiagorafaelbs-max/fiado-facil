@@ -582,3 +582,10 @@ Código: 8f54327 (build-1.0.13, 55/89) e 6fdb4dc (android-combinada, 54/88). lib
 | iOS 88 | 01a12b27-f0fc-77b6-97ca-91476669f8a2 | fa718202-8c1a-4c66-b6d8-b73422313423 | eas update:republish --group 5da213b3-d760-46bc-9850-57b92f9b3d2f --platform ios |
 - Android 54: update 01a12b29-ae5c-78b5-966c-9568f645a2e2 (group 0ee3dae3-bd54-4217-ac01-014fd694fc11) · rollback: eas update:republish --group e7880255-5a84-4626-82e5-f58c6bf77f9b --platform android.
 - Teste: importar contato com +55 e salvar sem erro; cobrar pelo WhatsApp abre a conversa certa; cliente antigo gravado com 55 continua certo; editar sem mexer no telefone salva.
+
+## PARA A 1.0.14 (registrado em 11/10, a pedido do Tiago)
+- App Store Connect: idioma principal pt-BR. Deu "Ocorreu um erro" ao salvar; só dá para mudar com uma VERSÃO NOVA em edição (não com a 1.0.13 em revisão/publicada). Hipótese: a localização pt-BR das Informações do app precisa de nome e subtítulo completos. Tentar assim que a 1.0.14 for criada no ASC.
+- Timeout/fallback das OTAs em Wi-Fi fraco: hoje `updates.fallbackToCacheTimeout 3000` faz o 1º abrir esperar até 3 s pela OTA; em rede ruim isso atrasa a abertura (e uma OTA com defeito entra já no 1º abrir). Rever o valor (ex.: 1500 ms ou 0 com aplicação no abrir seguinte), exige build novo (muda config nativa/fingerprint).
+
+## Ajuste de agenda (11/10, NÃO publicado: entra na próxima OTA)
+- Contato da agenda SEM nome (a agenda devolve o número no lugar do nome) não sobrescreve mais o nome digitado: `nomeDeContatoValido` (precisa ter letra) em clientes.tsx e nova-venda.tsx. tsc limpo. Falta Fiscal + autorização da OTA.
