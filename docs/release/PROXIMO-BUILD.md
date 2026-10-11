@@ -589,3 +589,6 @@ Código: 8f54327 (build-1.0.13, 55/89) e 6fdb4dc (android-combinada, 54/88). lib
 
 ## Ajuste de agenda (11/10, NÃO publicado: entra na próxima OTA)
 - Contato da agenda SEM nome (a agenda devolve o número no lugar do nome) não sobrescreve mais o nome digitado: `nomeDeContatoValido` (precisa ter letra) em clientes.tsx e nova-venda.tsx. tsc limpo. Falta Fiscal + autorização da OTA.
+
+## BILLING GOOGLE — VALIDADO (11/10, confirmado pelo Tiago)
+- Ciclo completo aprovado: compra de teste 13:04 → Pro ativo; renovações 13:09/13:14/13:19/13:34 com rtdn 200; expiração 13:39 rebaixou o plano para gratuito e subscriptions = expired.
