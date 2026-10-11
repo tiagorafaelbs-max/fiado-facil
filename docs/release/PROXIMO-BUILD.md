@@ -572,3 +572,13 @@ Código: 5ca6866 (build-1.0.13, runtimes 55/89) e b2763d4 (android-combinada, 54
 | iOS 88 | 01a12b0e-34ab-7c0b-93e6-e344926315cf | 5da213b3-d760-46bc-9850-57b92f9b3d2f | eas update:republish --group a6594e04-6660-4c6e-adec-9a71ba120c55 --platform ios |
 - Android 54: update 01a12b10-00f2-7b17-aee2-1c064307db60 (group e7880255-5a84-4626-82e5-f58c6bf77f9b) · rollback: eas update:republish --group 74e378a3-e73f-4779-98dd-eeb8a15cd647 --platform android. Teste: agenda → escolher contato → nome/telefone preenchidos; voltar pela seta mantém o digitado; Android: botão voltar fecha a lista, depois o modal (antes o formulário não tinha onRequestClose; agora voltar fecha e limpa o formulário).
 - Risco conhecido, não alterado: cliente/[id].tsx:1033 fecha o modal de pagamento e abre o do Pix no mesmo instante (pode falhar no iOS).
+
+## OTAs 11/10 (3) — telefone: normaliza DDI 55 e zeros de operadora (agenda, validação, salvar, wa.me)
+Código: 8f54327 (build-1.0.13, 55/89) e 6fdb4dc (android-combinada, 54/88). lib/validacao.ts `normalizarTelefone`; usado em clientes, nova-venda, cliente/[id] (editar; valida só se mudou), configuracoes e lib/whatsapp.ts (wa.me = 55 + número). Fiscal aprovou. Hashes conferidos.
+| Binário | Update ID | Group ID | Rollback (só com ordem) |
+|---|---|---|---|
+| iOS 89 | 01a12b23-3f94-76f1-a5c1-4dbf9a646bbe | 717f526a-a59c-4b48-befd-624735a0b768 | eas update:republish --group eb3d2cf8-29ff-45bc-b1c8-8c6c01be646b --platform ios |
+| Android 55 | 01a12b26-18b0-7d0d-8a9e-40fa573e7b03 | 0470a9d3-354f-4439-8d12-efffa650fc27 | eas update:republish --group a908f5f1-9798-4654-9fd5-17144aa4d8cc --platform android |
+| iOS 88 | 01a12b27-f0fc-77b6-97ca-91476669f8a2 | fa718202-8c1a-4c66-b6d8-b73422313423 | eas update:republish --group 5da213b3-d760-46bc-9850-57b92f9b3d2f --platform ios |
+- Android 54: update 01a12b29-ae5c-78b5-966c-9568f645a2e2 (group 0ee3dae3-bd54-4217-ac01-014fd694fc11) · rollback: eas update:republish --group e7880255-5a84-4626-82e5-f58c6bf77f9b --platform android.
+- Teste: importar contato com +55 e salvar sem erro; cobrar pelo WhatsApp abre a conversa certa; cliente antigo gravado com 55 continua certo; editar sem mexer no telefone salva.
