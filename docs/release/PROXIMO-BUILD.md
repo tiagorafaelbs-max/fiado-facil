@@ -552,3 +552,13 @@ Código: commit a34f7e6 (android-combinada, para os binários 54/88) e merge 254
 - Migration NÃO aplicada: supabase/migrations/instalacoes_app_contatos_erro.sql (sem ela o log falha em silêncio).
 - Para publicar (com autorização): aplicar migration; OTA em 4 runtimes (iOS 88 3ae31820…, iOS 89 7f2b7439…, Android 54 61a2955d…, Android 55 ca835dc1…) — os binários 88/54 usam a branch android-combinada (levar a mesma correção); testar antes no A51 e no iPhone, inclusive com acesso limitado.
 - Texto de privacidade: trocar "código de erro da loja" por "códigos de erro técnicos do app" na próxima revisão.
+
+## OTAs 11/10 — correção da agenda (4 runtimes, em sequência; migration instalacoes_app_contatos_erro APLICADA, simulada antes em bloco revertido)
+Código: 2851b3a (build-1.0.13, runtimes 55/89) e bcf25b5 (android-combinada, runtimes 54/88). Hashes conferidos antes de cada publicação; app.json restaurado.
+| Binário | Runtime | Update ID | Group ID | Rollback (só com ordem) |
+|---|---|---|---|---|
+| iOS 89 | 7f2b7439… | 01a12af6-146b-7ddc-b9eb-8cece4098a84 | 5d32db46-d7fc-46e7-a942-be6ef7310081 | eas update:republish --group 5ea818f1-9ad7-4401-886a-abb781927e7d --platform ios |
+| Android 55 | ca835dc1… | 01a12af8-8dbc-76c2-9ecf-dca759d94a82 | 28dfcca0-05ac-40c4-8229-27d1d197b63d | eas update:republish --group f31175c4-3c9b-42f6-b600-c966e7954497 --platform android |
+| iOS 88 | 3ae31820… | 01a12afa-d471-7691-8ae0-6ca4f40e4433 | a6594e04-6660-4c6e-adec-9a71ba120c55 | eas update:republish --group 8c2a3ed9-922b-4be1-9a93-35a200c68bf2 --platform ios |
+| Android 54 | 61a2955d… | 01a12afc-9211-753f-ac5c-1580ab9592d0 | 74e378a3-e73f-4779-98dd-eeb8a15cd647 | eas update:republish --group 531df258-f4cb-4dd3-a528-a82cf7c0c95b --platform android |
+- Conferir em instalacoes_app (etapa contatos_erro) nas 24 h seguintes: o evento só aparece se ainda houver falha; zero linhas com a agenda funcionando é o resultado bom.
