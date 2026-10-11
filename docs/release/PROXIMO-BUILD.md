@@ -545,3 +545,10 @@ Código: commit a34f7e6 (android-combinada, para os binários 54/88) e merge 254
 ## STATUS iOS 1.0.13 (89) — 10/10 (feito pelo Growth no navegador; registrado em 11/10)
 - Build 89 anexado à versão 1.0.13 · App Privacy publicada: contatos, fotos, outros conteúdos, histórico de compras e diagnóstico = funcionalidade/vinculados; ID do dispositivo e interações = análise/não vinculados; sem rastreamento · ENVIADO PARA REVISÃO (Aguardando revisão; liberação MANUAL: o Tiago solta depois da aprovação).
 - PENDENTE: idioma principal pt-BR deu "Ocorreu um erro" ao salvar no ASC. Hipótese (a investigar DEPOIS da aprovação, sem mexer agora): falta de nome/subtítulo na localização pt-BR das Informações do app (a localização pt-BR da VERSÃO tem título, subtítulo, descrição e palavras-chave; a das Informações do app pode estar incompleta). Não mexer enquanto a versão está em revisão.
+
+## BUG AGENDA iOS/Android — 11/10 (corrigido no código, NÃO publicado)
+- Causa: no expo-contacts 56.0.12, `getContactsAsync` importado da raiz lança erro de propósito (src/legacyWarnings.ts). O correto é `expo-contacts/legacy`. Vale para clientes.tsx e nova-venda.tsx (iOS e Android).
+- Correção só JS (OTA, fingerprint não muda): lib/contatos.ts (carregarContatos; acesso limitado iOS 18 abre o seletor do sistema se vier vazio; erro grava evento 'contatos_erro' com code:message). Fiscal aprovou.
+- Migration NÃO aplicada: supabase/migrations/instalacoes_app_contatos_erro.sql (sem ela o log falha em silêncio).
+- Para publicar (com autorização): aplicar migration; OTA em 4 runtimes (iOS 88 3ae31820…, iOS 89 7f2b7439…, Android 54 61a2955d…, Android 55 ca835dc1…) — os binários 88/54 usam a branch android-combinada (levar a mesma correção); testar antes no A51 e no iPhone, inclusive com acesso limitado.
+- Texto de privacidade: trocar "código de erro da loja" por "códigos de erro técnicos do app" na próxima revisão.

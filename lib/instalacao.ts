@@ -22,6 +22,7 @@ export type EventoCompra =
   | 'compra_erro'      // erro na compra (detalhe: código do erro)
   | 'compra_ok'        // compra confirmada e Pro ativado
   | 'loja_erro'        // a loja não devolveu os produtos/preço (detalhe: motivo)
+  | 'contatos_erro'    // falha ao abrir a agenda (detalhe: código/mensagem curta do módulo nativo)
 
 const CHAVE_ID = '@fiado_instalacao_id'
 const CHAVE_ETAPAS = '@fiado_etapas_enviadas'

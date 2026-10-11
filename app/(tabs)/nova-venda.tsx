@@ -16,7 +16,7 @@ import { Avatar } from '../../components/ui/Avatar'
 import { Campo } from '../../components/ui/Campo'
 import { Botao } from '../../components/ui/Botao'
 import { sanitizarTexto, validarTelefone, formatarMoeda, formatarInputMoeda, validarDataBR } from '../../lib/validacao'
-import * as Contacts from 'expo-contacts'
+import { carregarContatos } from '../../lib/contatos'
 import { montarUrlWhatsApp, buscarVencimentosEmAberto, modeloUsaVencimento } from '../../lib/whatsapp'
 import { usePerfilCobranca } from '../../hooks/usePerfilCobranca'
 import { C } from '../../constants/colors'
@@ -116,15 +116,16 @@ export default function NovaVendaScreen() {
   const [telNovoCliente, setTelNovoCliente] = useState('')
 
   async function buscarNaAgenda() {
-    const { status } = await Contacts.requestPermissionsAsync()
-    if (status !== 'granted') {
+    const r = await carregarContatos()
+    if (r.estado === 'negado') {
       Alert.alert('Permissão negada', 'Autorize o acesso aos contatos nas configurações do celular.')
       return
     }
-    const { data } = await Contacts.getContactsAsync({
-      fields: [Contacts.Fields.Name, Contacts.Fields.PhoneNumbers],
-    })
-    const contatos = data.filter(c => c.name && c.phoneNumbers?.length).slice(0, 100)
+    if (r.estado === 'erro') {
+      Alert.alert('Erro', 'Não foi possível acessar os contatos.')
+      return
+    }
+    const contatos = r.contatos.slice(0, 100)
     if (!contatos.length) return
 
     function selecionarContato(index: number) {

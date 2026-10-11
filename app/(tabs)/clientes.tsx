@@ -5,7 +5,8 @@ import {
   KeyboardAvoidingView, Alert,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import * as Contacts from 'expo-contacts'
+import type * as Contacts from 'expo-contacts/legacy'
+import { carregarContatos } from '../../lib/contatos'
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '../../lib/supabase'
@@ -164,27 +165,22 @@ export default function ClientesScreen() {
     : todosContatos.current.slice(0, 100)
 
   async function abrirAgenda() {
-    try {
-      const { status } = await Contacts.requestPermissionsAsync()
-      if (status !== 'granted') {
-        Alert.alert(
-          'Permissão necessária',
-          'Permita o acesso aos contatos nas configurações do dispositivo para usar esta função.',
-          [{ text: 'OK' }]
-        )
-        return
-      }
-      const { data } = await Contacts.getContactsAsync({
-        fields: [Contacts.Fields.Name, Contacts.Fields.PhoneNumbers],
-      })
-      todosContatos.current = data.filter(c => c.name && c.phoneNumbers?.length).sort((a, b) =>
-        (a.name ?? '').localeCompare(b.name ?? '', 'pt-BR')
+    const r = await carregarContatos()
+    if (r.estado === 'negado') {
+      Alert.alert(
+        'Permissão necessária',
+        'Permita o acesso aos contatos nas configurações do dispositivo para usar esta função.',
+        [{ text: 'OK' }]
       )
-      setBuscaContato('')
-      setModalContatosAberto(true)
-    } catch {
-      Alert.alert('Erro', 'Não foi possível acessar os contatos.')
+      return
     }
+    if (r.estado === 'erro') {
+      Alert.alert('Erro', 'Não foi possível acessar os contatos.')
+      return
+    }
+    todosContatos.current = r.contatos.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '', 'pt-BR'))
+    setBuscaContato('')
+    setModalContatosAberto(true)
   }
 
   function selecionarContato(contato: Contacts.ExistingContact) {
