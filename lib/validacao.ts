@@ -2,8 +2,21 @@ export function validarEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
 }
 
+// Telefone brasileiro só com DDD + número (10 ou 11 dígitos). Tira tudo que não é dígito, os zeros à esquerda
+// (0 de operadora, "015 31 ..."), o código do operador que sobra e o DDI 55 (+55 / 55 vindo da agenda).
+// Se não der para reconhecer, devolve os dígitos como estão (a validação recusa).
+export function normalizarTelefone(tel: string): string {
+  let d = (tel ?? '').replace(/\D/g, '')
+  const tinhaZero = d.startsWith('0')
+  d = d.replace(/^0+/, '')
+  if (d.startsWith('55') && (d.length === 12 || d.length === 13)) return d.slice(2)
+  if (tinhaZero && d.length === 13) return d.slice(-11)  // 0 + operadora(2) + DDD + celular
+  if (tinhaZero && d.length === 12) return d.slice(-10)  // 0 + operadora(2) + DDD + fixo
+  return d
+}
+
 export function validarTelefone(tel: string): boolean {
-  const limpo = tel.replace(/\D/g, '')
+  const limpo = normalizarTelefone(tel)
   return limpo.length >= 10 && limpo.length <= 11
 }
 
@@ -35,7 +48,7 @@ export function parseMoeda(texto: string): number {
 }
 
 export function formatarTelefone(tel: string): string {
-  const limpo = tel.replace(/\D/g, '')
+  const limpo = normalizarTelefone(tel)
   if (limpo.length === 11) return `(${limpo.slice(0, 2)}) ${limpo.slice(2, 7)}-${limpo.slice(7)}`
   if (limpo.length === 10) return `(${limpo.slice(0, 2)}) ${limpo.slice(2, 6)}-${limpo.slice(6)}`
   return tel

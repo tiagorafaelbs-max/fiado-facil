@@ -1,6 +1,6 @@
 import { Linking, Platform } from 'react-native'
 import { supabase } from './supabase'
-import { formatarMoeda } from './validacao'
+import { formatarMoeda, normalizarTelefone } from './validacao'
 import type { Cliente } from '../types'
 
 type ClienteBasico = Pick<Cliente, 'id' | 'nome' | 'telefone'>
@@ -151,10 +151,9 @@ export async function buscarVencimentosEmAberto(
   return mapa
 }
 
+// Número só com DDD + telefone; o link do wa.me acrescenta o 55 (nunca duplica).
 function telefoneWhatsApp(telefone: string): string {
-  let tel = telefone.replace(/\D/g, '')
-  if (tel.startsWith('55') && tel.length >= 12) tel = tel.slice(2)
-  return tel
+  return normalizarTelefone(telefone)
 }
 
 export function montarUrlWhatsApp(

@@ -17,7 +17,7 @@ import { getBeepAtivo, setBeepAtivo } from '../../hooks/useBeep'
 import { Campo } from '../../components/ui/Campo'
 import { Botao } from '../../components/ui/Botao'
 import { Avatar } from '../../components/ui/Avatar'
-import { sanitizarTexto, validarTelefone } from '../../lib/validacao'
+import { sanitizarTexto, validarTelefone, normalizarTelefone } from '../../lib/validacao'
 import { C } from '../../constants/colors'
 import { useCategorias, CATS_BASE } from '../../hooks/useCategorias'
 import { useTenant } from '../../hooks/useTenant'
@@ -107,7 +107,7 @@ export default function ConfiguracoesScreen() {
       const { error } = await supabase.from('perfis').upsert({
         id: tenantId,
         nome_negocio: sanitizarTexto(perfil.nome_negocio),
-        telefone: perfil.telefone || null,
+        telefone: normalizarTelefone(perfil.telefone) || null,
         chave_pix: perfil.chave_pix || null,
         dia_cobranca: perfil.dia_cobranca ? parseInt(perfil.dia_cobranca) : null,
         notificacoes_ativas: perfil.notificacoes_ativas,

@@ -24,7 +24,7 @@ import { Avatar } from '../../components/ui/Avatar'
 import { Campo } from '../../components/ui/Campo'
 import { Botao } from '../../components/ui/Botao'
 import { KeyboardToolbar } from '../../components/ui/KeyboardToolbar'
-import { formatarMoeda, validarTelefone, sanitizarTexto, formatarInputMoeda } from '../../lib/validacao'
+import { formatarMoeda, validarTelefone, normalizarTelefone, sanitizarTexto, formatarInputMoeda } from '../../lib/validacao'
 import { C } from '../../constants/colors'
 import { evento } from '../../lib/instalacao'
 import { format } from 'date-fns'
@@ -186,7 +186,7 @@ export default function ClientesScreen() {
   function selecionarContato(contato: Contacts.ExistingContact) {
     setNome(contato.name ?? '')
     const tel = contato.phoneNumbers?.[0]?.number ?? ''
-    setTelefone(tel.replace(/\D/g, ''))
+    setTelefone(normalizarTelefone(tel))
     setModalContatosAberto(false)
   }
 
@@ -267,7 +267,7 @@ export default function ClientesScreen() {
     try {
       await criar({
         nome: sanitizarTexto(nome),
-        telefone: telefone || undefined,
+        telefone: normalizarTelefone(telefone) || undefined,
         empresa: empresa.trim() || undefined,
         endereco: endereco.trim() || undefined,
         observacao: observacao || undefined,

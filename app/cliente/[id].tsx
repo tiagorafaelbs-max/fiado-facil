@@ -35,7 +35,7 @@ import { useModulos } from '../../hooks/useModulos'
 import { useContadorWhatsApp } from '../../hooks/useContadorWhatsApp'
 import { useTenant } from '../../hooks/useTenant'
 import { useOffline, assinarEventosDaFila, listarLancamentosPendentes, type OperacaoOffline } from '../../hooks/useOffline'
-import { formatarMoeda, formatarInputMoeda, validarDataBR } from '../../lib/validacao'
+import { formatarMoeda, formatarInputMoeda, validarDataBR, validarTelefone, normalizarTelefone } from '../../lib/validacao'
 import { C } from '../../constants/colors'
 import { evento } from '../../lib/instalacao'
 import { useBeep } from '../../hooks/useBeep'
@@ -163,11 +163,16 @@ export default function DetalheClienteScreen() {
 
   async function handleSalvarCliente() {
     if (!editNome.trim()) return
+    const telefoneLimpo = normalizarTelefone(editTelefone)
+    if (telefoneLimpo && telefoneLimpo !== (cliente?.telefone ?? '') && !validarTelefone(telefoneLimpo)) {
+      Alert.alert('Telefone inválido', 'Use o DDD e o número, por exemplo (11) 98811-4031.')
+      return
+    }
     setSalvandoCliente(true)
     try {
       await atualizarCliente(id, {
         nome: editNome.trim(),
-        telefone: editTelefone.trim() || undefined,
+        telefone: telefoneLimpo || undefined,
         empresa: editEmpresa.trim() || undefined,
         endereco: editEndereco.trim() || undefined,
       })

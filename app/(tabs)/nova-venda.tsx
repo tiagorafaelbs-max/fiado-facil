@@ -15,7 +15,7 @@ import { useTenant } from '../../hooks/useTenant'
 import { Avatar } from '../../components/ui/Avatar'
 import { Campo } from '../../components/ui/Campo'
 import { Botao } from '../../components/ui/Botao'
-import { sanitizarTexto, validarTelefone, formatarMoeda, formatarInputMoeda, validarDataBR } from '../../lib/validacao'
+import { sanitizarTexto, validarTelefone, normalizarTelefone, formatarMoeda, formatarInputMoeda, validarDataBR } from '../../lib/validacao'
 import { carregarContatos } from '../../lib/contatos'
 import { montarUrlWhatsApp, buscarVencimentosEmAberto, modeloUsaVencimento } from '../../lib/whatsapp'
 import { usePerfilCobranca } from '../../hooks/usePerfilCobranca'
@@ -132,7 +132,7 @@ export default function NovaVendaScreen() {
       const c = contatos[index]
       if (!c) return
       setNomeNovoCliente(c.name!)
-      const tel = c.phoneNumbers?.[0]?.number?.replace(/\D/g, '') ?? ''
+      const tel = normalizarTelefone(c.phoneNumbers?.[0]?.number ?? '')
       setTelNovoCliente(tel)
     }
 
@@ -403,7 +403,7 @@ export default function NovaVendaScreen() {
     if (telNovoCliente && !validarTelefone(telNovoCliente)) { setErroNovoCliente('Telefone inválido.'); return }
     setSalvandoCliente(true); setErroNovoCliente('')
     try {
-      const novo = await criarCliente({ nome, telefone: telNovoCliente || undefined })
+      const novo = await criarCliente({ nome, telefone: normalizarTelefone(telNovoCliente) || undefined })
       setClienteId(novo.id)
       setBuscaCliente(nome)
       setModalNovoCliente(false)
