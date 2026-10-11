@@ -562,3 +562,13 @@ Código: 2851b3a (build-1.0.13, runtimes 55/89) e bcf25b5 (android-combinada, ru
 | iOS 88 | 3ae31820… | 01a12afa-d471-7691-8ae0-6ca4f40e4433 | a6594e04-6660-4c6e-adec-9a71ba120c55 | eas update:republish --group 8c2a3ed9-922b-4be1-9a93-35a200c68bf2 --platform ios |
 | Android 54 | 61a2955d… | 01a12afc-9211-753f-ac5c-1580ab9592d0 | 74e378a3-e73f-4779-98dd-eeb8a15cd647 | eas update:republish --group 531df258-f4cb-4dd3-a528-a82cf7c0c95b --platform android |
 - Conferir em instalacoes_app (etapa contatos_erro) nas 24 h seguintes: o evento só aparece se ainda houver falha; zero linhas com a agenda funcionando é o resultado bom.
+
+## OTAs 11/10 (2) — agenda no iPhone: lista dentro do Modal "Novo cliente" (iOS não abre Modal sobre Modal)
+Código: 5ca6866 (build-1.0.13, runtimes 55/89) e b2763d4 (android-combinada, 54/88). Hashes conferidos. Fiscal aprovou.
+| Binário | Update ID | Group ID | Rollback (só com ordem; volta à OTA da agenda das 12:35–12:42) |
+|---|---|---|---|
+| iOS 89 | 01a12b0a-ae63-74a2-abd4-5481fd755a6c | eb3d2cf8-29ff-45bc-b1c8-8c6c01be646b | eas update:republish --group 5d32db46-d7fc-46e7-a942-be6ef7310081 --platform ios |
+| Android 55 | 01a12b0c-7d0c-75ba-9835-3a6bace324ee | a908f5f1-9798-4654-9fd5-17144aa4d8cc | eas update:republish --group 28dfcca0-05ac-40c4-8229-27d1d197b63d --platform android |
+| iOS 88 | 01a12b0e-34ab-7c0b-93e6-e344926315cf | 5da213b3-d760-46bc-9850-57b92f9b3d2f | eas update:republish --group a6594e04-6660-4c6e-adec-9a71ba120c55 --platform ios |
+- Android 54: ver IDs no relatório. Teste: agenda → escolher contato → nome/telefone preenchidos; voltar pela seta mantém o digitado; Android: botão voltar fecha a lista, depois o modal (antes o formulário não tinha onRequestClose; agora voltar fecha e limpa o formulário).
+- Risco conhecido, não alterado: cliente/[id].tsx:1033 fecha o modal de pagamento e abre o do Pix no mesmo instante (pode falhar no iOS).
