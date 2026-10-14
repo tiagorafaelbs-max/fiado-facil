@@ -17,7 +17,7 @@ import { Avatar } from '../components/ui/Avatar'
 import { AvisoVencimentoAntigas } from '../components/ui/AvisoVencimentoAntigas'
 import { LinkPersonalizarMensagem } from '../components/ui/LinkPersonalizarMensagem'
 import { formatarMoeda } from '../lib/validacao'
-import { montarUrlWhatsApp, buscarVencimentosEmAberto, modeloUsaVencimento } from '../lib/whatsapp'
+import { montarUrlWhatsApp, buscarContextoCobranca } from '../lib/whatsapp'
 import { C } from '../constants/colors'
 import { evento } from '../lib/instalacao'
 import { format, differenceInDays } from 'date-fns'
@@ -148,10 +148,9 @@ export default function CobrancasScreen() {
     if (abaParam === 'aberto') setAba('aberto')
   }, [abaParam])
 
-  // Vencimento mais antigo em aberto, só consultado quando o modelo do dono usa {vencimento}.
-  async function vencimentosParaMensagem(ids: string[]): Promise<Record<string, string>> {
-    if (!tenantId || ids.length === 0 || !modeloUsaVencimento(perfilCobranca)) return {}
-    return buscarVencimentosEmAberto(tenantId, ids)
+  // Parcelas vencidas (e o vencimento mais antigo, se o modelo usa {vencimento}) de cada cliente da mensagem.
+  function contextoParaMensagem(ids: string[]) {
+    return buscarContextoCobranca(tenantId, perfilCobranca, ids)
   }
 
   async function cobrarUm(cliente: ClienteVencido) {
@@ -172,11 +171,12 @@ export default function CobrancasScreen() {
       )
       return
     }
+    const ctx = await contextoParaMensagem([cliente.id])
     const url = montarUrlWhatsApp(
       { id: cliente.id, nome: cliente.nome, telefone: cliente.telefone },
       cliente.saldo_devedor,
       perfilCobranca,
-      { vencido: true, diasAtraso: cliente.dias_atraso, vencimento: cliente.data_vencimento },
+      { vencido: true, diasAtraso: cliente.dias_atraso, vencimento: cliente.data_vencimento, detalhe: ctx[cliente.id]?.detalhe },
     )
     if (Platform.OS === 'web') {
       try { window.open(url, '_blank') } catch { await reverterUso() }
@@ -228,7 +228,7 @@ export default function CobrancasScreen() {
             setCobrando(true)
             setProgresso({ atual: 0, total: comTelefone.length })
             try {
-              const vencimentos = await vencimentosParaMensagem(comTelefone.map(c => c.id))
+              const ctx = await contextoParaMensagem(comTelefone.map(c => c.id))
               for (let i = 0; i < comTelefone.length; i++) {
                 const cliente = comTelefone[i]
                 setProgresso({ atual: i + 1, total: comTelefone.length })
@@ -240,7 +240,8 @@ export default function CobrancasScreen() {
                   {
                     vencido,
                     diasAtraso: cliente.dias_atraso ?? diasAtrasoDefault,
-                    vencimento: cliente.data_vencimento ?? vencimentos[cliente.id],
+                    vencimento: cliente.data_vencimento ?? ctx[cliente.id]?.vencimento,
+                    detalhe: ctx[cliente.id]?.detalhe,
                   },
                 )
 
@@ -308,12 +309,12 @@ export default function CobrancasScreen() {
       )
       return
     }
-    const vencimentos = await vencimentosParaMensagem([cliente.id])
+    const ctx = await contextoParaMensagem([cliente.id])
     const url = montarUrlWhatsApp(
       { id: cliente.id, nome: cliente.nome, telefone: cliente.telefone },
       cliente.saldo_devedor,
       perfilCobranca,
-      { vencimento: vencimentos[cliente.id] },
+      ctx[cliente.id],
     )
     if (Platform.OS === 'web') {
       try { window.open(url, '_blank') } catch { await reverterUso() }

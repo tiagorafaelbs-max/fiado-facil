@@ -10,7 +10,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useTenant } from '../hooks/useTenant'
 import { usePerfilCobranca } from '../hooks/usePerfilCobranca'
 import { pedirAvaliacaoNoSucesso } from '../hooks/useAvaliacaoApp'
-import { montarUrlWhatsApp, buscarVencimentosEmAberto, modeloUsaVencimento } from '../lib/whatsapp'
+import { montarUrlWhatsApp, buscarContextoCobranca } from '../lib/whatsapp'
 import { resolverTenantId } from '../lib/tenant'
 import { Avatar } from '../components/ui/Avatar'
 import { formatarMoeda } from '../lib/validacao'
@@ -166,14 +166,12 @@ export default function RankingScreen() {
 
   async function abrirWhatsApp(c: ClienteRanking) {
     if (!c.telefone) return
-    const vencimentos = tenantId && modeloUsaVencimento(perfilCobranca)
-      ? await buscarVencimentosEmAberto(tenantId, [c.id])
-      : {}
+    const ctx = await buscarContextoCobranca(tenantId, perfilCobranca, [c.id])
     const url = montarUrlWhatsApp(
       { id: c.id, nome: c.nome, telefone: c.telefone },
       c.saldoDevedor,
       perfilCobranca,
-      { vencimento: vencimentos[c.id] },
+      ctx[c.id],
     )
     if (Platform.OS === 'web') window.open(url, '_blank')
     else require('react-native').Linking.openURL(url).then(() => pedirAvaliacaoNoSucesso('cobranca_whatsapp')).catch(() => {})

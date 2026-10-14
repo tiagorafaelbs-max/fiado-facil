@@ -20,7 +20,7 @@ import { Botao } from '../../components/ui/Botao'
 import { KeyboardToolbar, KEYBOARD_TOOLBAR_ID } from '../../components/ui/KeyboardToolbar'
 import { pedirAvaliacaoNoSucesso } from '../../hooks/useAvaliacaoApp'
 import { LinkPersonalizarMensagem } from '../../components/ui/LinkPersonalizarMensagem'
-import { cobrarViaWhatsApp, montarExtratoWhatsApp, buscarVencimentosEmAberto, modeloUsaVencimento } from '../../lib/whatsapp'
+import { cobrarViaWhatsApp, montarExtratoWhatsApp, buscarContextoCobranca } from '../../lib/whatsapp'
 import { usePerfilCobranca } from '../../hooks/usePerfilCobranca'
 import { useNomesEquipe } from '../../hooks/useNomesEquipe'
 import { SeloEquipe } from '../../components/ui/SeloEquipe'
@@ -368,10 +368,8 @@ export default function DetalheClienteScreen() {
     const permitido = await registrarUsoWpp()
     if (!permitido) { await avisarLimiteWpp(); return }
     try {
-      const vencimentos = tenantId && modeloUsaVencimento(perfilCobranca)
-        ? await buscarVencimentosEmAberto(tenantId, [cliente.id])
-        : {}
-      await cobrarViaWhatsApp(cliente, cliente.saldo_devedor ?? 0, perfilCobranca, { vencimento: vencimentos[cliente.id] })
+      const ctx = await buscarContextoCobranca(tenantId, perfilCobranca, [cliente.id])
+      await cobrarViaWhatsApp(cliente, cliente.saldo_devedor ?? 0, perfilCobranca, ctx[cliente.id])
       pedirAvaliacaoNoSucesso('cobranca_whatsapp')
     } catch (e: any) {
       await reverterUsoWpp()

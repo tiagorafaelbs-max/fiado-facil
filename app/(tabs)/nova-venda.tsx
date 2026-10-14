@@ -17,7 +17,7 @@ import { Campo } from '../../components/ui/Campo'
 import { Botao } from '../../components/ui/Botao'
 import { sanitizarTexto, validarTelefone, normalizarTelefone, nomeDeContatoValido, formatarMoeda, formatarInputMoeda, validarDataBR } from '../../lib/validacao'
 import { carregarContatos } from '../../lib/contatos'
-import { montarUrlWhatsApp, buscarVencimentosEmAberto, modeloUsaVencimento } from '../../lib/whatsapp'
+import { montarUrlWhatsApp, buscarContextoCobranca } from '../../lib/whatsapp'
 import { usePerfilCobranca } from '../../hooks/usePerfilCobranca'
 import { C } from '../../constants/colors'
 import { evento } from '../../lib/instalacao'
@@ -449,10 +449,8 @@ export default function NovaVendaScreen() {
       )
       return
     }
-    const vencimentos = tenantId && modeloUsaVencimento(perfilCobranca)
-      ? await buscarVencimentosEmAberto(tenantId, [clienteSucesso.id])
-      : {}
-    const url = montarUrlWhatsApp(clienteSucesso, clienteSucesso.saldo_devedor ?? 0, perfilCobranca, { vencimento: vencimentos[clienteSucesso.id] })
+    const ctx = await buscarContextoCobranca(tenantId, perfilCobranca, [clienteSucesso.id])
+    const url = montarUrlWhatsApp(clienteSucesso, clienteSucesso.saldo_devedor ?? 0, perfilCobranca, ctx[clienteSucesso.id])
     try {
       if (Platform.OS === 'web') window.open(url, '_blank')
       else await require('react-native').Linking.openURL(url)

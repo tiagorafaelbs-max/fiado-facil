@@ -16,7 +16,7 @@ import { useModulos } from '../../hooks/useModulos'
 import { useContadorWhatsApp } from '../../hooks/useContadorWhatsApp'
 import { pedirAvaliacaoNoSucesso } from '../../hooks/useAvaliacaoApp'
 import { usePerfilCobranca } from '../../hooks/usePerfilCobranca'
-import { montarUrlWhatsApp, buscarVencimentosEmAberto, modeloUsaVencimento, type PerfilCobranca } from '../../lib/whatsapp'
+import { montarUrlWhatsApp, buscarContextoCobranca, type PerfilCobranca } from '../../lib/whatsapp'
 import { useAuth } from '../../hooks/useAuth'
 import { useTenant } from '../../hooks/useTenant'
 import { resolverTenantId } from '../../lib/tenant'
@@ -88,12 +88,12 @@ async function abrirWhatsApp(
   perfil: PerfilCobranca | null,
   tenantId: string,
 ) {
-  const vencimentos = tenantId && modeloUsaVencimento(perfil) ? await buscarVencimentosEmAberto(tenantId, [cliente.id]) : {}
+  const ctx = await buscarContextoCobranca(tenantId, perfil, [cliente.id])
   const url = montarUrlWhatsApp(
     { id: cliente.id, nome: cliente.nome, telefone: cliente.telefone },
     cliente.saldo,
     perfil,
-    { vencimento: vencimentos[cliente.id] },
+    ctx[cliente.id],
   )
   if (Platform.OS === 'web') window.open(url, '_blank')
   else await require('react-native').Linking.openURL(url)

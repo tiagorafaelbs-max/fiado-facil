@@ -12,7 +12,7 @@ import { useContadorWhatsApp } from '../../hooks/useContadorWhatsApp'
 import { usePerfilCobranca } from '../../hooks/usePerfilCobranca'
 import { useEquipe } from '../../hooks/useNomesEquipe'
 import { ResumoPorFuncionario, type LancamentoPeriodo } from '../../components/ui/ResumoPorFuncionario'
-import { montarUrlWhatsApp, buscarVencimentosEmAberto, modeloUsaVencimento } from '../../lib/whatsapp'
+import { montarUrlWhatsApp, buscarContextoCobranca } from '../../lib/whatsapp'
 import { resolverTenantId } from '../../lib/tenant'
 import { useTenant } from '../../hooks/useTenant'
 import { Avatar } from '../../components/ui/Avatar'
@@ -465,14 +465,12 @@ export default function RelatoriosScreen() {
       return
     }
     try {
-      const vencimentos = tenantId && modeloUsaVencimento(perfilCobranca)
-        ? await buscarVencimentosEmAberto(tenantId, [c.id])
-        : {}
+      const ctx = await buscarContextoCobranca(tenantId, perfilCobranca, [c.id])
       const url = montarUrlWhatsApp(
         { id: c.id, nome: c.nome, telefone: c.telefone },
         c.saldo,
         perfilCobranca,
-        { vencimento: vencimentos[c.id] },
+        ctx[c.id],
       )
       if (Platform.OS === 'web') {
         window.open(url, '_blank')

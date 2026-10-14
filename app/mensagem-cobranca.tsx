@@ -19,7 +19,9 @@ import { C } from '../constants/colors'
 
 const DICAS: Record<VariavelCobranca, string> = {
   nome: 'Nome do cliente',
-  valor: 'Quanto ele deve',
+  valor: 'Saldo total que ele deve',
+  valor_vencido: 'Só o que já venceu',
+  parcelas_vencidas: 'Lista das parcelas vencidas',
   negocio: 'Nome da sua loja',
   pix: 'Sua chave Pix',
   vencimento: 'Vencimento mais antigo',
@@ -78,6 +80,8 @@ export default function MensagemCobrancaScreen() {
   const previa = useMemo(() => renderizarModelo(texto, {
     nome: 'Maria Souza',
     valor: formatarMoeda(150),
+    valor_vencido: formatarMoeda(100),
+    parcelas_vencidas: '• Cesta (1/2) — ' + formatarMoeda(100) + ' — venceu 10/09',
     negocio: perfil?.nome_negocio?.trim() || 'Minha Loja',
     pix: perfil?.chave_pix?.trim() || '',
     vencimento: format(new Date(), 'dd/MM/yyyy'),
@@ -264,6 +268,10 @@ export default function MensagemCobrancaScreen() {
             </View>
           </>
         )}
+
+        <Text style={estilos.previaInfo}>
+          {'{valor}'} é o saldo total em aberto. {'{valor_vencido}'} é só o que já venceu e {'{parcelas_vencidas}'} lista as parcelas vencidas (até 3, depois "e mais N"). Se nada venceu ainda, os dois mostram a próxima parcela a vencer. Modelos já salvos continuam iguais.
+        </Text>
 
         {semValor && <Text style={estilos.alerta}>Esta mensagem não mostra o valor da dívida.</Text>}
         {desconhecidas.length > 0 && (

@@ -1,6 +1,8 @@
 import { Linking, Platform } from 'react-native'
 import { supabase } from './supabase'
 import { formatarMoeda, normalizarTelefone } from './validacao'
+import { calcularDetalheCobranca, type DetalheCobranca } from './cobrancaVencidos'
+import { dataParaISO } from './vencimento'
 import type { Cliente } from '../types'
 
 type ClienteBasico = Pick<Cliente, 'id' | 'nome' | 'telefone'>
@@ -13,7 +15,9 @@ type ClienteBasico = Pick<Cliente, 'id' | 'nome' | 'telefone'>
 export const LIMITE_MODELO_COBRANCA = 1000
 
 // Variáveis que o lojista pode usar no modelo. Qualquer outro {texto} sai literal.
-export const VARIAVEIS_COBRANCA = ['nome', 'valor', 'negocio', 'pix', 'vencimento'] as const
+// {valor} é o SALDO TOTAL em aberto (modelos antigos continuam iguais). {valor_vencido} é só o que já venceu e
+// {parcelas_vencidas} lista as parcelas vencidas (se nada venceu, traz a próxima parcela a vencer).
+export const VARIAVEIS_COBRANCA = ['nome', 'valor', 'valor_vencido', 'parcelas_vencidas', 'negocio', 'pix', 'vencimento'] as const
 export type VariavelCobranca = typeof VARIAVEIS_COBRANCA[number]
 
 // Texto padrão (cobrança "em aberto"). É também o que o editor mostra quando não há modelo salvo.
@@ -31,6 +35,25 @@ const MODELO_PADRAO_VENCIDO =
   'Para pagar via Pix, use a chave: *{pix}*\n\n' +
   'Por favor, entre em contato o quanto antes para regularizarmos. 🙏'
 
+// Textos usados quando o cliente tem vendas/parcelas com vencimentos (e o lojista não personalizou a mensagem):
+// cobram só o que venceu; sem nada vencido, lembram a próxima parcela. {saldo_total_linha} só aparece se o saldo total
+// for diferente do valor cobrado. Variáveis internas: não aparecem para o lojista.
+const MODELO_PADRAO_VENCIDOS =
+  'Olá, {nome}! 👋\n\n' +
+  'Passando para lembrar que você tem *{valor_vencido}* {situacao} conosco ({negocio}):\n' +
+  '{parcelas_vencidas}\n' +
+  '{saldo_total_linha}\n\n' +
+  'Para pagar via Pix, use a chave: *{pix}*\n\n' +
+  'Por favor, entre em contato o quanto antes para regularizarmos. 🙏'
+
+const MODELO_PADRAO_PROXIMA =
+  'Olá, {nome}! 👋\n\n' +
+  'Passando para lembrar da próxima parcela com {negocio}:\n' +
+  '{parcelas_vencidas}\n' +
+  '{saldo_total_linha}\n\n' +
+  'Para pagar via Pix, use a chave: *{pix}*\n\n' +
+  'Qualquer dúvida, é só chamar. Obrigado! 😊'
+
 export interface PerfilCobranca {
   nome_negocio?: string | null
   chave_pix?: string | null
@@ -43,6 +66,8 @@ export interface OpcoesCobranca {
   diasAtraso?: number
   // Vencimento mais antigo em aberto do cliente (yyyy-mm-dd). Só é usado se o modelo tem {vencimento}.
   vencimento?: string | null
+  // Parcelas vencidas do cliente (buscarContextoCobranca). Sem isto vale o saldo total, como sempre.
+  detalhe?: DetalheCobranca | null
 }
 
 const REGEX_VARIAVEL = /\{([a-zA-Z_]+)\}/g
@@ -72,7 +97,7 @@ export function variaveisDesconhecidas(modelo: string): string[] {
   return [...achadas]
 }
 
-type ValoresModelo = Partial<Record<VariavelCobranca | 'atraso', string>>
+type ValoresModelo = Partial<Record<VariavelCobranca | 'atraso' | 'saldo_total_linha' | 'situacao', string>>
 
 export function renderizarModelo(modelo: string, valores: ValoresModelo): string {
   let linhas = modelo.replace(/\r\n/g, '\n').split('\n')
@@ -96,6 +121,32 @@ function formatarVencimento(iso?: string | null): string {
   return m ? `${m[3]}/${m[2]}/${m[1]}` : 'sem data definida'
 }
 
+function diaMes(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
+  return m ? `${m[3]}/${m[2]}` : iso
+}
+
+// Linhas das parcelas (até 3 mais antigas + "e mais N") e o valor que está sendo cobrado.
+function descreverDetalhe(d: DetalheCobranca, saldoTotal: number): { valorBase: number; parcelas: string; saldoLinha: string; vencidos: boolean; situacao: string } {
+  let linhas: string[]
+  let valorBase: number
+  const hoje = dataParaISO(new Date())
+  const vencidos = d.vencidos.length > 0
+  // o que vence HOJE entra no valor cobrado, mas não é "vencido": a linha diz "vence hoje"
+  const soHoje = vencidos && d.vencidos.every(i => i.vencimento >= hoje)
+  if (vencidos) {
+    linhas = d.vencidos.slice(0, 3).map(i => `• ${i.descricao} — ${formatarMoeda(i.restante)} — ${i.vencimento >= hoje ? 'vence hoje' : `venceu ${diaMes(i.vencimento)}`}`)
+    if (d.vencidos.length > 3) linhas.push(`e mais ${d.vencidos.length - 3}`)
+    valorBase = d.valorVencido
+  } else {
+    const p = d.proxima!
+    linhas = [`• ${p.descricao} — ${formatarMoeda(p.restante)} — vence ${diaMes(p.vencimento)}`]
+    valorBase = p.restante
+  }
+  const saldoLinha = Math.abs(saldoTotal - valorBase) > 0.005 ? `Saldo total em aberto: ${formatarMoeda(saldoTotal)}` : ''
+  return { valorBase, parcelas: linhas.join('\n'), saldoLinha, vencidos, situacao: soHoje ? 'vencendo hoje' : 'vencido' }
+}
+
 // Função única de texto da cobrança: nenhuma tela monta mensagem por conta própria.
 export function montarMensagemCobranca(
   cliente: Pick<Cliente, 'nome'>,
@@ -104,15 +155,21 @@ export function montarMensagemCobranca(
   opcoes: OpcoesCobranca = {},
 ): string {
   const dias = opcoes.diasAtraso ?? 0
+  const det = opcoes.detalhe ? descreverDetalhe(opcoes.detalhe, saldoDevedor) : null
   const valores: ValoresModelo = {
     nome: cliente.nome,
-    valor: formatarMoeda(saldoDevedor),
+    valor: formatarMoeda(saldoDevedor),   // sempre o saldo total (modelos já salvos não mudam)
+    valor_vencido: formatarMoeda(det ? det.valorBase : saldoDevedor),
+    parcelas_vencidas: det ? det.parcelas : '',
+    saldo_total_linha: det ? det.saldoLinha : '',
+    situacao: det ? det.situacao : 'vencido',
     negocio: perfil?.nome_negocio?.trim() || 'nossa loja',
     pix: perfil?.chave_pix?.trim() || '',
     vencimento: formatarVencimento(opcoes.vencimento),
   }
   const personalizado = modeloEfetivo(perfil)
   if (personalizado) return renderizarModelo(personalizado, valores)
+  if (det) return renderizarModelo(det.vencidos ? MODELO_PADRAO_VENCIDOS : MODELO_PADRAO_PROXIMA, valores)
   if (opcoes.vencido && dias > 0) {
     return renderizarModelo(MODELO_PADRAO_VENCIDO, { ...valores, atraso: dias === 1 ? '1 dia' : `${dias} dias` })
   }
@@ -149,6 +206,66 @@ export async function buscarVencimentosEmAberto(
     // sem rede: segue sem as datas
   }
   return mapa
+}
+
+// Parcelas vencidas de cada cliente (já descontados os pagamentos, mesma alocação do banco). Uma consulta de vendas e
+// uma de pagamentos por bloco de clientes. Falha, lista grande demais (limite de linhas do servidor) ou demora de rede
+// = cliente fica sem detalhe e a mensagem sai com o saldo total, como antes. Espera no máximo 3 s.
+export async function buscarDetalhesCobranca(
+  tenantId: string,
+  clienteIds: string[],
+): Promise<Record<string, DetalheCobranca>> {
+  const mapa: Record<string, DetalheCobranca> = {}
+  const LIMITE = 1000
+  const hoje = dataParaISO(new Date())
+  const blocos: string[][] = []
+  for (let i = 0; i < clienteIds.length; i += 20) blocos.push(clienteIds.slice(i, i + 20))
+  const umBloco = async (bloco: string[]) => {
+    {
+      const [rv, rp] = await Promise.all([
+        supabase.from('vendas').select('id, cliente_id, descricao, valor, data_venda, data_vencimento').eq('usuario_id', tenantId).in('cliente_id', bloco).limit(LIMITE),
+        supabase.from('pagamentos').select('cliente_id, valor, venda_id').eq('usuario_id', tenantId).in('cliente_id', bloco).limit(LIMITE),
+      ])
+      // sem os dados completos não dá para alocar com segurança: segue com o saldo total
+      if (rv.error || rp.error || (rv.data?.length ?? 0) >= LIMITE || (rp.data?.length ?? 0) >= LIMITE) return
+      for (const id of bloco) {
+        const d = calcularDetalheCobranca(
+          (rv.data ?? []).filter(v => v.cliente_id === id),
+          (rp.data ?? []).filter(p => p.cliente_id === id),
+          hoje,
+        )
+        if (d) mapa[id] = d
+      }
+    }
+  }
+  const buscar = async () => {
+    for (let i = 0; i < blocos.length; i += 4) await Promise.all(blocos.slice(i, i + 4).map(umBloco))
+  }
+  try {
+    await Promise.race([buscar(), new Promise<void>(resolve => setTimeout(resolve, 3000))])
+  } catch {
+    // sem rede: saldo total
+  }
+  return mapa
+}
+
+// Tudo que a mensagem de cobrança precisa além de nome/saldo, por cliente: vencimento mais antigo (só se o modelo usa
+// {vencimento}) e as parcelas vencidas. Cada tela passa o resultado de ctx[id] em montarUrlWhatsApp/cobrarViaWhatsApp.
+export async function buscarContextoCobranca(
+  tenantId: string | null | undefined,
+  perfil: PerfilCobranca | null | undefined,
+  clienteIds: string[],
+): Promise<Record<string, OpcoesCobranca>> {
+  if (!tenantId || clienteIds.length === 0) return {}
+  const [vencimentos, detalhes] = await Promise.all([
+    modeloUsaVencimento(perfil) ? buscarVencimentosEmAberto(tenantId, clienteIds) : Promise.resolve({} as Record<string, string>),
+    buscarDetalhesCobranca(tenantId, clienteIds),
+  ])
+  const ctx: Record<string, OpcoesCobranca> = {}
+  for (const id of clienteIds) {
+    ctx[id] = { vencimento: vencimentos[id], detalhe: detalhes[id] ?? null }
+  }
+  return ctx
 }
 
 // Número só com DDD + telefone; o link do wa.me acrescenta o 55 (nunca duplica).
