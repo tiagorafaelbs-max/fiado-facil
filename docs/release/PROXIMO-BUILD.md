@@ -636,3 +636,15 @@ Código: 28b4054 e 2c824ae (build-1.0.13, 55/89); 1f69ad1 e d998f66 (android-com
 | Android 55 | 01a139d9-77a0-7130-a72a-e74cb19322c8 | 142d90b9-7f75-421c-ba94-03407948bcb3 | eas update:republish --group 03b3a7fb-5c9d-4d79-be46-31cbd82ff4fe --platform android |
 | iOS 88 | 01a139dd-04d7-73a7-8059-b16c04167a12 | ec4bcce8-4d0a-49d6-a71d-e63928399dae | eas update:republish --group a9bb2d6a-8e67-42d8-ae63-dd60ece40691 --platform ios |
 | Android 54 | 01a139df-cebe-7b19-8475-e318faeb8ef3 | 91129558-1ad6-407b-ba29-edf42382c637 | eas update:republish --group 0d83d19f-55ca-482b-9af6-b861281a100b --platform android |
+
+## OTAs 14/10 (4) — {valor} = valor cobrado nos modelos personalizados + aba Vencidos mostra o vencido (Fiscal aprovou; hashes conferidos)
+Código: 9cad797 (build-1.0.13, 55/89) e fbd11dc (android-combinada, 54/88). Bug do Tiago (iPhone, modelo da Tia Leda "…esta em {valor}" saía R$ 735 = total).
+- {valor} = valor COBRADO (vencido, incluindo o que vence hoje; nada vencido → próxima parcela; sem datas/sem detalhe → saldo total), igual à mensagem padrão. NOVA {saldo_total} = total em aberto. {valor_vencido} continua como sinônimo de {valor} (modelos salvos), fora dos botões. Tela "Mensagem de cobrança": ajuda e prévia atualizadas.
+- Cobranças, aba Vencidos: mostra o valor vencido por cliente ("Total R$ X" pequeno se diferente) e o total da aba soma o vencido (caso Leda R$ 80 × R$ 130). Se a busca das parcelas falhar, mostra o saldo.
+- ATENÇÃO (Pro): quem usava {valor} querendo o TOTAL passa a enviar o vencido; o total agora é {saldo_total}. Avisar os clientes Pro com modelo próprio (4 contas).
+- Recomendações do Fiscal (não feitas): a lista de Cobranças espera até 3 s pelas parcelas antes de aparecer (melhor mostrar o saldo e completar depois); o "total em atraso" pode misturar vencido e saldo se a busca falhar para alguns clientes.
+| Binário | Update ID | Group ID | Rollback (só com ordem; volta à OTA "Sugestões e dúvidas / um banner") |
+|---|---|---|---|
+| iOS 89 | 01a13aca-1efc-7518-811d-a8356e0897ab | 10bc0f51-a4d5-410b-a4e7-e6b649faba57 | eas update:republish --group 6a851519-5a5c-4544-9607-16b1762af165 --platform ios |
+| Android 55 | 01a13acd-8b65-702e-adc2-d0789a9088b0 | 51df42dc-6fe3-4de5-ac72-514dd1ee38a5 | eas update:republish --group 142d90b9-7f75-421c-ba94-03407948bcb3 --platform android |
+| iOS 88 | 01a13ad1-5c6c-7321-a655-449dbf941ac5 | a5aa6280-beed-4214-b1d9-4b3f4911e4a2 | eas update:republish --group ec4bcce8-4d0a-49d6-a71d-e63928399dae --platform ios |
