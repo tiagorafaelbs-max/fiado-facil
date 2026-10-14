@@ -601,3 +601,13 @@ Código: 4a0a0b3 (build-1.0.13, 55/89) e 5ae2a01 (android-combinada, 54/88). Has
 | Android 55 | 01a12b36-d741-76ce-b2e3-f74caa2088c9 | b887df62-0397-4051-9ea8-3b712eeae2c1 | eas update:republish --group 0470a9d3-354f-4439-8d12-efffa650fc27 --platform android |
 | iOS 88 | 01a12b38-c470-7f99-947c-9630f6317823 | 72758b6b-2f9e-49b4-8776-2cefc2e220ad | eas update:republish --group fa718202-8c1a-4c66-b6d8-b73422313423 --platform ios |
 | Android 54 | 01a12b3a-9597-7f12-92ce-11c9e4b72d0a | daf12aad-1cbb-4ac8-86a4-3d9564afe30c | eas update:republish --group 0ee3dae3-bd54-4217-ac01-014fd694fc11 --platform android |
+
+## OTAs 14/10 — cobrança por WhatsApp só do que está vencido (Fiscal aprovou; hashes conferidos)
+Código: 9222126 (build-1.0.13, 55/89) e 7ffb399 (android-combinada, 54/88). Novo lib/cobrancaVencidos.ts (usa lib/alocacao.ts = banco). Valor cobrado = parcelas em aberto com vencimento até HOJE (vencidas + a que vence hoje), pagamentos descontados; lista até 3 + "e mais N"; "Saldo total em aberto" só se diferente; nada vencido → próxima parcela; sem datas → saldo total (como antes). Modelos personalizados: {valor} = total (inalterado); novas {valor_vencido} e {parcelas_vencidas}. Texto: parcela do dia diz "vence hoje". "Cobrar todos": consulta em blocos de 20, 4 em paralelo, teto 3 s (falha → saldo total).
+- Efeito visível: clientes "em aberto" sem nada vencido passam a receber o lembrete da PRÓXIMA parcela (não o saldo). Frase com vencida + do dia diz "vencido" (a linha do dia diz "vence hoje"); alternativa mais exata: "em aberto até hoje".
+| Binário | Update ID | Group ID | Rollback (só com ordem; volta à OTA do nome da agenda) |
+|---|---|---|---|
+| iOS 89 | 01a139b3-68dd-7503-800f-cc35f4d7db80 | 4bcdcdb6-05f8-423d-9490-21742a27b870 | eas update:republish --group 643c2c8c-ec50-4284-915e-e5a1ebd2e8e4 --platform ios |
+| Android 55 | 01a139b5-560f-7747-b4d2-7b16a05bc734 | 02ebda0d-3dfc-4a54-b9c1-63fde29d861a | eas update:republish --group b887df62-0397-4051-9ea8-3b712eeae2c1 --platform android |
+| iOS 88 | 01a139b7-7b5e-7314-b565-d534e800a881 | d5b5b7c4-b1ee-40fa-bd4f-681bf154a099 | eas update:republish --group 72758b6b-2f9e-49b4-8776-2cefc2e220ad --platform ios |
+| Android 54 | 01a139b9-509f-7aae-a21b-0bed693812c4 | 1b0062bf-e3f3-4cd2-80d9-36082e09f59d | eas update:republish --group daf12aad-1cbb-4ac8-86a4-3d9564afe30c --platform android |
