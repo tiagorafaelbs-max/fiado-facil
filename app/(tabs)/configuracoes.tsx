@@ -680,11 +680,11 @@ export default function ConfiguracoesScreen() {
       <View style={estilos.card}>
         <Text style={[estilos.cardTitulo, { marginBottom: 8 }]}>⭐ Suporte</Text>
         <AcaoRow icone="thumbs-up-outline" label="⭐ Avaliar o FiadoApp" onPress={abrirAvaliacaoManual} />
-        <AcaoRow icone="chatbubble-ellipses-outline" label="Sugestões e reclamações"
+        <AcaoRow icone="chatbubble-ellipses-outline" label="Sugestões e dúvidas"
           onPress={() => {
-            const msg = encodeURIComponent('Olá! Quero enviar uma sugestão/reclamação sobre o FiadoApp:\n\n')
+            const msg = encodeURIComponent('Olá! Quero enviar uma sugestão ou dúvida sobre o FiadoApp:\n\n')
             Linking.openURL(`https://wa.me/5531995515045?text=${msg}`).catch(() => {
-              Linking.openURL(`mailto:fiadoapp.contato@gmail.com?subject=${encodeURIComponent('Sugestão/reclamação - FiadoApp')}`).catch(() => {})
+              Linking.openURL(`mailto:fiadoapp.contato@gmail.com?subject=${encodeURIComponent('Sugestão ou dúvida - FiadoApp')}`).catch(() => {})
             })
           }}
           ultimo />

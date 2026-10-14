@@ -611,3 +611,15 @@ Código: 9222126 (build-1.0.13, 55/89) e 7ffb399 (android-combinada, 54/88). Nov
 | Android 55 | 01a139b5-560f-7747-b4d2-7b16a05bc734 | 02ebda0d-3dfc-4a54-b9c1-63fde29d861a | eas update:republish --group b887df62-0397-4051-9ea8-3b712eeae2c1 --platform android |
 | iOS 88 | 01a139b7-7b5e-7314-b565-d534e800a881 | d5b5b7c4-b1ee-40fa-bd4f-681bf154a099 | eas update:republish --group 72758b6b-2f9e-49b4-8776-2cefc2e220ad --platform ios |
 | Android 54 | 01a139b9-509f-7aae-a21b-0bed693812c4 | 1b0062bf-e3f3-4cd2-80d9-36082e09f59d | eas update:republish --group daf12aad-1cbb-4ac8-86a4-3d9564afe30c --platform android |
+
+## OTAs 14/10 (2) — card de avaliação na tela Início, SÓ ANDROID (Fiscal aprovou; 1ª versão reprovada por regra das lojas)
+Código: 9aef8e7 (build-1.0.13, 55/89) e af50f06 (android-combinada, 54/88). Card discreto: só dono, conta >=7 dias, >=10 vendas, depois de pagamento/cobrança; "⭐ Sua avaliação na loja ajuda outros comerciantes a encontrar o FiadoApp." [Avaliar] (abre a Play Store, nunca mais mostra) / [Agora não] ou X (volta em 60 dias, até 3 vezes). Um banner por vez (limitação: não considera AvisoAtualizacao nem AvisoVencimentoAntigas). Sem dois pedidos seguidos (card x diálogo nativo, 60 dias nos dois sentidos).
+- Por regra das lojas o texto original ("Está gostando do FiadoApp?") e o card no iOS foram trocados, com a escolha do Tiago: Google pede não perguntar opinião antes do convite; Apple 5.6.1 só aceita o pedido nativo (no iPhone ficam o pedido automático e o botão de Ajustes).
+- Funil: avaliar_card / avaliar_toque. Migration supabase/migrations/instalacoes_app_avaliar_card.sql (simulada em bloco revertido) NÃO APLICADA, aguardando autorização; sem ela os eventos falham em silêncio.
+- Pendente: frase da política também em fiadoapp.app.br/privacidade ("e se o convite para avaliar o app foi exibido ou tocado").
+| Binário | Update ID | Group ID | Rollback (só com ordem; volta à OTA da cobrança só do vencido) |
+|---|---|---|---|
+| iOS 89 | 01a139c3-15ba-7656-b9d4-5f8347e2f1f2 | 40af4506-9e40-42d3-a524-efb9ecadd461 | eas update:republish --group 4bcdcdb6-05f8-423d-9490-21742a27b870 --platform ios |
+| Android 55 | 01a139c4-df8d-74b9-ba7c-c5b2a3640aa6 | 03b3a7fb-5c9d-4d79-be46-31cbd82ff4fe | eas update:republish --group 02ebda0d-3dfc-4a54-b9c1-63fde29d861a --platform android |
+| iOS 88 | 01a139c6-b500-7485-baaa-f84d905e1b0d | a9bb2d6a-8e67-42d8-ae63-dd60ece40691 | eas update:republish --group d5b5b7c4-b1ee-40fa-bd4f-681bf154a099 --platform ios |
+| Android 54 | 01a139c9-68e5-7b85-837b-2110ecf984f3 | 0d83d19f-55ca-482b-9af6-b861281a100b | eas update:republish --group 1b0062bf-e3f3-4cd2-80d9-36082e09f59d --platform android |
