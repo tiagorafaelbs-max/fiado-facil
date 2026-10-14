@@ -62,6 +62,9 @@ export default function PlanosScreen() {
   const [precoMensal, setPrecoMensal] = useState('R$ 19,90')
   const [precoAnual, setPrecoAnual]   = useState('R$ 149,90')
   const [ativando, setAtivando] = useState(false)
+  // Falha ao carregar a loja/planos: mostra o aviso com "Tentar de novo" (muda a tentativa e refaz a inicialização).
+  const [erroProdutos, setErroProdutos] = useState(false)
+  const [tentativaLoja, setTentativaLoja] = useState(0)
 
   // Funil de compra (anônimo, 1x por dia): abriu a tela Planos. Só o dono (funcionário vê a tela de bloqueio).
   useEffect(() => {
@@ -82,11 +85,20 @@ export default function PlanosScreen() {
     let purchaseUpdateSub: ReturnType<typeof purchaseUpdatedListener>
     let purchaseErrorSub: ReturnType<typeof purchaseErrorListener>
 
-    async function setupIAP() {
-      try {
-        const conectado = await garantirConexaoIAP()
-        if (!conectado) { evento('loja_erro', 'sem_conexao_loja'); return }
+    let ativo = true
+    const esperar = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms))
+    // Funil anônimo: código + começo da mensagem do erro técnico da loja (nunca dado do usuário), no formato aceito pelo banco.
+    const detalheExcecao = (e: any) =>
+      'excecao_produtos:' + String(e?.code ?? 'sem_codigo') + ':' + String(e?.message ?? '').replace(/\s+/g, '_')
 
+    async function setupIAP() {
+      if (ativo) setErroProdutos(false)
+      try {
+        let conectado = await garantirConexaoIAP()
+        if (!conectado) { await esperar(1500); conectado = await garantirConexaoIAP() }   // 1 nova tentativa
+        if (!conectado) { evento('loja_erro', 'sem_conexao_loja'); if (ativo) setErroProdutos(true); return }
+
+        if (!ativo) return   // saiu da tela (ou tocou em Tentar de novo) enquanto conectava: não registra listeners órfãos
         purchaseUpdateSub = purchaseUpdatedListener(async (purchase: Purchase) => {
           // IAP v15 / Nitro: receipt está em purchaseToken (JWS) ou transactionReceipt
           const receipt = (purchase as any).purchaseToken ?? (purchase as any).transactionReceipt
@@ -115,8 +127,14 @@ export default function PlanosScreen() {
           setLoading(null)
         })
 
-        const subs = await fetchProducts({ skus: SKUS, type: 'subs' }) ?? []
-        if (subs.length === 0) evento('loja_erro', 'produtos_vazio')
+        let subs
+        try {
+          subs = await fetchProducts({ skus: SKUS, type: 'subs' }) ?? []
+        } catch {
+          await esperar(1500)   // 1 nova tentativa antes de avisar o usuário
+          subs = await fetchProducts({ skus: SKUS, type: 'subs' }) ?? []
+        }
+        if (subs.length === 0) { evento('loja_erro', 'produtos_vazio'); if (ativo) setErroProdutos(true) }
         for (const sub of subs) {
           const pid = (sub as any).id ?? (sub as any).productId ?? ''
           // Só mostra o preço da loja se a moeda for BRL (conta de teste/loja de outro país devolve "$2.99" enquanto a
@@ -130,17 +148,19 @@ export default function PlanosScreen() {
           }
         }
       } catch (e: any) {
-        evento('loja_erro', 'excecao_produtos')
+        evento('loja_erro', detalheExcecao(e))
+        if (ativo) setErroProdutos(true)
         console.warn('[IAP] setupIAP falhou:', e?.message ?? e)
       }
     }
 
     setupIAP()
     return () => {
+      ativo = false
       purchaseUpdateSub?.remove()
       purchaseErrorSub?.remove()
     }
-  }, [])
+  }, [tentativaLoja])
 
   // Verifica compras Apple pendentes ao voltar a esta tela (ex: usuário fechou o app
   // no meio da compra e reabriu direto nos planos) -- reaproveita o mesmo mecanismo
@@ -393,6 +413,17 @@ export default function PlanosScreen() {
         </TouchableOpacity>
       </View>
 
+      {erroProdutos && (
+        <View style={estilos.erroLoja} accessibilityRole="alert">
+          <Text style={estilos.erroLojaTexto}>
+            Não foi possível carregar os planos. Verifique se {isIOS ? 'a App Store' : 'a Play Store'} está atualizada e tente de novo.
+          </Text>
+          <TouchableOpacity style={estilos.erroLojaBtn} onPress={() => setTentativaLoja(n => n + 1)} accessibilityRole="button">
+            <Text style={estilos.erroLojaBtnTexto}>Tentar de novo</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Card Pro */}
       <View style={estilos.cardPro}>
         <View style={estilos.fitaPopular}>
@@ -548,6 +579,13 @@ const estilos = StyleSheet.create({
   depoimentoCard: { backgroundColor: C.white, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: C.border, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
   depoimentoTexto: { fontSize: 13, color: C.text, lineHeight: 20, fontStyle: 'italic', marginBottom: 8 },
   depoimentoAutor: { fontSize: 11, color: C.text3, fontWeight: '600' },
+  erroLoja: {
+    backgroundColor: C.yellowLight, borderRadius: 12, borderWidth: 1, borderColor: C.yellowBorder,
+    padding: 12, marginBottom: 12, gap: 10,
+  },
+  erroLojaTexto: { fontSize: 13, color: C.text2, lineHeight: 18 },
+  erroLojaBtn: { alignSelf: 'flex-start', backgroundColor: C.green, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8 },
+  erroLojaBtnTexto: { color: C.white, fontSize: 13, fontWeight: '700' },
   btnRestaurar: { alignItems: 'center', paddingVertical: 10, marginBottom: 12 },
   btnRestaurarTexto: { fontSize: 13, color: C.text3, textDecorationLine: 'underline' },
   legalBox: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 12, marginBottom: 4 },
