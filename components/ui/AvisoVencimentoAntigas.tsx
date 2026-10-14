@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView, ActivityIndicator, Alert } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useVencimentoAntigas } from '../../hooks/useVencimentoAntigas'
@@ -13,14 +13,22 @@ interface Props {
   aoMudar?: () => void
   // Margem acima do aviso (só quando ele aparece) — evita um vazio quando o componente não renderiza nada.
   margemTopo?: number
+  // Avisa a tela quando o aviso está (ou deixa de estar) visível: a tela Início mostra um banner por vez.
+  aoMudarVisibilidade?: (visivel: boolean) => void
 }
 
 // Aviso das vendas antigas sem data de vencimento. Só aparece para o DONO (o hook só carrega
 // com papel de dono confirmado e as RPCs recusam funcionário). Mostra os NÚMEROS DA LOJA antes
 // de qualquer alteração e nada muda sem o toque de confirmação. Sem valores em R$.
-export function AvisoVencimentoAntigas({ vencidosAtuais, aoMudar, margemTopo = 0 }: Props) {
+export function AvisoVencimentoAntigas({ vencidosAtuais, aoMudar, margemTopo = 0, aoMudarVisibilidade }: Props) {
   const { impacto, escondido, processando, agoraNao, definir, desfazer } = useVencimentoAntigas()
   const [modal, setModal] = useState(false)
+  // mesmos critérios dos retornos abaixo: banner "desfazer" ou aviso de vendas antigas
+  const visivel = !!impacto && (impacto.desfazivel > 0 || !(impacto.total === 0 || escondido))
+  useEffect(() => {
+    aoMudarVisibilidade?.(visivel)
+    return () => aoMudarVisibilidade?.(false)
+  }, [visivel, aoMudarVisibilidade])
   const emAndamento = useRef(false)   // trava de duplo toque (processando só liga depois do await de rede)
 
   if (!impacto) return null

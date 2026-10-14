@@ -1,11 +1,17 @@
+import { useEffect } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useAvisoAtualizacao } from '../../hooks/useAvisoAtualizacao'
 import { C } from '../../constants/colors'
 
 // Faixa discreta no Início: só avisa, nunca bloqueia. Aparece para dono e funcionário.
-export function AvisoAtualizacao() {
+export function AvisoAtualizacao({ aoMudarVisibilidade }: { aoMudarVisibilidade?: (visivel: boolean) => void }) {
   const { mostrar, agoraNao, atualizar } = useAvisoAtualizacao()
+  // a tela Início usa isto para mostrar um banner por vez
+  useEffect(() => {
+    aoMudarVisibilidade?.(mostrar)
+    return () => aoMudarVisibilidade?.(false)
+  }, [mostrar, aoMudarVisibilidade])
   if (!mostrar) return null
 
   return (

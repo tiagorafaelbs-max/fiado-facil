@@ -50,8 +50,12 @@ export default function DashboardScreen() {
   const [diaCobranca, setDiaCobranca] = useState<number | null>(null)
   const [clientesParaCobrar, setClientesParaCobrar] = useState(0)
   const [cobrancaAutoTipo, setCobrancaAutoTipo] = useState<'vencidos' | 'todos'>('vencidos')
-  // Card de avaliação: um banner por vez (só aparece quando nenhum outro banner conhecido da tela está visível).
+  // Card de avaliação: um banner por vez (prioridade: atualização > limite > vendas antigas > avaliação).
+  const [avisoAtualizacaoVisivel, setAvisoAtualizacaoVisivel] = useState(false)
+  const [avisoVencimentoVisivel, setAvisoVencimentoVisivel] = useState(false)
   const outroBannerVisivel =
+    avisoAtualizacaoVisivel ||
+    avisoVencimentoVisivel ||
     !online ||
     (checklistDia0.visivel && !dashboardOffline) ||
     (modulos.cobranca_automatica && !!diaCobranca && clientesParaCobrar > 0) ||
@@ -428,12 +432,13 @@ export default function DashboardScreen() {
             )}
 
             {/* Versão nova do app (só aviso, nunca bloqueio) — dono e funcionário */}
-            <AvisoAtualizacao />
+            <AvisoAtualizacao aoMudarVisibilidade={setAvisoAtualizacaoVisivel} />
 
             {/* Vendas antigas sem data de vencimento — só o dono (o componente some para funcionário) */}
             <AvisoVencimentoAntigas
               vencidosAtuais={resumo.clientes_vencidos}
               aoMudar={() => { buscar(); checklistDia0.recarregar() }}
+              aoMudarVisibilidade={setAvisoVencimentoVisivel}
             />
 
             {/* Alertas */}
