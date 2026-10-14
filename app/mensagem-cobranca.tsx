@@ -19,8 +19,9 @@ import { C } from '../constants/colors'
 
 const DICAS: Record<VariavelCobranca, string> = {
   nome: 'Nome do cliente',
-  valor: 'Saldo total que ele deve',
-  valor_vencido: 'Só o que já venceu',
+  valor: 'Valor cobrado (o que venceu)',
+  saldo_total: 'Total em aberto',
+  valor_vencido: 'Valor cobrado (o que venceu)',
   parcelas_vencidas: 'Lista das parcelas vencidas',
   negocio: 'Nome da sua loja',
   pix: 'Sua chave Pix',
@@ -79,8 +80,9 @@ export default function MensagemCobrancaScreen() {
 
   const previa = useMemo(() => renderizarModelo(texto, {
     nome: 'Maria Souza',
-    valor: formatarMoeda(150),
+    valor: formatarMoeda(100),
     valor_vencido: formatarMoeda(100),
+    saldo_total: formatarMoeda(150),
     parcelas_vencidas: '• Cesta (1/2) — ' + formatarMoeda(100) + ' — venceu 10/09',
     negocio: perfil?.nome_negocio?.trim() || 'Minha Loja',
     pix: perfil?.chave_pix?.trim() || '',
@@ -270,7 +272,7 @@ export default function MensagemCobrancaScreen() {
         )}
 
         <Text style={estilos.previaInfo}>
-          {'{valor}'} é o saldo total em aberto. {'{valor_vencido}'} é só o que já venceu e {'{parcelas_vencidas}'} lista as parcelas vencidas (até 3, depois "e mais N"). Se nada venceu ainda, os dois mostram a próxima parcela a vencer. Modelos já salvos continuam iguais.
+          {'{valor}'} é o valor cobrado: só o que já venceu (se nada venceu, a próxima parcela; se o cliente não tem datas, o total). {'{saldo_total}'} é o total em aberto e {'{parcelas_vencidas}'} lista as parcelas (até 3, depois "e mais N"). {'{valor_vencido}'} continua funcionando e vale o mesmo que {'{valor}'}.
         </Text>
 
         {semValor && <Text style={estilos.alerta}>Esta mensagem não mostra o valor da dívida.</Text>}
@@ -286,7 +288,7 @@ export default function MensagemCobrancaScreen() {
         )}
 
         <Text style={estilos.rotulo}>Prévia</Text>
-        <Text style={estilos.previaInfo}>Cliente de exemplo: Maria Souza · deve {formatarMoeda(150)}</Text>
+        <Text style={estilos.previaInfo}>Cliente de exemplo: Maria Souza · {formatarMoeda(100)} vencido de {formatarMoeda(150)} em aberto</Text>
         <View style={estilos.balao}>
           <Text style={estilos.balaoTexto}>{previa || 'Digite sua mensagem para ver a prévia.'}</Text>
         </View>

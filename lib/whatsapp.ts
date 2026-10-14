@@ -15,10 +15,12 @@ type ClienteBasico = Pick<Cliente, 'id' | 'nome' | 'telefone'>
 export const LIMITE_MODELO_COBRANCA = 1000
 
 // Variáveis que o lojista pode usar no modelo. Qualquer outro {texto} sai literal.
-// {valor} é o SALDO TOTAL em aberto (modelos antigos continuam iguais). {valor_vencido} é só o que já venceu e
-// {parcelas_vencidas} lista as parcelas vencidas (se nada venceu, traz a próxima parcela a vencer).
-export const VARIAVEIS_COBRANCA = ['nome', 'valor', 'valor_vencido', 'parcelas_vencidas', 'negocio', 'pix', 'vencimento'] as const
-export type VariavelCobranca = typeof VARIAVEIS_COBRANCA[number]
+// {valor} é o valor COBRADO: o que já venceu (nada vencido → a próxima parcela; cliente sem datas → o saldo total), igual à
+// mensagem padrão. {saldo_total} é o total em aberto. {parcelas_vencidas} lista as parcelas (até 3 + "e mais N").
+// {valor_vencido} continua valendo como sinônimo de {valor} (modelos já salvos), mas não aparece nos botões da tela.
+export const VARIAVEIS_COBRANCA = ['nome', 'valor', 'saldo_total', 'parcelas_vencidas', 'negocio', 'pix', 'vencimento'] as const
+const VARIAVEIS_RECONHECIDAS: readonly string[] = [...VARIAVEIS_COBRANCA, 'valor_vencido']
+export type VariavelCobranca = typeof VARIAVEIS_COBRANCA[number] | 'valor_vencido'
 
 // Texto padrão (cobrança "em aberto"). É também o que o editor mostra quando não há modelo salvo.
 // A linha do Pix some sozinha quando o lojista não cadastrou a chave.
@@ -85,14 +87,14 @@ export function modeloUsaVencimento(perfil?: PerfilCobranca | null): boolean {
 }
 
 export function modeloTemValor(modelo: string): boolean {
-  return /\{valor\}/i.test(modelo)
+  return /\{(valor|valor_vencido|saldo_total)\}/i.test(modelo)
 }
 
 // Variáveis escritas pelo lojista que não existem (ex.: {Valor2}, {cliente}) — saem literais na mensagem.
 export function variaveisDesconhecidas(modelo: string): string[] {
   const achadas = new Set<string>()
   for (const m of modelo.matchAll(REGEX_VARIAVEL)) {
-    if (!(VARIAVEIS_COBRANCA as readonly string[]).includes(m[1].toLowerCase())) achadas.add(`{${m[1]}}`)
+    if (!VARIAVEIS_RECONHECIDAS.includes(m[1].toLowerCase())) achadas.add(`{${m[1]}}`)
   }
   return [...achadas]
 }
@@ -158,8 +160,9 @@ export function montarMensagemCobranca(
   const det = opcoes.detalhe ? descreverDetalhe(opcoes.detalhe, saldoDevedor) : null
   const valores: ValoresModelo = {
     nome: cliente.nome,
-    valor: formatarMoeda(saldoDevedor),   // sempre o saldo total (modelos já salvos não mudam)
-    valor_vencido: formatarMoeda(det ? det.valorBase : saldoDevedor),
+    valor: formatarMoeda(det ? det.valorBase : saldoDevedor),   // valor COBRADO (sem datas = saldo total)
+    valor_vencido: formatarMoeda(det ? det.valorBase : saldoDevedor),   // sinônimo de {valor}
+    saldo_total: formatarMoeda(saldoDevedor),
     parcelas_vencidas: det ? det.parcelas : '',
     saldo_total_linha: det ? det.saldoLinha : '',
     situacao: det ? det.situacao : 'vencido',

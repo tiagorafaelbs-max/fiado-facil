@@ -17,7 +17,7 @@ import { Avatar } from '../components/ui/Avatar'
 import { AvisoVencimentoAntigas } from '../components/ui/AvisoVencimentoAntigas'
 import { LinkPersonalizarMensagem } from '../components/ui/LinkPersonalizarMensagem'
 import { formatarMoeda } from '../lib/validacao'
-import { montarUrlWhatsApp, buscarContextoCobranca } from '../lib/whatsapp'
+import { montarUrlWhatsApp, buscarContextoCobranca, buscarDetalhesCobranca } from '../lib/whatsapp'
 import { C } from '../constants/colors'
 import { evento } from '../lib/instalacao'
 import { format, differenceInDays } from 'date-fns'
@@ -28,6 +28,7 @@ interface ClienteVencido {
   nome: string
   telefone?: string
   saldo_devedor: number
+  valor_vencido: number    // só o que já venceu (parcelas vencidas); sem detalhe = o saldo
   data_vencimento: string
   dias_atraso: number
 }
@@ -76,6 +77,8 @@ export default function CobrancasScreen() {
       if (alvos.length === 0) { setVencidos([]); return }
 
       const clienteIds = alvos.map(c => c.id)
+      // O que cada cliente tem VENCIDO (parcelas), não o saldo total. Falha/demora = mostra o saldo, como antes.
+      const detalhes = await buscarDetalhesCobranca(tenantId, clienteIds)
       // Datas só para calcular "dias de atraso" exibido
       const { data: vendasVencidas } = await supabase
         .from('vendas')
@@ -103,6 +106,7 @@ export default function CobrancasScreen() {
               nome: c.nome,
               telefone: c.telefone,
               saldo_devedor: c.saldo_devedor ?? 0,
+              valor_vencido: detalhes[c.id] && detalhes[c.id].valorVencido > 0 ? detalhes[c.id].valorVencido : (c.saldo_devedor ?? 0),
               data_vencimento: a?.venc ?? hoje,
               dias_atraso: a?.dias ?? 0,
             }
@@ -335,7 +339,7 @@ export default function CobrancasScreen() {
 
   const dadosAba = aba === 'vencidos' ? vencidos : emAberto
   const semTelefone = dadosAba.filter(v => !v.telefone).length
-  const totalAba = dadosAba.reduce((s, v) => s + v.saldo_devedor, 0)
+  const totalAba = (dadosAba as { saldo_devedor: number; valor_vencido?: number }[]).reduce((s, v) => s + (v.valor_vencido ?? v.saldo_devedor), 0)
 
   function corAtraso(dias: number) {
     if (dias > 30) return C.red
@@ -357,7 +361,10 @@ export default function CobrancasScreen() {
           </Text>
         </View>
         <View style={estilos.direita}>
-          <Text style={estilos.saldo}>{formatarMoeda(item.saldo_devedor)}</Text>
+          <Text style={estilos.saldo}>{formatarMoeda(item.valor_vencido)}</Text>
+          {item.valor_vencido !== item.saldo_devedor && (
+            <Text style={{ fontSize: 11, color: C.text3 }}>Total {formatarMoeda(item.saldo_devedor)}</Text>
+          )}
           {item.telefone ? (
             <TouchableOpacity
               style={estilos.btnWhats}
