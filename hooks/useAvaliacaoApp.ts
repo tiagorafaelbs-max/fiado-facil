@@ -8,8 +8,12 @@ import { podePedirAvaliacao, type EventoSucesso } from '../lib/avaliacaoRegras'
 
 const CHAVE_TENTATIVAS = '@fiado_facil:avaliacao_tentativas'
 const CHAVE_ULTIMA = '@fiado_facil:avaliacao_ultima'
+export const CHAVE_ULTIMA_NATIVO = CHAVE_ULTIMA
+const CHAVE_CARD = '@fiado_facil:avaliacao_card'   // estado do card da tela Início (useCardAvaliacao)
 // Chave do modelo antigo ("5º acesso, uma vez na vida"). Quem já recebeu aquele pedido conta como 1 tentativa.
 const CHAVE_ANTIGA = '@fiado_facil:avaliacao_solicitada'
+// Marca que o lojista já teve um momento de sucesso (pagamento registrado / cobrança enviada): libera o card da tela Início.
+export const CHAVE_SUCESSO = '@fiado_facil:avaliacao_sucesso'
 
 let emAndamento = false
 
@@ -18,6 +22,7 @@ let emAndamento = false
 // qualquer falha é silenciosa e nunca atrapalha o fluxo que a chamou.
 export function pedirAvaliacaoNoSucesso(evento: EventoSucesso): void {
   if (Platform.OS === 'web') return
+  AsyncStorage.setItem(CHAVE_SUCESSO, '1').catch(() => {})
   if (evento === 'cobranca_whatsapp') {
     // O app acabou de abrir o WhatsApp: o momento certo é quando o lojista VOLTA (cobrou e voltou).
     esperarRetornoAoApp(() => pedir(evento).catch(() => {}))
@@ -72,6 +77,13 @@ async function pedir(evento: EventoSucesso) {
         await AsyncStorage.removeItem(CHAVE_ANTIGA)
       }
     }
+
+    // O card da tela Início já cuidou do convite: avaliou, ou dispensou há menos de 60 dias. Sem dois pedidos seguidos.
+    try {
+      const card = JSON.parse((await AsyncStorage.getItem(CHAVE_CARD)) ?? 'null')
+      if (card?.avaliou === true) return
+      if (Number.isFinite(card?.ultimaDispensa) && Date.now() - card.ultimaDispensa < 60 * 24 * 3600 * 1000) return
+    } catch { /* sem estado do card */ }
 
     // Cobrança por WhatsApp só abre a PRIMEIRA vez que o pedido é feito; depois disso quem pede é o pagamento recebido.
     if (evento === 'cobranca_whatsapp' && tentativas > 0) return

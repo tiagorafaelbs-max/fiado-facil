@@ -22,6 +22,8 @@ import { AppTour, type TourStep } from '../../components/ui/AppTour'
 import { ChecklistDia0 } from '../../components/ui/ChecklistDia0'
 import { AvisoVencimentoAntigas } from '../../components/ui/AvisoVencimentoAntigas'
 import { AvisoAtualizacao } from '../../components/ui/AvisoAtualizacao'
+import { CardAvaliacao } from '../../components/ui/CardAvaliacao'
+import { useCardAvaliacao } from '../../hooks/useCardAvaliacao'
 import { formatarMoeda } from '../../lib/validacao'
 import { escolherLadoFab } from '../../lib/fab'
 import { supabase } from '../../lib/supabase'
@@ -48,6 +50,14 @@ export default function DashboardScreen() {
   const [diaCobranca, setDiaCobranca] = useState<number | null>(null)
   const [clientesParaCobrar, setClientesParaCobrar] = useState(0)
   const [cobrancaAutoTipo, setCobrancaAutoTipo] = useState<'vencidos' | 'todos'>('vencidos')
+  // Card de avaliação: um banner por vez (só aparece quando nenhum outro banner conhecido da tela está visível).
+  const outroBannerVisivel =
+    !online ||
+    (checklistDia0.visivel && !dashboardOffline) ||
+    (modulos.cobranca_automatica && !!diaCobranca && clientesParaCobrar > 0) ||
+    resumo.clientes_vencidos > 0 ||
+    (plano === 'gratuito' && resumo.clientes_ativos >= 8)
+  const cardAvaliacao = useCardAvaliacao(tenantId, podeVerTotais, outroBannerVisivel)
   const [tourVisivel, setTourVisivel] = useState(false)
   const [tourSteps, setTourSteps] = useState<TourStep[]>([])
   const [registradorVisivel, setRegistradorVisivel] = useState(false)
@@ -184,7 +194,7 @@ export default function DashboardScreen() {
     })
   }, [tenantId])
 
-  useFocusEffect(useCallback(() => { buscar(); checklistDia0.recarregar() }, [buscar, checklistDia0.recarregar]))
+  useFocusEffect(useCallback(() => { buscar(); checklistDia0.recarregar(); cardAvaliacao.recalcular() }, [buscar, checklistDia0.recarregar, cardAvaliacao.recalcular]))
 
   // Lê o nome salvo da última vez que carregou com sucesso -- evita a saudação
   // sem nome ("Bom dia 👋") quando o app abre offline antes da query abaixo
@@ -558,6 +568,11 @@ export default function DashboardScreen() {
                 <Text style={[estilos.limiteBannerTexto, { color: C.red }]}>Limite atingido. Faça upgrade para adicionar mais.</Text>
                 <Text style={[estilos.limiteBannerLink, { color: C.red }]}>Upgrade →</Text>
               </TouchableOpacity>
+            )}
+
+            {/* Convite para avaliar o app: discreto, só dono, depois de um momento de sucesso */}
+            {cardAvaliacao.visivel && (
+              <CardAvaliacao onAvaliar={cardAvaliacao.avaliar} onAgoraNao={cardAvaliacao.dispensar} />
             )}
 
             {/* Cabeçalho seção */}

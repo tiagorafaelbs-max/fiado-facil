@@ -7,6 +7,31 @@ export const VENDAS_MINIMAS = 10
 export const INTERVALO_DIAS = 60
 export const MAX_TENTATIVAS = 3
 
+// Card "Está gostando do FiadoApp?" na tela Início: discreto e dispensável. Mesmas condições de conta madura e dono,
+// mais um momento de sucesso já ocorrido; "Avaliar" encerra para sempre; "Agora não"/X volta em 60 dias, até 3 vezes.
+export const MAX_APARICOES_CARD = 3
+
+export interface EstadoCard {
+  agora: number
+  criadaEm: number | null
+  vendas: number
+  souDono: boolean
+  houveSucesso: boolean            // já registrou pagamento ou enviou cobrança (hook useAvaliacaoApp)
+  avaliou: boolean                 // tocou em "Avaliar"
+  dispensas: number                // "Agora não"/X até agora
+  ultimaDispensa: number | null    // ms
+  outroBannerVisivel: boolean      // um banner por vez
+}
+
+export function podeMostrarCardAvaliacao(e: EstadoCard): boolean {
+  if (!e.souDono || e.outroBannerVisivel || !e.houveSucesso || e.avaliou) return false
+  if (e.dispensas >= MAX_APARICOES_CARD) return false
+  if (e.ultimaDispensa != null && e.agora - e.ultimaDispensa < INTERVALO_DIAS * DIA) return false
+  if (e.criadaEm == null || e.agora - e.criadaEm < DIAS_MINIMOS_CONTA * DIA) return false
+  if (e.vendas < VENDAS_MINIMAS) return false
+  return true
+}
+
 export type EventoSucesso = 'pagamento' | 'cobranca_whatsapp'
 
 export interface EstadoPedido {
