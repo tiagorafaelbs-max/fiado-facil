@@ -648,3 +648,4 @@ Código: 9cad797 (build-1.0.13, 55/89) e fbd11dc (android-combinada, 54/88). Bug
 | iOS 89 | 01a13aca-1efc-7518-811d-a8356e0897ab | 10bc0f51-a4d5-410b-a4e7-e6b649faba57 | eas update:republish --group 6a851519-5a5c-4544-9607-16b1762af165 --platform ios |
 | Android 55 | 01a13acd-8b65-702e-adc2-d0789a9088b0 | 51df42dc-6fe3-4de5-ac72-514dd1ee38a5 | eas update:republish --group 142d90b9-7f75-421c-ba94-03407948bcb3 --platform android |
 | iOS 88 | 01a13ad1-5c6c-7321-a655-449dbf941ac5 | a5aa6280-beed-4214-b1d9-4b3f4911e4a2 | eas update:republish --group ec4bcce8-4d0a-49d6-a71d-e63928399dae --platform ios |
+| Android 54 | 01a13b10-224c-7b3f-bf58-b979f723cf14 | 1e187960-a85f-46da-b727-e4b9e2bffad9 | eas update:republish --group 91129558-1ad6-407b-ba29-edf42382c637 --platform android |
