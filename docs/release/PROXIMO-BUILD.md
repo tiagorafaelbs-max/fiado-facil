@@ -659,3 +659,16 @@ Planos: 2 de 5 aberturas no Android 54 deram 'excecao_produtos' (10 e 11/10; nen
 | Android 55 | 01a13b2b-d8c8-7286-a087-12bf8f2e437d | cf521155-54d2-4f46-b7b4-165cb8352d67 | eas update:republish --group 51df42dc-6fe3-4de5-ac72-514dd1ee38a5 --platform android |
 | iOS 88 | 01a13b2d-d9e2-7e3d-9152-a37540a73c54 | 6ec843a2-724a-4b95-8be8-35f07dd110da | eas update:republish --group a5aa6280-beed-4214-b1d9-4b3f4911e4a2 --platform ios |
 | Android 54 | 01a13b2f-875b-720e-91da-cc11624b94fe | 82e0617b-f445-400e-a0b0-c4470ea4428f | eas update:republish --group 1e187960-a85f-46da-b727-e4b9e2bffad9 --platform android |
+
+## OTAs 14/10 (5) — funil anônimo do cadastro: cadastro_toque e cadastro_erro (Fiscal aprovou; migration instalacoes_app_cadastro_funil APLICADA após simulação revertida)
+Código: 3fa7315 (build-1.0.13, 55/89) e 73fd7d6 (android-combinada, 54/88). cadastro_toque = tocou em Criar conta; cadastro_erro = detalhe 'validacao:<campos>' (nome-email-senha, só QUAIS falharam) ou 'signup:<código>:<status>' (ex.: signup:weak_password:422); nunca e-mail, nome ou senha. CHECK com 16 etapas; anon/authenticated só INSERT por coluna. Limitação: 1 registro por etapa por dia por aparelho (só o primeiro erro do dia); se o Tiago quiser separar, etapa própria cadastro_validacao (migration de 1 linha).
+Como ler (24–48 h): select etapa, detalhe, count(*) from instalacoes_app where etapa in ('cadastro_toque','cadastro_erro') group by 1,2.
+| Binário | Update ID | Group ID | Rollback (só com ordem; volta à OTA da tela Planos) |
+|---|---|---|---|
+| iOS 89 | 01a13b5b-01f0-7925-9b6e-28525d8f96bd | d87fb66c-33b8-4032-a430-bb1d09213af0 | eas update:republish --group 4568060d-66ea-4f3b-bd2b-b17107a6fdb9 --platform ios |
+| Android 55 | 01a13b5c-fac2-7ac5-be70-9e29e57b1c25 | 111f766c-d247-4589-af67-31363a57e592 | eas update:republish --group cf521155-54d2-4f46-b7b4-165cb8352d67 --platform android |
+| iOS 88 | 01a13b5e-d296-78fb-ba5f-c9c9f8ccd3a8 | 7f1bad3e-3bf6-4b69-9136-b7877dac4587 | eas update:republish --group 6ec843a2-724a-4b95-8be8-35f07dd110da --platform ios |
+| Android 54 | 01a13b60-92ea-7df7-b51a-551ed510286d | 7355f1d1-d17b-4fc0-bc22-f49200c01f4b | eas update:republish --group 82e0617b-f445-400e-a0b0-c4470ea4428f --platform android |
+
+## DECISÃO DO TIAGO (14/10) — {valor} nos modelos personalizados
+NÃO avisar os 4 clientes Pro com modelo próprio: a mudança ({valor} = valor cobrado/vencido; o total agora é {saldo_total}) é o que eles esperam. Nada a comunicar.
