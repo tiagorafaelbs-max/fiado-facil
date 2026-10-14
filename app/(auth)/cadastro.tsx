@@ -7,7 +7,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { Campo } from '../../components/ui/Campo'
 import { Botao } from '../../components/ui/Botao'
 import { TelaComTeclado } from '../../components/ui/TelaComTeclado'
-import { registrarEtapa } from '../../lib/instalacao'
+import { registrarEtapa, evento } from '../../lib/instalacao'
 import { validarEmail, sanitizarTexto } from '../../lib/validacao'
 import { C } from '../../constants/colors'
 
@@ -32,10 +32,14 @@ export default function CadastroScreen() {
     if (!validarEmail(email)) novosErros.email = 'E-mail inválido.'
     if (senha.length < 6) novosErros.senha = 'Senha deve ter pelo menos 6 caracteres.'
     setErros(novosErros)
-    return Object.keys(novosErros).length === 0
+    const campos = Object.keys(novosErros)
+    // funil anônimo: só QUAIS campos falharam (nunca o que foi digitado)
+    if (campos.length > 0) evento('cadastro_erro', 'validacao:' + campos.map(c => c.replace('nomeNegocio', 'nome')).join('-'))
+    return campos.length === 0
   }
 
   async function handleCadastrar() {
+    evento('cadastro_toque')   // funil anônimo: tocou em Criar conta
     if (!validar()) return
     setErroGeral(''); setCarregando(true)
     try {
@@ -48,6 +52,8 @@ export default function CadastroScreen() {
         setSucesso(true)
       }
     } catch (e: any) {
+      // funil anônimo: código técnico do erro (ex.: weak_password, user_already_exists, over_email_send_rate_limit), sem dado pessoal
+      evento('cadastro_erro', 'signup:' + String(e?.code ?? e?.name ?? 'desconhecido') + ':' + String(e?.status ?? 'sem_status'))
       setErroGeral(e.message ?? 'Erro ao criar conta. Tente novamente.')
     } finally {
       setCarregando(false)

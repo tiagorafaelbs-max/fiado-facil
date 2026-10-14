@@ -25,6 +25,8 @@ export type EventoCompra =
   | 'contatos_erro'    // falha ao abrir a agenda (detalhe: código/mensagem curta do módulo nativo)
   | 'avaliar_card'     // o card "Está gostando do FiadoApp?" foi exibido na tela Início
   | 'avaliar_toque'    // tocou em "Avaliar" no card
+  | 'cadastro_toque'   // tocou em "Criar conta" na tela de cadastro
+  | 'cadastro_erro'    // cadastro não concluiu (detalhe: validacao:<campos> ou signup:<código do erro>), nunca e-mail/nome/senha
 
 const CHAVE_ID = '@fiado_instalacao_id'
 const CHAVE_ETAPAS = '@fiado_etapas_enviadas'
