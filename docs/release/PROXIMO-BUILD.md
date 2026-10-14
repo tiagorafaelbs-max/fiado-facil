@@ -623,3 +623,16 @@ Código: 9aef8e7 (build-1.0.13, 55/89) e af50f06 (android-combinada, 54/88). Car
 | Android 55 | 01a139c4-df8d-74b9-ba7c-c5b2a3640aa6 | 03b3a7fb-5c9d-4d79-be46-31cbd82ff4fe | eas update:republish --group 02ebda0d-3dfc-4a54-b9c1-63fde29d861a --platform android |
 | iOS 88 | 01a139c6-b500-7485-baaa-f84d905e1b0d | a9bb2d6a-8e67-42d8-ae63-dd60ece40691 | eas update:republish --group d5b5b7c4-b1ee-40fa-bd4f-681bf154a099 --platform ios |
 | Android 54 | 01a139c9-68e5-7b85-837b-2110ecf984f3 | 0d83d19f-55ca-482b-9af6-b861281a100b | eas update:republish --group 1b0062bf-e3f3-4cd2-80d9-36082e09f59d --platform android |
+
+## OTAs 14/10 (3) — "Sugestões e dúvidas" + um banner por vez + migration avaliar_card APLICADA
+Código: 28b4054 e 2c824ae (build-1.0.13, 55/89); 1f69ad1 e d998f66 (android-combinada, 54/88). Fiscal aprovou. Hashes conferidos.
+- Migration instalacoes_app_avaliar_card APLICADA (simulada antes): CHECK com 14 etapas; anon/authenticated só INSERT por coluna (sem SELECT/UPDATE); advisors sem item novo.
+- Botão de Ajustes "Sugestões e reclamações" → "Sugestões e dúvidas" (e textos do WhatsApp/e-mail).
+- Um banner por vez na tela Início (prioridade atualização > limite > vendas antigas > avaliação): AvisoAtualizacao e AvisoVencimentoAntigas avisam a tela (aoMudarVisibilidade, com cleanup).
+- Política do site: sem mudança (avaliar_card/avaliar_toque já cobertos por "Medição anônima de uso" — decisão do Tiago).
+| Binário | Update ID | Group ID | Rollback (só com ordem; volta à OTA do card de avaliação) |
+|---|---|---|---|
+| iOS 89 | 01a139d7-9337-7a9d-b86d-ef749626157b | 6a851519-5a5c-4544-9607-16b1762af165 | eas update:republish --group 40af4506-9e40-42d3-a524-efb9ecadd461 --platform ios |
+| Android 55 | 01a139d9-77a0-7130-a72a-e74cb19322c8 | 142d90b9-7f75-421c-ba94-03407948bcb3 | eas update:republish --group 03b3a7fb-5c9d-4d79-be46-31cbd82ff4fe --platform android |
+| iOS 88 | 01a139dd-04d7-73a7-8059-b16c04167a12 | ec4bcce8-4d0a-49d6-a71d-e63928399dae | eas update:republish --group a9bb2d6a-8e67-42d8-ae63-dd60ece40691 --platform ios |
+| Android 54 | 01a139df-cebe-7b19-8475-e318faeb8ef3 | 91129558-1ad6-407b-ba29-edf42382c637 | eas update:republish --group 0d83d19f-55ca-482b-9af6-b861281a100b --platform android |
