@@ -672,3 +672,14 @@ Como ler (24–48 h): select etapa, detalhe, count(*) from instalacoes_app where
 
 ## DECISÃO DO TIAGO (14/10) — {valor} nos modelos personalizados
 NÃO avisar os 4 clientes Pro com modelo próprio: a mudança ({valor} = valor cobrado/vencido; o total agora é {saldo_total}) é o que eles esperam. Nada a comunicar.
+
+## OTAs 15/10 — cadastro "Você já tem uma conta" (Fiscal aprovou; migration instalacoes_app_cadastro_ja_existe APLICADA após simulação revertida; hashes conferidos)
+Código: bb63f47 (build-1.0.13, 55/89) e f586df4 (android-combinada, 54/88). Motivo: funil de 14/10 mostrou Android com cadastro_erro "signup:user_already_exists:422". Quando o e-mail já existe (code user_already_exists ou mensagem "already registered"; outros 422 seguem o caminho normal): caixa "Você já tem uma conta com este e-mail 🙂" + botão Entrar (router.replace para o login com o e-mail preenchido) + link "Esqueci minha senha" (recuperação com o e-mail preenchido); mesma mensagem para conta confirmada ou não; some ao editar o e-mail. Etapas anônimas cadastro_ja_existe e cadastro_ir_login (sem detalhe). CHECK com 18 etapas.
+Risco registrado (aceito pelo Tiago): a tela deixa explícito que o e-mail já tem conta (o servidor já devolvia user_already_exists; limites do Supabase para cadastro continuam).
+Como ler (24–48 h): select etapa, detalhe, count(*) from instalacoes_app where etapa in ('cadastro_toque','cadastro_erro','cadastro_ja_existe','cadastro_ir_login') group by 1,2.
+| Binário | Update ID | Group ID | Rollback (só com ordem; volta à OTA do funil do cadastro) |
+|---|---|---|---|
+| iOS 89 | 01a13fc5-c71d-7051-a3a2-77c5963f5ed1 | 159d2851-4431-4c75-85cd-56d2fc42b876 | eas update:republish --group d87fb66c-33b8-4032-a430-bb1d09213af0 --platform ios |
+| Android 55 | 01a13fc7-ec08-7a79-8d73-28377ac037e1 | 40be7975-f65c-40f4-a9c5-404aa308b3fc | eas update:republish --group 111f766c-d247-4589-af67-31363a57e592 --platform android |
+| iOS 88 | 01a13fca-30b5-7d7e-b6e9-4f0a81218f1d | d9ed2856-4c6a-4f02-a65c-c4e269f999c4 | eas update:republish --group 7f1bad3e-3bf6-4b69-9136-b7877dac4587 --platform ios |
+| Android 54 | 01a13fcc-3a47-7c1e-a8b4-f49eb06761dc | b2aef007-0be5-4307-b42c-ac62d31f3ca0 | eas update:republish --group 7355f1d1-d17b-4fc0-bc22-f49200c01f4b --platform android |
