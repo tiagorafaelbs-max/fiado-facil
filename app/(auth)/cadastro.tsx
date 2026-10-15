@@ -22,6 +22,7 @@ export default function CadastroScreen() {
   const [carregando, setCarregando] = useState(false)
   const [sucesso, setSucesso] = useState(false)
   const [erroGeral, setErroGeral] = useState('')
+  const [contaExistente, setContaExistente] = useState(false)   // e-mail já cadastrado: mostra "Você já tem uma conta"
   useEffect(() => { registrarEtapa('cadastro') }, [])   // funil anônimo: chegou à tela de criar conta
   const refEmail = useRef<TextInput>(null)
   const refSenha = useRef<TextInput>(null)
@@ -41,7 +42,7 @@ export default function CadastroScreen() {
   async function handleCadastrar() {
     evento('cadastro_toque')   // funil anônimo: tocou em Criar conta
     if (!validar()) return
-    setErroGeral(''); setCarregando(true)
+    setErroGeral(''); setContaExistente(false); setCarregando(true)
     try {
       const resultado = await cadastrar(email.trim().toLowerCase(), senha, sanitizarTexto(nomeNegocio))
       if (resultado?.session) {
@@ -54,6 +55,12 @@ export default function CadastroScreen() {
     } catch (e: any) {
       // funil anônimo: código técnico do erro (ex.: weak_password, user_already_exists, over_email_send_rate_limit), sem dado pessoal
       evento('cadastro_erro', 'signup:' + String(e?.code ?? e?.name ?? 'desconhecido') + ':' + String(e?.status ?? 'sem_status'))
+      // E-mail já cadastrado: mesma mensagem para conta confirmada ou não (não revela mais nada) e o caminho para entrar.
+      if (e?.code === 'user_already_exists' || /already (been )?registered/i.test(String(e?.message ?? ''))) {
+        evento('cadastro_ja_existe')
+        setContaExistente(true)
+        return
+      }
       setErroGeral(e.message ?? 'Erro ao criar conta. Tente novamente.')
     } finally {
       setCarregando(false)
@@ -95,10 +102,32 @@ export default function CadastroScreen() {
         <View style={estilos.card}>
           <Campo label="Nome do seu negócio" value={nomeNegocio} onChangeText={setNomeNegocio} erro={erros.nomeNegocio} placeholder="Ex: Mercadinho do João" autoCapitalize="words"
             returnKeyType="next" blurOnSubmit={false} onSubmitEditing={() => refEmail.current?.focus()} />
-          <Campo label="E-mail" value={email} onChangeText={setEmail} erro={erros.email} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} placeholder="seu@email.com"
+          <Campo label="E-mail" value={email} onChangeText={(v) => { setEmail(v); if (contaExistente) setContaExistente(false) }} erro={erros.email} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} placeholder="seu@email.com"
             inputRef={refEmail} returnKeyType="next" blurOnSubmit={false} onSubmitEditing={() => refSenha.current?.focus()} />
           <Campo label="Senha" value={senha} onChangeText={setSenha} erro={erros.senha} secureTextEntry placeholder="Mínimo 6 caracteres"
             inputRef={refSenha} returnKeyType="go" onSubmitEditing={handleCadastrar} />
+
+          {contaExistente ? (
+            <View style={estilos.jaExisteBox} accessibilityRole="alert">
+              <Text style={estilos.jaExisteTitulo}>Você já tem uma conta com este e-mail 🙂</Text>
+              <TouchableOpacity
+                style={estilos.jaExisteBtn}
+                onPress={() => {
+                  evento('cadastro_ir_login')
+                  router.replace({ pathname: '/(auth)/login', params: { email: email.trim().toLowerCase() } })
+                }}
+                accessibilityRole="button"
+              >
+                <Text style={estilos.jaExisteBtnTexto}>Entrar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => router.push({ pathname: '/(auth)/recuperar-senha', params: { email: email.trim().toLowerCase() } })}
+                accessibilityRole="button"
+              >
+                <Text style={estilos.link}>Esqueci minha senha</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
 
           {erroGeral ? (
             <View style={estilos.erroBox}>
@@ -142,6 +171,10 @@ const estilos = StyleSheet.create({
   },
   erroBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.redLight, borderRadius: 10, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: C.redBorder },
   erroTexto: { color: C.red, fontSize: 13, fontWeight: '500', flex: 1 },
+  jaExisteBox: { gap: 10, backgroundColor: C.greenLight, borderRadius: 10, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: C.greenMid },
+  jaExisteTitulo: { color: C.text, fontSize: 14, fontWeight: '600' },
+  jaExisteBtn: { alignSelf: 'flex-start', backgroundColor: C.green, borderRadius: 8, paddingHorizontal: 18, paddingVertical: 9 },
+  jaExisteBtnTexto: { color: C.white, fontSize: 14, fontWeight: '700' },
   rodape: { flexDirection: 'row', justifyContent: 'center', marginTop: 24 },
   textoNeutro: { color: C.text2, fontSize: 14 },
   link: { color: C.green, fontWeight: '600', fontSize: 14 },

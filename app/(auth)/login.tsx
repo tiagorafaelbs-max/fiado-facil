@@ -3,7 +3,7 @@ import {
   View, Text, TouchableOpacity, StyleSheet,
   TextInput, KeyboardAvoidingView, Platform
 } from 'react-native'
-import { useRouter } from 'expo-router'
+import { useRouter, useLocalSearchParams } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useAuth } from '../../hooks/useAuth'
 import { Botao } from '../../components/ui/Botao'
@@ -15,7 +15,8 @@ import { C } from '../../constants/colors'
 export default function LoginScreen() {
   const router = useRouter()
   const { entrar } = useAuth()
-  const [email, setEmail] = useState('')
+  const { email: emailParam } = useLocalSearchParams<{ email?: string }>()   // vem do cadastro ("Você já tem uma conta")
+  const [email, setEmail] = useState(typeof emailParam === 'string' ? emailParam : '')
   const [senha, setSenha] = useState('')
   const [verSenha, setVerSenha] = useState(false)
   const [erros, setErros] = useState<{ email?: string; senha?: string }>({})

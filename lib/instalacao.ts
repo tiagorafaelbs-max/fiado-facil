@@ -26,6 +26,8 @@ export type EventoCompra =
   | 'avaliar_card'     // o card "Está gostando do FiadoApp?" foi exibido na tela Início
   | 'avaliar_toque'    // tocou em "Avaliar" no card
   | 'cadastro_toque'   // tocou em "Criar conta" na tela de cadastro
+  | 'cadastro_ja_existe' // o e-mail já tinha conta: mostrou "Você já tem uma conta" (sem dado pessoal)
+  | 'cadastro_ir_login'  // nesse aviso, tocou em Entrar
   | 'cadastro_erro'    // cadastro não concluiu (detalhe: validacao:<campos> ou signup:<código do erro>), nunca e-mail/nome/senha
 
 const CHAVE_ID = '@fiado_instalacao_id'

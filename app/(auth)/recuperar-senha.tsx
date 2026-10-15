@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native'
-import { useRouter } from 'expo-router'
+import { useRouter, useLocalSearchParams } from 'expo-router'
 import { useAuth } from '../../hooks/useAuth'
 import { Campo } from '../../components/ui/Campo'
 import { Botao } from '../../components/ui/Botao'
@@ -10,7 +10,8 @@ import { validarEmail } from '../../lib/validacao'
 export default function RecuperarSenhaScreen() {
   const router = useRouter()
   const { recuperarSenha } = useAuth()
-  const [email, setEmail] = useState('')
+  const { email: emailParam } = useLocalSearchParams<{ email?: string }>()   // vem do cadastro ("Você já tem uma conta")
+  const [email, setEmail] = useState(typeof emailParam === 'string' ? emailParam : '')
   const [erro, setErro] = useState('')
   const [carregando, setCarregando] = useState(false)
 
