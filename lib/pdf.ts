@@ -80,7 +80,7 @@ ${resumo.itens.length > 0 ? `
   <thead><tr><th>Descrição</th><th>Comprado em</th><th>Vencimento</th><th>Falta</th></tr></thead>
   <tbody>${linhasAbertas}</tbody>
 </table>
-${resumo.vencidoAteHoje > 0 ? `<p style="color:#EF4444;font-weight:700;margin:12px 0 0">⚠ Vencido hoje: ${formatarMoeda(resumo.vencidoAteHoje)}</p>` : ''}
+${resumo.vencidoAteHoje > 0 ? `<p style="color:#EF4444;font-weight:700;margin:12px 0 0">⚠ Já vencido: ${formatarMoeda(resumo.vencidoAteHoje)}</p>` : ''}
 <p style="font-weight:700;margin:4px 0 0">Total em aberto: ${formatarMoeda(totalAberto)}</p>
 <h3 style="font-size:15px;margin:28px 0 0">Histórico</h3>` : ''}
 <table>

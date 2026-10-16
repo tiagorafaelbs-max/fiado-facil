@@ -335,7 +335,7 @@ export function montarExtratoWhatsApp(
   ).join('\n')
 
   const maisItens = resumo.itens.length > MAX_ITENS ? `\n... e mais ${resumo.itens.length - MAX_ITENS} itens (veja o PDF do extrato)` : ''
-  const vencidoLinha = resumo.vencidoAteHoje > 0 ? `⚠ *Vencido hoje: ${formatarMoeda(resumo.vencidoAteHoje)}*\n` : ''
+  const vencidoLinha = resumo.vencidoAteHoje > 0 ? `⚠ *Já vencido: ${formatarMoeda(resumo.vencidoAteHoje)}*\n` : ''
   const pixLinha = chavePix ? `\n🔑 Pague via Pix: *${chavePix}*` : ''
 
   const texto =
