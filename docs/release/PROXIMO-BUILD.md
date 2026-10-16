@@ -683,3 +683,13 @@ Como ler (24–48 h): select etapa, detalhe, count(*) from instalacoes_app where
 | Android 55 | 01a13fc7-ec08-7a79-8d73-28377ac037e1 | 40be7975-f65c-40f4-a9c5-404aa308b3fc | eas update:republish --group 111f766c-d247-4589-af67-31363a57e592 --platform android |
 | iOS 88 | 01a13fca-30b5-7d7e-b6e9-4f0a81218f1d | d9ed2856-4c6a-4f02-a65c-c4e269f999c4 | eas update:republish --group 7f1bad3e-3bf6-4b69-9136-b7877dac4587 --platform ios |
 | Android 54 | 01a13fcc-3a47-7c1e-a8b4-f49eb06761dc | b2aef007-0be5-4307-b42c-ac62d31f3ca0 | eas update:republish --group 7355f1d1-d17b-4fc0-bc22-f49200c01f4b --platform android |
+
+## OTAs 16/10 — extrato (WhatsApp e PDF) com vencimento (Fiscal aprovou; hashes conferidos)
+Código: 7237284 (build-1.0.13, 55/89) e 0f4c5a6 (android-combinada, 54/88). Sugestão de cliente (áudio 16/10): as parcelas saíam todas com a data de hoje. Novo lib/extrato.ts (puro; alocação = banco, lib/alocacao.ts): cada item em aberto mostra o que FALTA, "comprado em DD/MM" e o vencimento ("⚠ venceu em DD/MM" | "vence hoje" | "vence em DD/MM" | "sem vencimento"), na ordem FIFO (vencimento efetivo); rodapé "⚠ Vencido hoje: R$ X" (só se houver; = vencimento ANTERIOR a hoje; o do dia aparece como "vence hoje") + "Total em aberto" (saldo da view). WhatsApp: até 15 itens + "e mais N itens (veja o PDF do extrato)". PDF: nova seção "Em aberto" (Descrição | Comprado em | Vencimento | Falta, vencida em vermelho) antes do histórico completo. A tela do cliente passa os pagamentos ao extrato.
+- Recomendação do Fiscal NÃO adotada: renomear "Vencido hoje" para "Já vencido" (o rótulo é o pedido do Tiago; decidir se quiser).
+| Binário | Update ID | Group ID | Rollback (só com ordem; volta à OTA do aviso "já tem conta") |
+|---|---|---|---|
+| iOS 89 | 01a1455f-599c-7f03-b714-6d9203699900 | 8c4684f0-935b-44b1-9418-1c15d8caa32b | eas update:republish --group 159d2851-4431-4c75-85cd-56d2fc42b876 --platform ios |
+| Android 55 | 01a14561-6122-7b2f-8fb2-aa4d4fe36ccd | e3a843aa-7d90-4235-8cc9-2ba982b2f411 | eas update:republish --group 40be7975-f65c-40f4-a9c5-404aa308b3fc --platform android |
+| iOS 88 | 01a14564-0b2d-7261-ad22-f74b151f4b03 | 402d4e44-bb04-45dd-b20f-6214a35d411c | eas update:republish --group d9ed2856-4c6a-4f02-a65c-c4e269f999c4 --platform ios |
+| Android 54 | 01a14565-fb3b-7805-a5f5-833a757113a0 | 3540a0a4-403f-46da-b790-3c353edbe5c4 | eas update:republish --group b2aef007-0be5-4307-b42c-ac62d31f3ca0 --platform android |
