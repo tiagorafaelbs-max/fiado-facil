@@ -693,3 +693,12 @@ Código: 7237284 (build-1.0.13, 55/89) e 0f4c5a6 (android-combinada, 54/88). Sug
 | Android 55 | 01a14561-6122-7b2f-8fb2-aa4d4fe36ccd | e3a843aa-7d90-4235-8cc9-2ba982b2f411 | eas update:republish --group 40be7975-f65c-40f4-a9c5-404aa308b3fc --platform android |
 | iOS 88 | 01a14564-0b2d-7261-ad22-f74b151f4b03 | 402d4e44-bb04-45dd-b20f-6214a35d411c | eas update:republish --group d9ed2856-4c6a-4f02-a65c-c4e269f999c4 --platform ios |
 | Android 54 | 01a14565-fb3b-7805-a5f5-833a757113a0 | 3540a0a4-403f-46da-b790-3c353edbe5c4 | eas update:republish --group b2aef007-0be5-4307-b42c-ac62d31f3ca0 --platform android |
+
+## OTAs 16/10 (2) — rodapé do extrato "⚠ Já vencido: R$ X" (decisão do Tiago; Fiscal aprovou; hashes conferidos)
+Código: 8fcab1d (build-1.0.13, 55/89) e 5b58fbb (android-combinada, 54/88). Só texto: "Vencido hoje" → "Já vencido" no WhatsApp (lib/whatsapp.ts) e no PDF (lib/pdf.ts).
+| Binário | Update ID | Group ID | Rollback (só com ordem; volta à OTA do extrato com "Vencido hoje") |
+|---|---|---|---|
+| iOS 89 | 01a1456b-76f3-742f-b169-7a8e8850f8a7 | f311cd65-7ba4-4a73-9a9c-5dd4d1ae5e08 | eas update:republish --group 8c4684f0-935b-44b1-9418-1c15d8caa32b --platform ios |
+| Android 55 | 01a1456e-84bc-7535-9ccf-ac6c005b010c | 7c4aa75c-c7b3-45a4-8532-c85ecc0f44e6 | eas update:republish --group e3a843aa-7d90-4235-8cc9-2ba982b2f411 --platform android |
+| iOS 88 | 01a14572-a0fc-7d61-8ec7-9d79219ed9fd | 7e6a494e-8efa-45ea-a2a5-c03401757433 | eas update:republish --group 402d4e44-bb04-45dd-b20f-6214a35d411c --platform ios |
+| Android 54 | 01a14576-6b07-7109-9c20-ab6d05a17acf | 284300d3-c716-49c1-85ed-bd7f8abc34e1 | eas update:republish --group 3540a0a4-403f-46da-b790-3c353edbe5c4 --platform android |
