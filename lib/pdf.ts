@@ -2,10 +2,12 @@
 import * as Sharing from 'expo-sharing'
 import * as FileSystem from 'expo-file-system/legacy'
 import { formatarMoeda } from './validacao'
+import { dataParaISO } from './vencimento'
+import { montarItensExtrato, dataBR, textoVencimento } from './extrato'
 import type { Cliente, Venda } from '../types'
 
 interface Pagamento {
-  id: string; valor: number; data_pagamento: string; observacao?: string
+  id: string; valor: number; data_pagamento: string; observacao?: string; venda_id?: string | null
 }
 
 function escaparHtml(texto: string): string {
@@ -19,6 +21,21 @@ export async function gerarExtratoCliente(
   nomeNegocio: string,
 ) {
   const hoje = new Date().toLocaleDateString('pt-BR')
+
+  // Em aberto: o que falta de cada venda/parcela (mesma alocação do banco), com compra e vencimento, na ordem FIFO.
+  const resumo = montarItensExtrato(
+    vendas.map(v => ({ id: v.id, valor: v.valor, data_venda: v.data_venda, data_vencimento: v.data_vencimento, descricao: v.descricao })),
+    pagamentos.map(p => ({ valor: p.valor, venda_id: p.venda_id ?? null })),
+    dataParaISO(new Date()),
+  )
+  const linhasAbertas = resumo.itens.map(i => `
+    <tr>
+      <td>${escaparHtml(i.descricao)}</td>
+      <td>${dataBR(i.dataVenda)}</td>
+      <td style="${i.vencida ? 'color:#EF4444;font-weight:700' : ''}">${textoVencimento(i)}</td>
+      <td style="font-weight:700">${formatarMoeda(i.falta)}</td>
+    </tr>`).join('')
+  const totalAberto = cliente.saldo_devedor ?? resumo.totalAberto
 
   const linhasVendas = vendas.map(v => `
     <tr>
@@ -57,6 +74,15 @@ ${cliente.telefone ? `<p style="color:#6B7280">📱 ${cliente.telefone}</p>` : '
 <div class="saldo ${(cliente.saldo_devedor ?? 0) > 0 ? 'devendo' : 'ok'}">
   Saldo devedor: ${formatarMoeda(cliente.saldo_devedor ?? 0)}
 </div>
+${resumo.itens.length > 0 ? `
+<h3 style="font-size:15px;margin:20px 0 0">Em aberto</h3>
+<table>
+  <thead><tr><th>Descrição</th><th>Comprado em</th><th>Vencimento</th><th>Falta</th></tr></thead>
+  <tbody>${linhasAbertas}</tbody>
+</table>
+${resumo.vencidoAteHoje > 0 ? `<p style="color:#EF4444;font-weight:700;margin:12px 0 0">⚠ Vencido hoje: ${formatarMoeda(resumo.vencidoAteHoje)}</p>` : ''}
+<p style="font-weight:700;margin:4px 0 0">Total em aberto: ${formatarMoeda(totalAberto)}</p>
+<h3 style="font-size:15px;margin:28px 0 0">Histórico</h3>` : ''}
 <table>
   <thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Valor</th></tr></thead>
   <tbody>${linhasVendas}${linhasPagamentos}</tbody>

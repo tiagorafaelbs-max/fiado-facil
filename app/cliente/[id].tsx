@@ -387,7 +387,7 @@ export default function DetalheClienteScreen() {
     const permitido = await registrarUsoWpp()
     if (!permitido) { await avisarLimiteWpp(); return }
     const nomeNeg = perfil?.nome_negocio || 'nosso estabelecimento'
-    const url = montarExtratoWhatsApp(cliente, vendas, nomeNeg, perfil?.chave_pix)
+    const url = montarExtratoWhatsApp(cliente, vendas, nomeNeg, perfil?.chave_pix, pagamentos.map(p => ({ valor: p.valor, venda_id: p.venda_id ?? null })))
     if (!url) { await reverterUsoWpp(); return }
     if (Platform.OS === 'web') {
       window.open(url, '_blank')

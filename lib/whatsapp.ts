@@ -3,6 +3,8 @@ import { supabase } from './supabase'
 import { formatarMoeda, normalizarTelefone } from './validacao'
 import { calcularDetalheCobranca, type DetalheCobranca } from './cobrancaVencidos'
 import { dataParaISO } from './vencimento'
+import { montarItensExtrato, diaMesBR, textoVencimento } from './extrato'
+import type { PagamentoAlocavel } from './alocacao'
 import type { Cliente } from '../types'
 
 type ClienteBasico = Pick<Cliente, 'id' | 'nome' | 'telefone'>
@@ -311,24 +313,29 @@ export async function cobrarViaWhatsApp(
 
 export function montarExtratoWhatsApp(
   cliente: ClienteBasico & { saldo_devedor?: number },
-  vendas: { descricao: string; valor: number; data_venda: string; pago: boolean }[],
+  vendas: { id: string; descricao: string; valor: number; data_venda: string; data_vencimento?: string | null }[],
   nomeNegocio: string,
   chavePix?: string,
+  pagamentos: PagamentoAlocavel[] = [],
 ): string | null {
   if (!cliente.telefone) return null
 
-  const abertas = vendas.filter(v => !v.pago)
-  // Total exibido usa o saldo já calculado pela view clientes_com_saldo (FIFO de
-  // pagamentos), não a soma bruta das vendas em aberto — evita divergir do saldo
-  // real quando um pagamento não cobre integralmente a próxima venda da fila.
-  const total = cliente.saldo_devedor ?? abertas.reduce((s, v) => s + v.valor, 0)
+  // Cada item em aberto com o que FALTA (depois dos pagamentos, mesma alocação do banco), data da compra e vencimento,
+  // na ordem FIFO. Vencida = vencimento real antes de hoje.
+  const hojeISO = dataParaISO(new Date())
+  const resumo = montarItensExtrato(vendas, pagamentos, hojeISO)
+  // Total exibido usa o saldo já calculado pela view clientes_com_saldo (FIFO de pagamentos): evita divergir do saldo real.
+  const total = cliente.saldo_devedor ?? resumo.totalAberto
   const hoje = new Date().toLocaleDateString('pt-BR')
 
-  const linhasVendas = abertas.map((v, i) => {
-    const data = v.data_venda.split('-').reverse().join('/')
-    return `${i + 1}. ${v.descricao}\n   ${data}  |  *${formatarMoeda(v.valor)}*`
-  }).join('\n')
+  // link do wa.me tem limite de tamanho: até 15 itens (os mais antigos); o PDF traz todos
+  const MAX_ITENS = 15
+  const linhasVendas = resumo.itens.slice(0, MAX_ITENS).map((v, i) =>
+    `${i + 1}. ${v.descricao}\n   Falta *${formatarMoeda(v.falta)}*  |  comprado em ${diaMesBR(v.dataVenda)}  |  ${textoVencimento(v)}`,
+  ).join('\n')
 
+  const maisItens = resumo.itens.length > MAX_ITENS ? `\n... e mais ${resumo.itens.length - MAX_ITENS} itens (veja o PDF do extrato)` : ''
+  const vencidoLinha = resumo.vencidoAteHoje > 0 ? `⚠ *Vencido hoje: ${formatarMoeda(resumo.vencidoAteHoje)}*\n` : ''
   const pixLinha = chavePix ? `\n🔑 Pague via Pix: *${chavePix}*` : ''
 
   const texto =
@@ -337,8 +344,9 @@ export function montarExtratoWhatsApp(
     `Cliente: *${cliente.nome}*\n` +
     `Data: ${hoje}\n` +
     `─────────────────────\n` +
-    `${linhasVendas}\n` +
+    `${linhasVendas}${maisItens}\n` +
     `─────────────────────\n` +
+    vencidoLinha +
     `💰 *Total em aberto: ${formatarMoeda(total)}*${pixLinha}\n\n` +
     `Em caso de dúvidas, entre em contato. Obrigado! 🙏`
 
