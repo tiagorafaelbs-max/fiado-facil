@@ -702,3 +702,12 @@ Código: 8fcab1d (build-1.0.13, 55/89) e 5b58fbb (android-combinada, 54/88). Só
 | Android 55 | 01a1456e-84bc-7535-9ccf-ac6c005b010c | 7c4aa75c-c7b3-45a4-8532-c85ecc0f44e6 | eas update:republish --group e3a843aa-7d90-4235-8cc9-2ba982b2f411 --platform android |
 | iOS 88 | 01a14572-a0fc-7d61-8ec7-9d79219ed9fd | 7e6a494e-8efa-45ea-a2a5-c03401757433 | eas update:republish --group 402d4e44-bb04-45dd-b20f-6214a35d411c --platform ios |
 | Android 54 | 01a14576-6b07-7109-9c20-ab6d05a17acf | 284300d3-c716-49c1-85ed-bd7f8abc34e1 | eas update:republish --group 3540a0a4-403f-46da-b790-3c353edbe5c4 --platform android |
+
+## OTAs 18/10 — tela Planos (ANDROID): formas de pagamento (pedido do Growth, autorizado pelo Tiago; Fiscal aprovou a frase final; hashes conferidos)
+Código: 6b8102f (build-1.0.13, Android 55) e 272ac62 (android-combinada, Android 54). Só Android (!isIOS; iOS não mudou e NÃO recebeu OTA): abaixo do botão de assinar, "💳 Pague com cartão, saldo Google Play ou outras formas disponíveis na sua conta (como Pix)".
+- A frase pedida ("Aceita Pix, cartão ou saldo Google Play") foi trocada por esta após o Fiscal condicionar: não dá para garantir que o Pix aparece na compra de ASSINATURA em toda conta Google, e prometer forma de pagamento que não aparece pode ser visto como informação enganosa. Decisão do Tiago: frase sempre verdadeira. Se ele confirmar no A51 que o Pix aparece na assinatura, dá para voltar à frase direta.
+- O log do erro de cadastro já existia (cadastro_erro desde 14/10); nada mudado no cadastro. Sem build, submit nem push.
+| Binário | Update ID | Group ID | Rollback (só com ordem; volta à OTA do rodapé "Já vencido") |
+|---|---|---|---|
+| Android 55 | 01a14f2c-5f0a-73e8-890f-983ed86e63f2 | 32e4c3ac-6389-44e6-a800-dcaec219478c | eas update:republish --group 7c4aa75c-c7b3-45a4-8532-c85ecc0f44e6 --platform android |
+| Android 54 | 01a14f2f-0e83-79b6-b85a-da1321e4ed5d | fa6ae0d0-0628-4240-af92-bea115334dd0 | eas update:republish --group 284300d3-c716-49c1-85ed-bd7f8abc34e1 --platform android |
