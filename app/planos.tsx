@@ -46,7 +46,7 @@ const RECURSOS_GRATUITO = [
 
 const RECURSOS_PRO = [
   { texto: 'Clientes ilimitados', destaque: true },
-  { texto: 'Cobre todos os vencidos com um toque', destaque: true },
+  { texto: 'Cobre todos os vencidos num toque', destaque: true },
   { texto: 'Lançamentos ilimitados', destaque: false },
   { texto: 'Cobranças WhatsApp ilimitadas', destaque: true },
   { texto: 'Relatórios por categoria', destaque: true },
@@ -554,7 +554,7 @@ const estilos = StyleSheet.create({
   precoPeriodo: { fontSize: 13, color: C.text2, marginBottom: 2 },
   separador: { borderTopWidth: 1, borderColor: C.border, marginBottom: 14 },
   recursoRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
-  recursoTexto: { fontSize: 14, color: C.text },
+  recursoTexto: { fontSize: 14, color: C.text, flex: 1 },   // flex:1 faz o texto quebrar linha em vez de passar da borda do cartão
   recursoDesab: { color: C.text3 },
   btnGratuito: { borderWidth: 1.5, borderColor: C.border, borderRadius: 12, paddingVertical: 12, alignItems: 'center', marginTop: 8 },
   btnGratuitoTexto: { color: C.text2, fontWeight: '600', fontSize: 14 },
