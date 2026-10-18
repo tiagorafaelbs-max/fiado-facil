@@ -453,6 +453,8 @@ export default function PlanosScreen() {
             : <><Ionicons name="rocket-outline" size={18} color={C.green} /><Text style={estilos.btnProTexto}>Assinar por {labelMensal}</Text></>
           }
         </TouchableOpacity>
+        {/* Só Android (a Apple não tem Pix). Frase sempre verdadeira: o Pix depende da conta/região no Google Play. */}
+        {!isIOS && <Text style={estilos.proPagamento}>💳 Pague com cartão, saldo Google Play ou outras formas disponíveis na sua conta (como Pix)</Text>}
         <Text style={estilos.proGarantia}>✓ Cancele a qualquer momento · Sem fidelidade</Text>
       </View>
 
@@ -563,6 +565,7 @@ const estilos = StyleSheet.create({
   proCirculo2: { position: 'absolute', bottom: -30, left: -30, width: 120, height: 120, borderRadius: 60, backgroundColor: 'rgba(0,0,0,0.07)' },
   btnPro: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: C.white, borderRadius: 12, paddingVertical: 14, marginTop: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 6, elevation: 2 },
   btnProTexto: { color: C.green, fontWeight: '800', fontSize: 15 },
+  proPagamento: { fontSize: 11, color: 'rgba(255,255,255,0.75)', textAlign: 'center', marginTop: 10 },
   proGarantia: { fontSize: 11, color: 'rgba(255,255,255,0.6)', textAlign: 'center', marginTop: 10 },
   anualBox: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: C.greenLight, borderRadius: 14, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: C.greenMid },
   anualEsquerda: { flex: 1, gap: 2 },
