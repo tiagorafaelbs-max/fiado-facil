@@ -471,7 +471,7 @@ export default function PlanosScreen() {
       <View style={estilos.cardPro}>
         <View style={estilos.fitaPopular}>
           <Ionicons name="star" size={11} color={C.yellow} />
-          <Text style={estilos.fitaTexto}>MAIS POPULAR</Text>
+          <Text style={estilos.fitaTexto}>RECOMENDADO</Text>
         </View>
         <View style={estilos.proCirculo1} />
         <View style={estilos.proCirculo2} />
