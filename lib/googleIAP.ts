@@ -95,6 +95,19 @@ export function compraDoPlano(compras: Purchase[] | undefined | null): Purchase 
   )
 }
 
+// Há uma compra do nosso plano ainda PENDENTE no Google Play (ex.: Pix aguardando confirmação)?
+export async function compraPendenteGoogle(): Promise<boolean> {
+  if (!isAndroid) return false
+  try {
+    const conectado = await garantirConexaoIAP()
+    if (!conectado) return false
+    const compras = (await getAvailablePurchases()) as Purchase[] | undefined
+    return !!compras?.some(p => (p.productId === SKU_MENSAL || p.productId === SKU_ANUAL) && String(p.purchaseState) === 'pending')
+  } catch {
+    return false
+  }
+}
+
 // Silenciosa (sem alertas): compra paga que o app não chegou a ativar (app fechado no meio, rede
 // caiu). Só roda para quem ainda não é Pro: o Pro já ativo é mantido pelos avisos do Google (RTDN).
 let reconciliando: Promise<boolean> | null = null

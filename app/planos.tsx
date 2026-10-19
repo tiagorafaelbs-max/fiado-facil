@@ -29,7 +29,7 @@ import {
 } from '../lib/appleIAP'
 import {
   comprarAssinaturaGoogle, enviarParaVerificacaoGoogle, concluirCompraGoogle,
-  compraDoPlano, verificarComprasGooglePendentes,
+  compraDoPlano, verificarComprasGooglePendentes, compraPendenteGoogle,
 } from '../lib/googleIAP'
 
 const isIOS = Platform.OS === 'ios'
@@ -71,6 +71,38 @@ export default function PlanosScreen() {
     if (papelConfirmado && !souFuncionario) evento('planos')
   }, [papelConfirmado, souFuncionario])
 
+  // Texto único de "pagamento em confirmação" (Pix e outras formas lentas do Google Play).
+  const TITULO_PENDENTE = 'Seu pagamento está sendo confirmado'
+  const TEXTO_PENDENTE = 'Se você pagou com Pix, o Google Play pode levar alguns minutos para confirmar. Assim que confirmar, o plano Pro é ativado sozinho. Se não ativar, feche e abra o app de novo ou toque em Restaurar compras.'
+
+  // Android: quando a tela de compra do Google fecha (inclusive "cancelada" porque a pessoa saiu para pagar o Pix no
+  // app do banco), confere uma vez: já foi pago e confirmado? Ativa. Está pendente? Avisa que está em confirmação.
+  const conferindoFimDeCompra = useRef(false)
+  async function aposFimDeCompraAndroid() {
+    if (isIOS || conferindoFimDeCompra.current) return
+    conferindoFimDeCompra.current = true
+    try {
+      await new Promise<void>(resolve => setTimeout(resolve, 2500))   // dá um tempo para o Google registrar
+      if (await verificarComprasGooglePendentes()) {
+        evento('compra_ok')
+        Alert.alert(
+          '🎉 Assinatura ativa!',
+          'Seu plano Pro foi ativado. Aproveite todos os recursos!',
+          [{ text: 'Continuar', onPress: () => router.back() }],
+        )
+        return
+      }
+      if (await compraPendenteGoogle()) {
+        evento('compra_pendente')
+        Alert.alert(TITULO_PENDENTE, TEXTO_PENDENTE)
+      }
+    } catch {
+      // silencioso: nunca atrapalha o usuário
+    } finally {
+      conferindoFimDeCompra.current = false
+    }
+  }
+
   // Erro de compra: cancelar é uma etapa própria; o resto leva só o CÓDIGO do erro (nunca texto livre).
   function registrarFalhaCompra(err: any) {
     if (err?.code === ErrorCode.UserCancelled) { evento('compra_cancelou'); return }
@@ -108,8 +140,9 @@ export default function PlanosScreen() {
           const estado = String(purchase.purchaseState)
           const stateOk = estado !== 'pending' && estado !== 'failed'
           if (!isIOS && estado === 'pending') {
-            // Google Play: pagamento ainda não confirmado (ex.: boleto/dinheiro). Não ativa nada agora.
-            Alert.alert('Pagamento pendente', 'Assim que o Google Play confirmar o pagamento, seu plano Pro será ativado.')
+            // Google Play: pagamento ainda não confirmado (ex.: Pix). Não ativa nada agora.
+            evento('compra_pendente')
+            Alert.alert(TITULO_PENDENTE, TEXTO_PENDENTE)
             setLoading(null)
             return
           }
@@ -121,6 +154,7 @@ export default function PlanosScreen() {
 
         purchaseErrorSub = purchaseErrorListener((error: PurchaseError) => {
           registrarFalhaCompra(error)
+          if (!isIOS) aposFimDeCompraAndroid()
           if (error.code !== ErrorCode.UserCancelled) {
             Alert.alert('Erro na compra', error.message ?? 'Tente novamente.')
           }
@@ -245,7 +279,8 @@ export default function PlanosScreen() {
           [{ text: 'Continuar', onPress: () => router.back() }],
         )
       } else if (r === 'pendente') {
-        Alert.alert('Pagamento pendente', 'Assim que o Google Play confirmar o pagamento, seu plano Pro será ativado.')
+        evento('compra_pendente')
+        Alert.alert(TITULO_PENDENTE, TEXTO_PENDENTE)
       } else if (r === 'recusada') {
         Alert.alert('Não foi possível ativar', 'Esta compra não pertence a esta conta do FiadoApp ou não é válida. Se você acabou de assinar, fale com o suporte.')
       } else {
