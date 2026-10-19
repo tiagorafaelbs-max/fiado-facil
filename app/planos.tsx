@@ -22,7 +22,7 @@ import { supabase } from '../lib/supabase'
 import { C } from '../constants/colors'
 import { useTenant } from '../hooks/useTenant'
 import { evento } from '../lib/instalacao'
-import { escolherPreco } from '../lib/precoPlano'
+import { escolherPreco, equivalenteMensal } from '../lib/precoPlano'
 import {
   SKU_MENSAL, SKU_ANUAL, SKUS, MODULOS_CACHE_KEY,
   garantirConexaoIAP, enviarParaVerificacaoApple, verificarComprasApplePendentes,
@@ -62,6 +62,8 @@ export default function PlanosScreen() {
   const [precoMensal, setPrecoMensal] = useState('R$ 19,90')
   const [precoAnual, setPrecoAnual]   = useState('R$ 149,90')
   const [ativando, setAtivando] = useState(false)
+  // Cartão Pro: o ANUAL vem pré-selecionado; o mensal fica a um toque. O botão acompanha a seleção.
+  const [planoSel, setPlanoSel] = useState<'annual' | 'monthly'>('annual')
   // Falha ao carregar a loja/planos: mostra o aviso com "Tentar de novo" (muda a tentativa e refaz a inicialização).
   const [erroProdutos, setErroProdutos] = useState(false)
   const [tentativaLoja, setTentativaLoja] = useState(0)
@@ -104,6 +106,10 @@ export default function PlanosScreen() {
   }
 
   // Erro de compra: cancelar é uma etapa própria; o resto leva só o CÓDIGO do erro (nunca texto livre).
+  // Funil anônimo: qual plano (anual/mensal) em compra e compra_ok.
+  const detalhePlano = (productId?: string | null) =>
+    productId === SKU_ANUAL ? 'anual' : productId === SKU_MENSAL ? 'mensal' : undefined
+
   function registrarFalhaCompra(err: any) {
     if (err?.code === ErrorCode.UserCancelled) { evento('compra_cancelou'); return }
     const interno = ['loja_indisponivel', 'oferta_indisponivel', 'sem_sessao'].includes(err?.message) ? err.message : null
@@ -214,7 +220,7 @@ export default function PlanosScreen() {
       // confirmada pela Apple já ficou 1h16 sem ativar por uma falha transitória aqui).
       const ok = await enviarParaVerificacaoApple(purchase)
       if (ok) {
-        evento('compra_ok')
+        evento('compra_ok', detalhePlano(purchase.productId))
         Alert.alert(
           '🎉 Assinatura ativa!',
           'Bem-vindo ao FiadoApp Pro! Seus benefícios já estão disponíveis.',
@@ -271,7 +277,7 @@ export default function PlanosScreen() {
       // O servidor consulta o Google, confere que a compra é desta conta e ativa o Pro.
       const r = await enviarParaVerificacaoGoogle(purchase)
       if (r === 'ok') {
-        evento('compra_ok')
+        evento('compra_ok', detalhePlano(purchase.productId))
         await concluirCompraGoogle(purchase)
         Alert.alert(
           '🎉 Assinatura ativa!',
@@ -374,7 +380,7 @@ export default function PlanosScreen() {
   }
 
   function handleAssinar(plan_type: 'monthly' | 'annual') {
-    evento('compra')   // funil de compra: tocou em Assinar
+    evento('compra', plan_type === 'annual' ? 'anual' : 'mensal')   // funil de compra: tocou em Assinar (e em qual plano)
     if (isIOS) {
       handleAssinarIOS(plan_type === 'monthly' ? SKU_MENSAL : SKU_ANUAL, plan_type)
     } else {
@@ -384,6 +390,8 @@ export default function PlanosScreen() {
 
   const labelMensal = `${precoMensal}/mês`
   const labelAnual  = `${precoAnual}/ano`
+  // Equivalente mensal e economia, calculados dos MESMOS preços exibidos (loja em BRL ou padrão): texto secundário.
+  const equiv = equivalenteMensal(precoAnual, precoMensal)
 
   // Assinatura é decisão e responsabilidade só do dono do negócio -- centraliza aqui
   // em vez de esconder cada botão/alerta espalhado pelo app que levaria pra esta tela.
@@ -482,28 +490,45 @@ export default function PlanosScreen() {
             </Text>
           </View>
         ))}
-        <TouchableOpacity style={estilos.btnPro} onPress={() => handleAssinar('monthly')} disabled={loading !== null}>
-          {loading === 'monthly'
+        {/* Escolha do plano: anual (pré-selecionado) ou mensal, a um toque */}
+        <View style={estilos.seletor} accessibilityRole="radiogroup">
+          {(['annual', 'monthly'] as const).map(p => {
+            const ativo = planoSel === p
+            return (
+              <TouchableOpacity
+                key={p}
+                style={[estilos.seletorOpcao, ativo && estilos.seletorOpcaoAtiva]}
+                onPress={() => setPlanoSel(p)}
+                disabled={loading !== null}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: ativo }}
+              >
+                <Text style={[estilos.seletorTexto, ativo && estilos.seletorTextoAtivo]}>{p === 'annual' ? 'Anual' : 'Mensal'}</Text>
+                {p === 'annual' && equiv && (
+                  <Text style={[estilos.seletorTag, ativo && estilos.seletorTagAtiva]}>economize {equiv.economiaPct}%</Text>
+                )}
+              </TouchableOpacity>
+            )
+          })}
+        </View>
+        {/* Preço COBRADO em destaque; o equivalente mensal é sempre texto menor (Apple 3.1.2 / Google) */}
+        <View style={estilos.precoCobrado}>
+          <Text style={estilos.precoCobradoValor}>{planoSel === 'annual' ? precoAnual : precoMensal}</Text>
+          <Text style={estilos.precoCobradoPeriodo}>{planoSel === 'annual' ? '/ano' : '/mês'}</Text>
+        </View>
+        {planoSel === 'annual' && equiv && (
+          <Text style={estilos.precoEquivalente}>equivale a {equiv.porMes}/mês · economize {equiv.economiaPct}%</Text>
+        )}
+        <TouchableOpacity style={estilos.btnPro} onPress={() => handleAssinar(planoSel)} disabled={loading !== null}>
+          {loading === planoSel
             ? <ActivityIndicator color={C.green} />
-            : <><Ionicons name="rocket-outline" size={18} color={C.green} /><Text style={estilos.btnProTexto}>Assinar por {labelMensal}</Text></>
+            : <><Ionicons name="rocket-outline" size={18} color={C.green} /><Text style={estilos.btnProTexto}>{planoSel === 'annual' ? `Assinar anual por ${precoAnual}` : `Assinar por ${labelMensal}`}</Text></>
           }
         </TouchableOpacity>
         {/* Só Android (a Apple não tem Pix). Frase sempre verdadeira: o Pix depende da conta/região no Google Play. */}
         {!isIOS && <Text style={estilos.proPagamento}>💳 Pague com cartão, saldo Google Play ou outras formas disponíveis na sua conta (como Pix)</Text>}
         <Text style={estilos.proGarantia}>✓ Cancele a qualquer momento · Sem fidelidade</Text>
       </View>
-
-      {/* Plano Anual */}
-      <TouchableOpacity style={estilos.anualBox} onPress={() => handleAssinar('annual')} disabled={loading !== null}>
-        <View style={estilos.anualEsquerda}>
-          <Text style={estilos.anualTitulo}>💰 Plano Anual</Text>
-          <Text style={estilos.anualSub}>{labelAnual} — economize 37%</Text>
-        </View>
-        {loading === 'annual'
-          ? <ActivityIndicator color={C.green} size="small" />
-          : <View style={estilos.anualBadge}><Text style={estilos.anualBadgeTexto}>-37%</Text></View>
-        }
-      </TouchableOpacity>
 
       {/* Nota legal + restaurar (cada loja com o seu texto) */}
       {(
@@ -602,6 +627,17 @@ const estilos = StyleSheet.create({
   btnProTexto: { color: C.green, fontWeight: '800', fontSize: 15 },
   proPagamento: { fontSize: 11, color: 'rgba(255,255,255,0.75)', textAlign: 'center', marginTop: 10 },
   proGarantia: { fontSize: 11, color: 'rgba(255,255,255,0.6)', textAlign: 'center', marginTop: 10 },
+  seletor: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  seletorOpcao: { flex: 1, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.35)', borderRadius: 12, paddingVertical: 10, alignItems: 'center', gap: 2 },
+  seletorOpcaoAtiva: { backgroundColor: C.white, borderColor: C.white },
+  seletorTexto: { fontSize: 14, fontWeight: '700', color: 'rgba(255,255,255,0.85)' },
+  seletorTextoAtivo: { color: C.green },
+  seletorTag: { fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.7)' },
+  seletorTagAtiva: { color: C.greenDark },
+  precoCobrado: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 4, marginTop: 16 },
+  precoCobradoValor: { fontSize: 32, fontWeight: '900', color: C.white, lineHeight: 36 },
+  precoCobradoPeriodo: { fontSize: 15, fontWeight: '600', color: 'rgba(255,255,255,0.85)', marginBottom: 3 },
+  precoEquivalente: { fontSize: 12, color: 'rgba(255,255,255,0.75)', textAlign: 'center', marginTop: 4 },
   anualBox: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: C.greenLight, borderRadius: 14, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: C.greenMid },
   anualEsquerda: { flex: 1, gap: 2 },
   anualTitulo: { fontSize: 15, fontWeight: '700', color: C.greenDark },
