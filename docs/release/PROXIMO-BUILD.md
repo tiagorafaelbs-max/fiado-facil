@@ -711,3 +711,12 @@ Código: 6b8102f (build-1.0.13, Android 55) e 272ac62 (android-combinada, Androi
 |---|---|---|---|
 | Android 55 | 01a14f2c-5f0a-73e8-890f-983ed86e63f2 | 32e4c3ac-6389-44e6-a800-dcaec219478c | eas update:republish --group 7c4aa75c-c7b3-45a4-8532-c85ecc0f44e6 --platform android |
 | Android 54 | 01a14f2f-0e83-79b6-b85a-da1321e4ed5d | fa6ae0d0-0628-4240-af92-bea115334dd0 | eas update:republish --group 284300d3-c716-49c1-85ed-bd7f8abc34e1 --platform android |
+
+## OTAs 19/10 — tela Planos: recursos do cartão quebram linha (Fiscal aprovou; hashes conferidos; sem build, submit nem push)
+Código: f394a89 (build-1.0.13, 55/89) e a26d68b (android-combinada, 54/88). A51: o item "Cobre todos os vencidos com um toque" do cartão PRO passava da borda e cortava o "e". Correção: recursoTexto com flex:1 (quebra de linha nos cartões Grátis e Pro) e texto "Cobre todos os vencidos num toque". Tela igual no iOS e no Android. Tiago confere no A51.
+| Binário | Update ID | Group ID | Rollback (só com ordem; volta à OTA anterior do runtime) |
+|---|---|---|---|
+| iOS 89 | 01a154e2-cad5-7a1c-b296-f4f3bc3e8990 | b2c0ae6b-0fc9-481f-b5fe-d9fcb6bc1581 | eas update:republish --group f311cd65-7ba4-4a73-9a9c-5dd4d1ae5e08 --platform ios |
+| Android 55 | 01a154e5-0743-734f-aa01-e25c0f54cfde | 74f18bea-0353-4afe-8dc9-6feb480ec937 | eas update:republish --group 32e4c3ac-6389-44e6-a800-dcaec219478c --platform android |
+| iOS 88 | 01a154e7-0714-7e87-9408-3760b519c014 | c17fd137-f6a5-41de-881d-5f41035162dc | eas update:republish --group 7e6a494e-8efa-45ea-a2a5-c03401757433 --platform ios |
+| Android 54 | 01a154e8-e4d0-7840-a2be-5c81f03b8804 | 8d578736-96da-4a6b-9a1e-fe851ac403fc | eas update:republish --group fa6ae0d0-0628-4240-af92-bea115334dd0 --platform android |
