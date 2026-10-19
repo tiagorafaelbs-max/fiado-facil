@@ -730,3 +730,9 @@ Correção: (1) alerta "Seu pagamento está sendo confirmado" (explica Pix, ativ
 |---|---|---|---|
 | Android 55 | 01a155b8-fd9f-7985-bd19-eda912784576 | 7dde3150-8199-45e5-9d26-075e118137ce | eas update:republish --group 74f18bea-0353-4afe-8dc9-6feb480ec937 --platform android |
 | Android 54 | 01a155bb-69a6-77d9-bf66-ea22f9921b71 | 8500fb1e-67c0-4ed9-93dc-8c725bb97f58 | eas update:republish --group 8d578736-96da-4a6b-9a1e-fe851ac403fc --platform android |
+
+## 19/10 — respostas do Tiago sobre o Pix + migration compra_pendente APLICADA + push da main
+- Play Console: sem pedido do cliente hoje; RTDN 0 chamadas; o cliente do caso é iOS (caso separado, tratado pelo Growth). Ou seja, o Pix no Android não falhou para ele; a correção do Pix pendente segue valendo como prevenção.
+- Permissão da conta de serviço do Google ativa (ciclo completo validado em 11/10).
+- Migration instalacoes_app_compra_pendente APLICADA (simulada antes): CHECK com 19 etapas; anon/authenticated só INSERT por coluna.
+- Push da main autorizado (com 9254819 do Android 55; o equivalente c1da0cd fica só na android-combinada).
