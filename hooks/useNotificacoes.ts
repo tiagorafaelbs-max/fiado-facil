@@ -5,6 +5,8 @@ import * as Notifications from 'expo-notifications'
 import { supabase } from '../lib/supabase'
 import { obterContextoEquipe } from '../lib/tenant'
 import { formatarMoeda } from '../lib/validacao'
+import { buscarVencimentosDoPeriodo } from '../lib/vencemHoje'
+import { dataParaISO, somarDiasAoISO } from '../lib/vencimento'
 
 const CHAVE_JA_PEDIU_PERMISSAO = '@fiado_notif_ja_pedida'
 
@@ -102,6 +104,29 @@ export async function agendarNotificacoesVencimento() {
           minute: 0,
         },
       })
+    }
+
+    // Notificação das 8h NO DIA do vencimento ("📅 Vencem hoje"): uma por dia, nos próximos 7 dias, cada uma com os nomes e
+    // o valor que vence NAQUELE dia (o que falta depois dos pagamentos, não o saldo total). Notificação local não calcula
+    // nada na hora de aparecer, por isso agenda por data (e reagenda toda vez que o app abre). Só o dono (totais).
+    if (podeVerTotais) {
+      const hojeISO = dataParaISO(hoje)
+      const limiteISO = somarDiasAoISO(hojeISO, 7)
+      const porDia = await buscarVencimentosDoPeriodo(uid, hojeISO, limiteISO)
+      for (const [dia, lista] of Object.entries(porDia)) {
+        if (!lista.length) continue
+        const [a, m, d] = dia.split('-').map(Number)
+        const quando = new Date(a, m - 1, d, 8, 0, 0)
+        if (quando.getTime() <= Date.now() + 60_000) continue   // 8h de hoje já passou
+        const total = lista.reduce((s, i) => s + Math.round(i.valor * 100), 0) / 100
+        const corpo = lista.length <= 2
+          ? lista.map(i => `${i.nome} ${formatarMoeda(i.valor)}`).join(' · ')
+          : `${lista[0].nome}, ${lista[1].nome} e mais ${lista.length - 2} — ${formatarMoeda(total)}`
+        await Notifications.scheduleNotificationAsync({
+          content: { title: '📅 Vencem hoje', body: corpo, sound: true, data: { tela: 'inicio' } },
+          trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: quando },
+        })
+      }
     }
 
     // Notificação das 18h — cobranças vencidas (lembrete fim de expediente)

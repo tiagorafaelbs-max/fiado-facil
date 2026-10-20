@@ -60,6 +60,7 @@ function useDeepLinkNotificacoes() {
     const sub = Notifications.addNotificationResponseReceivedListener(response => {
       const tela = response.notification.request.content.data?.tela as string | undefined
       if (tela === 'clientes') router.push('/(tabs)/clientes')
+      if (tela === 'inicio') router.push('/(tabs)')
       else if (tela === 'relatorios') router.push('/(tabs)/relatorios')
     })
     return () => sub.remove()

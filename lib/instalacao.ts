@@ -21,6 +21,7 @@ export type EventoCompra =
   | 'compra_cancelou'  // fechou a tela de compra da loja
   | 'compra_erro'      // erro na compra (detalhe: código do erro)
   | 'compra_ok'        // compra confirmada e Pro ativado
+  | 'cobrar_vence_hoje' // tocou em COBRAR no quadro "Vencem hoje" da tela Início
   | 'compra_pendente'  // Android: pagamento (ex.: Pix) em confirmação no Google Play; o Pro ativa quando o Google confirmar
   | 'loja_erro'        // a loja não devolveu os produtos/preço (detalhe: motivo)
   | 'contatos_erro'    // falha ao abrir a agenda (detalhe: código/mensagem curta do módulo nativo)

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   View, Text, FlatList, TouchableOpacity, Modal, ScrollView,
-  StyleSheet, RefreshControl, ActivityIndicator, Platform, useWindowDimensions
+  StyleSheet, RefreshControl, ActivityIndicator, Platform, useWindowDimensions, Alert, Linking
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { RegistradorRapido } from '../../components/ui/RegistradorRapido'
@@ -23,6 +23,14 @@ import { ChecklistDia0 } from '../../components/ui/ChecklistDia0'
 import { AvisoVencimentoAntigas } from '../../components/ui/AvisoVencimentoAntigas'
 import { AvisoAtualizacao } from '../../components/ui/AvisoAtualizacao'
 import { CardAvaliacao } from '../../components/ui/CardAvaliacao'
+import { QuadroVencemHoje } from '../../components/ui/QuadroVencemHoje'
+import { useVencemHoje } from '../../hooks/useVencemHoje'
+import { useContadorWhatsApp } from '../../hooks/useContadorWhatsApp'
+import { usePerfilCobranca } from '../../hooks/usePerfilCobranca'
+import { pedirAvaliacaoNoSucesso } from '../../hooks/useAvaliacaoApp'
+import { montarUrlWhatsApp, buscarContextoCobranca } from '../../lib/whatsapp'
+import { evento } from '../../lib/instalacao'
+import type { VencimentoDoDia } from '../../lib/vencemHoje'
 import { useCardAvaliacao } from '../../hooks/useCardAvaliacao'
 import { formatarMoeda } from '../../lib/validacao'
 import { escolherLadoFab } from '../../lib/fab'
@@ -50,10 +58,46 @@ export default function DashboardScreen() {
   const [diaCobranca, setDiaCobranca] = useState<number | null>(null)
   const [clientesParaCobrar, setClientesParaCobrar] = useState(0)
   const [cobrancaAutoTipo, setCobrancaAutoTipo] = useState<'vencidos' | 'todos'>('vencidos')
+  // Quadro "Vencem hoje — cobrar": só o dono (valores por cliente). Cobrar abre a mesma mensagem de cobrança do WhatsApp.
+  const vencemHoje = useVencemHoje(tenantId, podeVerTotais)
+  const perfilCobranca = usePerfilCobranca()
+  const { registrarUso: registrarUsoWpp, reverterUso: reverterUsoWpp, limite: limiteWpp } = useContadorWhatsApp(plano, tenantId || usuario?.id)
+  const [cobrandoHojeId, setCobrandoHojeId] = useState<string | null>(null)
+
+  async function cobrarVenceHoje(item: VencimentoDoDia) {
+    if (!item.telefone || cobrandoHojeId) return
+    setCobrandoHojeId(item.clienteId)
+    try {
+      const permitido = await registrarUsoWpp()
+      if (!permitido) {
+        evento('limite', 'cobrancas')
+        Alert.alert(
+          'Limite atingido',
+          `Você usou ${limiteWpp} cobranças WhatsApp este mês (plano gratuito).\n\nFaça upgrade para cobranças ilimitadas.`,
+          [{ text: 'Fechar', style: 'cancel' }, { text: 'Ver planos', onPress: () => router.push('/planos') }],
+        )
+        return
+      }
+      evento('cobrar_vence_hoje')   // funil anônimo: tocou em COBRAR no quadro
+      try {
+        const ctx = await buscarContextoCobranca(tenantId, perfilCobranca, [item.clienteId])
+        const url = montarUrlWhatsApp({ id: item.clienteId, nome: item.nome, telefone: item.telefone }, item.saldoDevedor, perfilCobranca, ctx[item.clienteId])
+        if (Platform.OS === 'web') window.open(url, '_blank')
+        else await Linking.openURL(url)
+        pedirAvaliacaoNoSucesso('cobranca_whatsapp')
+      } catch {
+        await reverterUsoWpp()
+      }
+    } finally {
+      setCobrandoHojeId(null)
+    }
+  }
+
   // Card de avaliação: um banner por vez (prioridade: atualização > limite > vendas antigas > avaliação).
   const [avisoAtualizacaoVisivel, setAvisoAtualizacaoVisivel] = useState(false)
   const [avisoVencimentoVisivel, setAvisoVencimentoVisivel] = useState(false)
   const outroBannerVisivel =
+    vencemHoje.lista.length > 0 ||
     avisoAtualizacaoVisivel ||
     avisoVencimentoVisivel ||
     !online ||
@@ -198,7 +242,7 @@ export default function DashboardScreen() {
     })
   }, [tenantId])
 
-  useFocusEffect(useCallback(() => { buscar(); checklistDia0.recarregar(); cardAvaliacao.recalcular() }, [buscar, checklistDia0.recarregar, cardAvaliacao.recalcular]))
+  useFocusEffect(useCallback(() => { buscar(); checklistDia0.recarregar(); cardAvaliacao.recalcular(); vencemHoje.recarregar() }, [buscar, checklistDia0.recarregar, cardAvaliacao.recalcular, vencemHoje.recarregar]))
 
   // Lê o nome salvo da última vez que carregou com sucesso -- evita a saudação
   // sem nome ("Bom dia 👋") quando o app abre offline antes da query abaixo
@@ -212,8 +256,8 @@ export default function DashboardScreen() {
 
   // Fila offline sincronizou: saldo/contagens do Início mudaram no banco.
   useEffect(() => assinarEventosDaFila(evento => {
-    if (evento === 'sincronizou') { buscar(); checklistDia0.recarregar() }
-  }), [buscar, checklistDia0.recarregar])
+    if (evento === 'sincronizou') { buscar(); checklistDia0.recarregar(); vencemHoje.recarregar() }
+  }), [buscar, checklistDia0.recarregar, vencemHoje.recarregar])
 
   // Ao reconectar, recarrega sozinho em vez de esperar o usuário sair e voltar
   // pra tela ou arrastar pra atualizar (achado do Tiago: Início ficava zerado
@@ -469,6 +513,9 @@ export default function DashboardScreen() {
                 <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.7)" />
               </TouchableOpacity>
             )}
+
+            {/* Vencem hoje — cobrar (só o dono; só se houver) */}
+            <QuadroVencemHoje itens={vencemHoje.lista} cobrandoId={cobrandoHojeId} onCobrar={cobrarVenceHoje} />
 
             {/* Hero */}
             {/* O toque abre o relatório de vendas, que também mostra o total "Em aberto" -- só o dono. */}
