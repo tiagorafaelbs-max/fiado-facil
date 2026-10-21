@@ -144,9 +144,9 @@ export default function MinhasCategoriasScreen() {
                     <Ionicons name="pencil-outline" size={18} color={C.green} />
                     <Text style={estilos.btnTexto}>Editar</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[estilos.btn, estilos.btnPerigo]} disabled={ocupado} onPress={() => pedirExclusao(cat)} accessibilityRole="button" accessibilityLabel={padrao ? `Ocultar categoria ${cat}` : `Excluir categoria ${cat}`}>
-                    <Ionicons name={padrao ? 'eye-off-outline' : 'trash-outline'} size={18} color={C.red} />
-                    <Text style={[estilos.btnTexto, { color: C.red }]}>{padrao ? 'Ocultar' : 'Excluir'}</Text>
+                  <TouchableOpacity style={[estilos.btn, padrao ? estilos.btnCinza : estilos.btnPerigo]} disabled={ocupado} onPress={() => pedirExclusao(cat)} accessibilityRole="button" accessibilityLabel={padrao ? `Ocultar categoria ${cat}` : `Excluir categoria ${cat}`}>
+                    <Ionicons name={padrao ? 'eye-off-outline' : 'trash-outline'} size={18} color={padrao ? C.text2 : C.red} />
+                    <Text style={[estilos.btnTexto, { color: padrao ? C.text2 : C.red }]}>{padrao ? 'Ocultar' : 'Excluir'}</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -164,9 +164,9 @@ export default function MinhasCategoriasScreen() {
                   <Text style={[estilos.nome, { flex: 1 }]}>{cat}</Text>
                 </View>
                 <View style={estilos.acoes}>
-                  <TouchableOpacity style={estilos.btn} disabled={ocupado} onPress={() => mostrarDeNovo(cat)} accessibilityRole="button" accessibilityLabel={`Mostrar categoria ${cat}`}>
-                    <Ionicons name="eye-outline" size={18} color={C.green} />
-                    <Text style={estilos.btnTexto}>Mostrar</Text>
+                  <TouchableOpacity style={[estilos.btn, estilos.btnCinza]} disabled={ocupado} onPress={() => mostrarDeNovo(cat)} accessibilityRole="button" accessibilityLabel={`Mostrar categoria ${cat}`}>
+                    <Ionicons name="eye-outline" size={18} color={C.text2} />
+                    <Text style={[estilos.btnTexto, { color: C.text2 }]}>Mostrar</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -232,6 +232,7 @@ const estilos = StyleSheet.create({
   sub: { fontSize: 12, color: C.text3, marginTop: 2 },
   btn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, minWidth: 44, paddingHorizontal: 14, borderRadius: 10, borderWidth: 1, borderColor: C.greenMid, backgroundColor: C.greenLight },
   btnTexto: { fontSize: 14, fontWeight: '700', color: C.green },
+  btnCinza: { borderColor: C.border, backgroundColor: C.bg },
   btnPerigo: { borderColor: C.redBorder, backgroundColor: C.redLight },
   link: { fontSize: 13, color: C.green, fontWeight: '700' },
   novaRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
