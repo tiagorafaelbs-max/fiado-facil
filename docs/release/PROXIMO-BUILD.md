@@ -780,3 +780,14 @@ Migrations APLICADAS (simuladas antes): itens_cadastro (RLS ligada, 4 políticas
 | Binário | Update ID | Group ID | Rollback (só com ordem; volta à OTA do vence hoje no Android 55) |
 |---|---|---|---|
 | Android 55 | 01a15e3b-1353-72d8-b486-db69a2c3611d | 90e3329e-cb1f-4448-9831-57218b6ad934 | eas update:republish --group 31b79fab-1303-4765-984f-fedd4c6d32d6 --platform android |
+
+## 21/10 — ITENS FASE 1.1 NO AR (ANDROID 55 SÓ): soma, categorias, Por item (ordem do Tiago; Fiscal aprovou na 2ª rodada; hash conferido; sem build nem push)
+Migration categorias_e_vendas_itens APLICADA ANTES da OTA (simulada em bloco revertido): vendas.itens jsonb (CHECK array 1–50), perfis.categorias_ocultas, funções contar/renomear/excluir/mostrar_categoria (SECURITY DEFINER, só dono, "Outro" fixa, anon sem EXECUTE). Conferido no banco após aplicar. Código b11c195 (build-1.0.13).
+- Corrigido: soma dos itens (causa: onChangeText do Android devolvia o texto preenchido por código e marcava valor "manual"); botão "＋ Novo item" com área segura; rodapé da Nova venda sobe acima do teclado (3 medições).
+- Novo: Configurações > Minhas categorias (criar, renomear, excluir, ocultar padrão; renomear atualiza itens e vendas; excluir move para "Outro" com contagem na confirmação); Relatórios "Vendas por item" + "Sem item"; vendas.itens gravado (parcelado: só a 1ª parcela, com o valor TOTAL do item; parcelas 2..n não viram "Sem item").
+- Fiscal exigiu e foi feito: se o banco não tiver vendas.itens (42703/PGRST204), a venda grava sem itens, online e na fila offline (mesmo client_op_id).
+- Foto do item: NÃO entrou (fase 2 com o Caixa). Android 54 e iOS 88/89 NÃO receberam.
+| Binário | Update ID | Group ID | Rollback (só com ordem; volta à OTA de itens fase 1) |
+|---|---|---|---|
+| Android 55 | 01a15e59-1e11-7edf-8820-d5339fd4d172 | c2bfe742-c287-4562-8a98-b3d61d138f31 | eas update:republish --group 90e3329e-cb1f-4448-9831-57218b6ad934 --platform android |
+Rollback da migration (perde o detalhe dos itens vendidos): bloco ROLLBACK no fim do arquivo.
