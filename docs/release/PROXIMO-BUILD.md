@@ -832,3 +832,16 @@ Só estilo (commit 63b915c na build-1.0.13; cherry-pick na android-combinada). i
 | Android 54 | 61a2955d… | 01a15f6e-1270-712c-85eb-0e847413c159 | 3ea68879-a14a-4649-a5ab-db8e871168d7 | eas update:republish --group b3b924a9-ca78-4057-bf21-de82afa969c1 --platform android |
 | iOS 88 | 3ae31820… | 01a15f71-701d-72e7-8cbc-21f379ab1b97 | 411c5b42-d22c-4911-aa28-bdceb8f67609 | eas update:republish --group 1b1d25e7-65d1-4757-988e-9cc12b194953 --platform ios |
 | iOS 89 (sem anual) | 7f2b7439… | 01a15f74-d4a6-7f92-a7ff-eb1f0da72148 | e25327bb-5283-4e12-9554-8e752ce399c1 | eas update:republish --group faf17afd-bd1f-447e-a741-624a133427a2 --platform ios |
+
+## 21/10 — ETAPA 2 NO AR: acesso diário (migration + OTA nos 4 runtimes) + política de privacidade atualizada (Tiago liberou após o site e os formulários das lojas; Fiscal aprovou na 2ª rodada, só por redação; hash conferido; sem build nem push)
+- Condições do Fiscal cumpridas pelo Tiago: política do SITE no ar (21/10) e formulários das lojas (Interação com o produto / Interações com o app). Sem atribuição Apple Ads (fica na build-1.0.14).
+- Migration `acessos_diarios` APLICADA (re-simulada em bloco revertido): RLS ligada, 2 políticas, anon sem acesso, authenticated só insere `usuario_id` e `plataforma` (o dia é do servidor, São Paulo), sem delete.
+- Código: lib/acessoDiario.ts + chamada em registrarDispositivo (commit 1d0261f) e redação da política (5a6c917): tela Privacidade dentro do app e docs/politica-de-privacidade.html. O docs/*.html continua defasado (texto de junho) e NÃO é publicado por mim.
+- PENDÊNCIAS com o Tiago: (1) o site ainda tem "Esses dados não identificam você…" ambíguo; (2) definir a retenção dos dias de uso (hoje: enquanto a conta existir) e, se for menor, criar rotina de limpeza e escrever na política.
+| Binário | Hash | Update ID | Group ID | Rollback (só com ordem; volta à OTA dos botões em cinza) |
+|---|---|---|---|---|
+| Android 55 | ca835dc1… | 01a16025-d8a2-7d79-93ff-539c68129c14 | 19e79848-3815-4f83-a6f6-425f3c99445b | eas update:republish --group 11d0f350-9abc-48e5-94ab-8adcf672d2b5 --platform android |
+| Android 54 | 61a2955d… | 01a16029-b0d9-71ee-9ea7-f0676432a981 | b6fa5859-e360-4682-a14d-ed083d4311d9 | eas update:republish --group 3ea68879-a14a-4649-a5ab-db8e871168d7 --platform android |
+| iOS 88 | 3ae31820… | 01a1602d-323a-7ebe-9010-a7a9107dfc17 | 852094da-f595-457b-b7bf-89c5034eff3e | eas update:republish --group 411c5b42-d22c-4911-aa28-bdceb8f67609 --platform ios |
+| iOS 89 (sem anual) | 7f2b7439… | 01a16030-bf9f-7b0b-9061-95727e383bab | b4a9b6f1-7be5-4893-bfff-9c175cc1ea42 | eas update:republish --group e25327bb-5283-4e12-9554-8e752ce399c1 --platform ios |
+Rollback da migration: drop table public.acessos_diarios.
