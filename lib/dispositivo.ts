@@ -4,6 +4,7 @@ import * as Application from 'expo-application'
 import * as Updates from 'expo-updates'
 import Constants from 'expo-constants'
 import { supabase } from './supabase'
+import { registrarAcessoDiario } from './acessoDiario'
 
 // Dados técnicos do app em uso, só para suporte e métricas (iOS × Android, quem está em versão antiga).
 // De propósito NÃO inclui nada que identifique o aparelho (sem IMEI, ID de publicidade, modelo ou sistema).
@@ -40,6 +41,9 @@ export async function registrarDispositivo(): Promise<void> {
     if (!info) return
     const { data: { session } } = await supabase.auth.getSession()
     if (!session?.user) return
+
+    // Acesso do dia (1 linha por conta por dia; o dia é do servidor). Independe do "mudou algo?" abaixo. Silencioso.
+    registrarAcessoDiario(session.user.id, info.plataforma).catch(() => {})
 
     const assinatura = [session.user.id, info.plataforma, info.versao_app, info.build, info.runtime_version, info.update_id].join('|')
     const bruto = await AsyncStorage.getItem(CHAVE_REGISTRO).catch(() => null)

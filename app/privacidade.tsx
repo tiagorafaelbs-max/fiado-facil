@@ -14,19 +14,19 @@ export default function PrivacidadeScreen() {
   return (
     <ScrollView style={estilos.container} contentContainerStyle={estilos.content}>
       <Text style={estilos.titulo}>Política de Privacidade</Text>
-      <Text style={estilos.atualizacao}>Última atualização: outubro de 2026</Text>
+      <Text style={estilos.atualizacao}>Última atualização: 21 de outubro de 2026</Text>
 
       <Secao
         titulo="1. Quais dados coletamos"
-        texto="Coletamos seu e-mail e senha para autenticação. Também armazenamos os dados que você cadastra no app: nome dos seus clientes, telefones, valores de vendas e pagamentos. Não coletamos dados de localização, contatos do celular ou qualquer informação sem o seu consentimento."
+        texto="Coletamos seu e-mail e senha para autenticação. Também armazenamos os dados que você cadastra no app: nome dos seus clientes, telefones, valores de vendas e pagamentos, além dos itens (nome, preço e categoria) e as categorias que você cadastra, e quais itens foram usados em cada venda, para montar a descrição da venda e os relatórios por item. Quando você assina o plano Pro, guardamos o status da assinatura, o identificador da compra informado pela loja (App Store ou Google Play) e o histórico de eventos da assinatura enviado pela loja (compra, renovação, cancelamento, expiração ou reembolso, com plano, valor e datas), para ativar e manter o plano e dar suporte em caso de cobrança. Não recebemos dados do seu cartão. Não coletamos dados de localização, contatos do celular ou qualquer informação sem o seu consentimento."
       />
       <Secao
         titulo="2. Dados técnicos do app"
-        texto="Registramos dados técnicos do app (plataforma, versão e último acesso), usados para suporte e para avisar sobre atualizações. Ao abrir o app, registramos também, de forma anônima e sem vínculo com a sua conta, um identificador aleatório da instalação, a plataforma, a versão do app e o dia da ação (sem horário), para medir quantas pessoas abrem o app e criam conta. Registramos do mesmo modo, sem identificar você, etapas do uso do plano gratuito e da assinatura (por exemplo, abrir a tela de planos, tocar em assinar e um código de erro da loja, se houver, e se o convite para avaliar o app foi exibido ou tocado), no máximo uma vez por dia, para entender onde as pessoas desistem e corrigir problemas. Esses dados não identificam você e são guardados por até 12 meses. O serviço de hospedagem pode manter por alguns dias, nos registros técnicos de acesso, o endereço IP das conexões; nós não o gravamos em nossas tabelas. Não registramos IMEI, identificador de publicidade nem localização do aparelho."
+        texto="Registramos dados técnicos do app (plataforma, versão e último acesso e os dias em que você abriu o app (só a data, sem horário nem localização). Os dias de uso servem para entendermos se o app está sendo útil no dia a dia e para melhorá-lo), usados para suporte e para avisar sobre atualizações. Ao abrir o app, registramos também, de forma anônima e sem vínculo com a sua conta, um identificador aleatório da instalação, a plataforma, a versão do app e o dia da ação (sem horário), para medir quantas pessoas abrem o app e criam conta. Registramos do mesmo modo, sem identificar você, etapas do uso do plano gratuito e da assinatura (por exemplo, abrir a tela de planos, tocar em assinar e um código de erro da loja, se houver, e se o convite para avaliar o app foi exibido ou tocado), no máximo uma vez por dia, para entender onde as pessoas desistem e corrigir problemas. Esses dados não identificam você e são guardados por até 12 meses. O serviço de hospedagem pode manter por alguns dias, nos registros técnicos de acesso, o endereço IP das conexões; nós não o gravamos em nossas tabelas. Não registramos IMEI, identificador de publicidade nem localização do aparelho."
       />
       <Secao
         titulo="3. Como usamos seus dados"
-        texto="Seus dados são usados exclusivamente para o funcionamento do FiadoApp. Nunca vendemos, alugamos ou compartilhamos suas informações com terceiros para fins comerciais."
+        texto="Seus dados são usados exclusivamente para o funcionamento do FiadoApp. Entender, de forma agregada, como o app é usado (por exemplo, quantas lojas usam o app em vários dias da semana), para melhorá-lo. Nunca vendemos, alugamos ou compartilhamos suas informações com terceiros para fins comerciais."
       />
       <Secao
         titulo="4. Armazenamento e segurança"
