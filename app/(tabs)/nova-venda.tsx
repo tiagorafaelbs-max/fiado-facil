@@ -4,6 +4,7 @@ import {
   StyleSheet, TextInput, Modal, Image, Alert, Platform, KeyboardAvoidingView, ActionSheetIOS, Animated, Keyboard,
 } from 'react-native'
 import { useRouter, useFocusEffect } from 'expo-router'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import * as ImagePicker from 'expo-image-picker'
 import { useVendas } from '../../hooks/useVendas'
@@ -145,27 +146,36 @@ export default function NovaVendaScreen() {
   // botão está acima do teclado, não sobra nada a subir (não dobra o ajuste).
   const [tecladoAberto, setTecladoAberto] = useState(false)
   const [elevarRodape, setElevarRodape] = useState(0)
+  const insets = useSafeAreaInsets()
   const rodapeRef = useRef<View>(null)
+  const elevacaoAtual = useRef(0)
   const medidas = useRef<ReturnType<typeof setTimeout>[]>([])
+  const alturaBarraAbas = 68 + insets.bottom   // mesma conta da barra de abas (app/(tabs)/_layout.tsx)
+  function aplicarElevacao(px: number) { elevacaoAtual.current = px; setElevarRodape(px) }
   useEffect(() => {
     const a = Keyboard.addListener('keyboardDidShow', (e) => {
       setTecladoAberto(true)
       medidas.current.forEach(clearTimeout); medidas.current = []
-      // mede 3 vezes (janela e animação do teclado terminam em tempos diferentes por aparelho): cada medição corrige o que
-      // ainda falta (+ folga de 6 px) e converge para "botão inteiro acima do teclado" sem dobrar o ajuste
-      for (const ms of [120, 380, 800]) {
+      const topoTeclado = e.endCoordinates.screenY
+      const alturaTeclado = e.endCoordinates.height
+      // O teclado pode ou não encolher a janela (depende do aparelho/teclado). Medimos onde o rodapé estaria SEM elevação
+      // (posição atual + elevação já aplicada): bem acima do teclado = a janela encolheu, não faz nada; senão sobe o MAIOR entre
+      // o que a posição pede e (altura do teclado − barra de abas), que cobre diferenças de origem entre as medidas.
+      for (const ms of [100, 350, 800, 1400]) {
         medidas.current.push(setTimeout(() => {
           rodapeRef.current?.measureInWindow((_x, y, _w, h) => {
-            const cobre = y + h + 6 - e.endCoordinates.screenY
-            if (Math.abs(cobre) < 2) return
-            setElevarRodape(prev => Math.max(0, prev + cobre))
+            const precisaSemElevacao = y + h + 6 - topoTeclado + elevacaoAtual.current
+            const coberto = precisaSemElevacao > -40
+            const porAltura = alturaTeclado - alturaBarraAbas
+            const alvo = coberto ? Math.min(alturaTeclado, Math.max(precisaSemElevacao, porAltura, 0)) : 0
+            if (Math.abs(alvo - elevacaoAtual.current) >= 2) aplicarElevacao(Math.max(0, alvo))
           })
         }, ms))
       }
     })
-    const b = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => { medidas.current.forEach(clearTimeout); medidas.current = []; setTecladoAberto(false); setElevarRodape(0) })
+    const b = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => { medidas.current.forEach(clearTimeout); medidas.current = []; setTecladoAberto(false); aplicarElevacao(0) })
     return () => { medidas.current.forEach(clearTimeout); a.remove(); b.remove() }
-  }, [])
+  }, [alturaBarraAbas])
   const [fotoUri, setFotoUri] = useState<string | null>(null)
   const [erros, setErros] = useState<Record<string, string>>({})
   const [salvando, setSalvando] = useState(false)
@@ -189,6 +199,16 @@ export default function NovaVendaScreen() {
     }
   }, [sucesso])
   const [erroGeral, setErroGeral] = useState('')
+  const [avisoRodape, setAvisoRodape] = useState('')   // faixa vermelha ACIMA do botão Registrar (o erro do topo fica longe do dedo)
+  const avisoTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const scrollRef = useRef<ScrollView>(null)
+  const secaoY = useRef<Record<string, number>>({})
+  function mostrarAviso(msg: string) {
+    setAvisoRodape(msg)
+    if (avisoTimer.current) clearTimeout(avisoTimer.current)
+    avisoTimer.current = setTimeout(() => setAvisoRodape(''), 7000)
+  }
+  useEffect(() => () => { if (avisoTimer.current) clearTimeout(avisoTimer.current) }, [])
   const perfilCobranca = usePerfilCobranca()
   const [plano, setPlano] = useState<'gratuito' | 'pro'>('gratuito')
   const { registrarUso: registrarUsoWpp, reverterUso: reverterUsoWpp, limite: limiteWpp } = useContadorWhatsApp(plano, tenantId || usuario?.id)
@@ -338,7 +358,15 @@ export default function NovaVendaScreen() {
     const checkVenc = validarDataBR(dataVencimento)
     if (!checkVenc.valida) novosErros.dataVencimento = checkVenc.mensagem!
     setErros(novosErros)
-    return Object.keys(novosErros).length === 0
+    const chaves = Object.keys(novosErros)
+    if (chaves.length > 0) {
+      const ordem = ['cliente', 'descricao', 'valor', 'dataVenda', 'dataVencimento']
+      const primeira = ordem.find(k => novosErros[k]) ?? chaves[0]
+      mostrarAviso(novosErros[primeira] + (chaves.length > 1 ? ` (e mais ${chaves.length - 1})` : ''))
+      const y = primeira === 'cliente' ? secaoY.current.cliente : secaoY.current.detalhes
+      if (typeof y === 'number') scrollRef.current?.scrollTo({ y: Math.max(0, y - 8), animated: true })
+    }
+    return chaves.length === 0
   }
 
   async function handleSalvar() {
@@ -449,6 +477,7 @@ export default function NovaVendaScreen() {
       setQtds({}); setDescricaoManual(false); setValorManual(false); setMostrarCategorias(false); preencheuPelosItens.current = false; limparAutoPreenchimento()
     } catch (e: any) {
       setErroGeral(e.message ?? 'Erro ao salvar. Tente novamente.')
+      mostrarAviso(e.message ?? 'Erro ao salvar. Tente novamente.')
     } finally {
       setSalvando(false)
     }
@@ -548,7 +577,7 @@ export default function NovaVendaScreen() {
   return (
     <View style={{ flex: 1 }}>
     <KeyboardToolbar />
-    <ScrollView style={estilos.container} contentContainerStyle={estilos.content} keyboardShouldPersistTaps="handled">
+    <ScrollView ref={scrollRef} style={estilos.container} contentContainerStyle={estilos.content} keyboardShouldPersistTaps="handled">
 
       {!online && (
         <View style={estilos.offlineBanner}>
@@ -565,7 +594,7 @@ export default function NovaVendaScreen() {
       ) : null}
 
       {/* Cliente */}
-      <View style={estilos.secaoBox}>
+      <View style={estilos.secaoBox} onLayout={e => { secaoY.current.cliente = e.nativeEvent.layout.y }}>
         <Text style={estilos.secaoLabel}>👤 Cliente</Text>
         {erros.cliente && (
           <View style={estilos.erroInline}>
@@ -697,7 +726,7 @@ export default function NovaVendaScreen() {
       )}
 
       {/* Detalhes */}
-      <View style={estilos.secaoBox}>
+      <View style={estilos.secaoBox} onLayout={e => { secaoY.current.detalhes = e.nativeEvent.layout.y }}>
         <Text style={estilos.secaoLabel}>🧾 Detalhes</Text>
         <Campo label="Descrição" value={descricao} onChangeText={t => { setDescricao(t); if (ehEdicaoManual(t, descricaoAuto.current)) setDescricaoManual(true) }} erro={erros.descricao} placeholder="Ex: Arroz, Feijão, Serviço..." />
         <Campo label="Valor (R$)" value={valor} onChangeText={v => { const f = formatarInputMoeda(v); setValor(f); if (ehEdicaoManual(f, valorAuto.current)) setValorManual(true) }} erro={erros.valor} keyboardType="decimal-pad" placeholder="0,00" />
@@ -942,6 +971,12 @@ export default function NovaVendaScreen() {
     </ScrollView>
     {/* Rodapé FIXO acima da barra de abas: o botão principal fica sempre visível, sem rolar */}
     <View ref={rodapeRef} style={[estilos.rodapeFixo, elevarRodape > 0 && { marginBottom: elevarRodape }]}>
+      {avisoRodape ? (
+        <View style={estilos.avisoRodape} accessibilityLiveRegion="polite" accessibilityRole="alert">
+          <Ionicons name="alert-circle" size={18} color={C.red} />
+          <Text style={estilos.avisoRodapeTexto}>{avisoRodape}</Text>
+        </View>
+      ) : null}
       {clienteSelecionado && !tecladoAberto && (
         <View style={estilos.resumoClienteFixo}>
           <Avatar nome={clienteSelecionado.nome} tamanho={24} />
@@ -1053,6 +1088,11 @@ const estilos = StyleSheet.create({
     backgroundColor: C.redLight, borderWidth: 1, borderColor: C.redBorder,
     borderRadius: 12, padding: 14, marginHorizontal: 16, marginBottom: 8,
   },
+  avisoRodape: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: C.redLight, borderWidth: 1, borderColor: C.redBorder, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10,
+  },
+  avisoRodapeTexto: { color: C.red, fontSize: 13, fontWeight: '700', flex: 1 },
   erroGeralTexto: { color: C.red, fontSize: 14, fontWeight: '600', flex: 1 },
   secaoBox: {
     backgroundColor: C.card, marginHorizontal: 16, marginBottom: 12, borderRadius: 16, padding: 16,
