@@ -19,7 +19,6 @@ import { Botao } from '../../components/ui/Botao'
 import { Avatar } from '../../components/ui/Avatar'
 import { sanitizarTexto, validarTelefone, normalizarTelefone } from '../../lib/validacao'
 import { C } from '../../constants/colors'
-import { useCategorias, CATS_BASE } from '../../hooks/useCategorias'
 import { useTenant } from '../../hooks/useTenant'
 
 interface Perfil {
@@ -49,10 +48,6 @@ export default function ConfiguracoesScreen() {
   const { online, pendentes } = useOffline()
   const { tenantId, souFuncionario, nomeExibicao } = useTenant()
   const { modulos, alternar } = useModulos(tenantId || usuario?.id)
-  const { todas: todasCats, extras: catsExtras, adicionar: adicionarCat, remover: removerCat, renomear: renomearCat } = useCategorias(tenantId || usuario?.id)
-  const [novaCatConf, setNovaCatConf] = useState('')
-  const [editandoCat, setEditandoCat] = useState<string | null>(null)
-  const [nomeEdicaoCat, setNomeEdicaoCat] = useState('')
   const [perfil, setPerfil] = useState<Perfil>({
     nome_negocio: '', telefone: '', plano: 'gratuito',
     chave_pix: '', dia_cobranca: '', notificacoes_ativas: true, cobranca_auto_tipo: 'vencidos',
@@ -452,6 +447,9 @@ export default function ConfiguracoesScreen() {
         {!souFuncionario && (
           <AcaoRow icone="flash-outline" label="Meus itens" onPress={() => router.push('/itens' as never)} />
         )}
+        {!souFuncionario && modulos.categorias && (
+          <AcaoRow icone="pricetags-outline" label="Minhas categorias" onPress={() => router.push('/categorias' as never)} />
+        )}
         <AcaoRow
           icone="chatbubble-ellipses-outline"
           label={souFuncionario ? 'Ver mensagem de cobrança' : perfil.plano === 'pro' ? 'Mensagem de cobrança' : 'Mensagem de cobrança · Pro'}
@@ -587,97 +585,6 @@ export default function ConfiguracoesScreen() {
         <AcaoRow icone="shield-checkmark-outline" label="Política de Privacidade" onPress={() => router.push('/privacidade')} />
         <AcaoRow icone="document-text-outline" label="Termos de Uso" onPress={() => router.push('/termos')} ultimo />
       </View>
-
-      {/* Categorias */}
-      {modulos.categorias && (
-        <View style={estilos.card}>
-          <View style={{ marginBottom: 14 }}>
-            <Text style={estilos.cardTitulo}>🏷️ Categorias de produto</Text>
-            <Text style={estilos.secaoInfo}>Gerencie as categorias usadas na Nova Venda.</Text>
-          </View>
-
-          {/* Modal editar */}
-          <Modal visible={!!editandoCat} transparent animationType="fade">
-            <View style={estilos.editOverlay}>
-              <View style={estilos.editModal}>
-                <Text style={estilos.editTitulo}>Renomear categoria</Text>
-                <TextInput
-                  style={estilos.editInput}
-                  value={nomeEdicaoCat}
-                  onChangeText={setNomeEdicaoCat}
-                  autoFocus
-                  returnKeyType="done"
-                  onSubmitEditing={async () => {
-                    if (editandoCat) await renomearCat(editandoCat, nomeEdicaoCat)
-                    setEditandoCat(null); setNomeEdicaoCat('')
-                  }}
-                />
-                <View style={estilos.editBtns}>
-                  <TouchableOpacity style={estilos.editBtnCancelar} onPress={() => { setEditandoCat(null); setNomeEdicaoCat('') }}>
-                    <Text style={{ color: C.text2, fontWeight: '600' }}>Cancelar</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={estilos.editBtnSalvar} onPress={async () => {
-                    if (editandoCat) await renomearCat(editandoCat, nomeEdicaoCat)
-                    setEditandoCat(null); setNomeEdicaoCat('')
-                  }}>
-                    <Text style={{ color: C.white, fontWeight: '700' }}>Salvar</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-          </Modal>
-
-          {/* Lista de categorias */}
-          {todasCats.map((cat, i) => {
-            const isBase = CATS_BASE.includes(cat)
-            const ultimo = i === todasCats.length - 1
-            return (
-              <View key={cat} style={[estilos.catRow, !ultimo && estilos.catRowBorder]}>
-                <View style={estilos.catIcone}>
-                  <Ionicons name={isBase ? 'pricetag' : 'pricetag-outline'} size={16} color={isBase ? C.text3 : C.green} />
-                </View>
-                <Text style={[estilos.catNome, isBase && { color: C.text2 }]}>{cat}</Text>
-                {isBase
-                  ? <Text style={estilos.catBase}>padrão</Text>
-                  : (
-                    <View style={{ flexDirection: 'row', gap: 8 }}>
-                      <TouchableOpacity style={estilos.catBtn} onPress={() => { setEditandoCat(cat); setNomeEdicaoCat(cat) }}>
-                        <Ionicons name="pencil-outline" size={16} color={C.green} />
-                      </TouchableOpacity>
-                      <TouchableOpacity style={[estilos.catBtn, { borderColor: C.redBorder, backgroundColor: C.redLight }]}
-                        onPress={() => confirmar('Excluir categoria', `Deseja excluir a categoria "${cat}"?`, () => removerCat(cat))}>
-                        <Ionicons name="trash-outline" size={16} color={C.red} />
-                      </TouchableOpacity>
-                    </View>
-                  )
-                }
-              </View>
-            )
-          })}
-
-          {/* Adicionar nova */}
-          <View style={estilos.novaCatRow}>
-            <TextInput
-              style={estilos.novaCatInput}
-              value={novaCatConf}
-              onChangeText={setNovaCatConf}
-              placeholder="Nova categoria..."
-              placeholderTextColor={C.text3}
-              returnKeyType="done"
-              onSubmitEditing={async () => {
-                if (novaCatConf.trim().length >= 2) { await adicionarCat(novaCatConf.trim()); setNovaCatConf('') }
-              }}
-            />
-            <TouchableOpacity
-              style={[estilos.novaCatBtn, novaCatConf.trim().length < 2 && { backgroundColor: C.border }]}
-              disabled={novaCatConf.trim().length < 2}
-              onPress={async () => { await adicionarCat(novaCatConf.trim()); setNovaCatConf('') }}
-            >
-              <Ionicons name="add" size={20} color={novaCatConf.trim().length >= 2 ? C.white : C.text3} />
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
 
       {/* Suporte */}
       <View style={estilos.card}>

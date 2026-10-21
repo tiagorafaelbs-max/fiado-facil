@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { View, Text, ScrollView, TouchableOpacity, Modal, StyleSheet, Alert, ActivityIndicator, TextInput, Platform, KeyboardAvoidingView } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter, useFocusEffect } from 'expo-router'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTenant } from '../hooks/useTenant'
 import { useItens } from '../hooks/useItens'
 import { useCategorias } from '../hooks/useCategorias'
@@ -17,6 +18,7 @@ import { C } from '../constants/colors'
 // Plano gratuito: até 10 itens ATIVOS (o servidor também confere); Pro ilimitado.
 export default function MeusItensScreen() {
   const router = useRouter()
+  const insets = useSafeAreaInsets()   // a barra de navegação do Android não pode cobrir o botão fixo
   const { tenantId, souFuncionario, papelConfirmado } = useTenant()
   const { todas: todasCategorias, adicionar: adicionarCategoria } = useCategorias(tenantId || undefined)
   const { todos, ativos, disponivel, carregando, carregar, criar, editar, mover } = useItens(tenantId || undefined)
@@ -53,7 +55,7 @@ export default function MeusItensScreen() {
     setModal({ item })
     setNome(item?.nome ?? '')
     setPreco(item?.preco != null ? item.preco.toFixed(2).replace('.', ',') : '')
-    setCategoria(item?.categoria ?? 'Mercadoria')
+    setCategoria(item?.categoria ?? (todasCategorias.includes('Mercadoria') ? 'Mercadoria' : (todasCategorias[0] ?? 'Outro')))
     setNovaCategoria('')
     setErro('')
   }
@@ -113,7 +115,7 @@ export default function MeusItensScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
-      <ScrollView contentContainerStyle={estilos.content}>
+      <ScrollView contentContainerStyle={[estilos.content, { paddingBottom: 100 + insets.bottom }]}>
         <Text style={estilos.intro}>
           Cadastre o que você mais vende. Na Nova venda, é só tocar no item para lançar: a descrição e o valor saem sozinhos.
         </Text>
@@ -171,7 +173,7 @@ export default function MeusItensScreen() {
         ))}
       </ScrollView>
 
-      <View style={estilos.rodape}>
+      <View style={[estilos.rodape, { paddingBottom: 16 + insets.bottom }]}>
         <Botao titulo="＋ Novo item" onPress={() => abrir(null)} />
       </View>
 

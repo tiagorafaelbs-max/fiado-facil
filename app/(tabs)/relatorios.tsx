@@ -20,6 +20,7 @@ import { formatarMoeda } from '../../lib/validacao'
 import { KeyboardToolbar, KEYBOARD_TOOLBAR_ID } from '../../components/ui/KeyboardToolbar'
 import { C } from '../../constants/colors'
 import { evento } from '../../lib/instalacao'
+import { agruparPorItem, type PorItem } from '../../lib/itensVenda'
 import { format, startOfMonth, endOfMonth, subMonths, startOfYear, endOfYear, subYears, parse, isValid, getMonth, getYear } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import * as Print from 'expo-print'
@@ -52,6 +53,7 @@ interface ResumoRelatorio {
   maioresDevedores: { id: string; nome: string; saldo: number; telefone?: string }[]
   melhoresClientes: { nome: string; total: number }[]
   porCategoria: { categoria: string; total: number; clientes: { nome: string; total: number }[] }[]
+  porItem: PorItem
   evolucaoMensal?: MesResumo[]
 }
 
@@ -126,16 +128,21 @@ export default function RelatoriosScreen() {
 
       const { data: { session: sess } } = await supabase.auth.getSession()
       const uid = sess?.user ? await resolverTenantId(sess.user.id) : ''
-      let qVendas = supabase.from('vendas').select('id, valor, cliente_id, categoria, descricao, data_venda, criado_por, clientes(nome)').eq('usuario_id', uid)
+      // vendas.itens (o que foi vendido) alimenta o "Por item"; se o banco ainda não tem a coluna, refaz sem ela
+      const COLS_VENDAS = 'id, valor, cliente_id, categoria, descricao, data_venda, criado_por, clientes(nome)'
+      const buscarVendas = (cols: string) => {
+        let q = supabase.from('vendas').select(cols).eq('usuario_id', uid)
+        if (dataInicio && dataFim) q = q.gte('data_venda', dataInicio).lte('data_venda', dataFim)
+        return q.order('data_venda', { ascending: false })
+      }
       let qPagamentos = supabase.from('pagamentos').select('id, valor, cliente_id, data_pagamento, criado_por, clientes(nome)').eq('usuario_id', uid)
 
       if (dataInicio && dataFim) {
-        qVendas = qVendas.gte('data_venda', dataInicio).lte('data_venda', dataFim)
         qPagamentos = qPagamentos.gte('data_pagamento', dataInicio).lte('data_pagamento', dataFim)
       }
 
-      const [{ data: vendas }, { data: pagamentos }, { data: devedores }] = await Promise.all([
-        qVendas.order('data_venda', { ascending: false }),
+      const [respVendas, { data: pagamentos }, { data: devedores }] = await Promise.all([
+        buscarVendas(COLS_VENDAS + ', itens'),
         qPagamentos.order('data_pagamento', { ascending: false }),
         supabase
           .from('clientes_com_saldo')
@@ -146,6 +153,8 @@ export default function RelatoriosScreen() {
           .limit(5),
       ])
 
+      let vendas: any[] | null = respVendas.data as any[] | null
+      if (respVendas.error && respVendas.error.code === '42703') vendas = (await buscarVendas(COLS_VENDAS)).data as any[] | null
       const totalVendido = (vendas ?? []).reduce((acc, v) => acc + v.valor, 0)
       const totalRecebido = (pagamentos ?? []).reduce((acc, p) => acc + p.valor, 0)
 
@@ -190,6 +199,9 @@ export default function RelatoriosScreen() {
           clientes: Object.values(clientes).sort((a, b) => b.total - a.total).slice(0, 3),
         }))
 
+      // Por item: quantidade e valor de cada item; venda sem item aparece como "Sem item"
+      const porItem = agruparPorItem((vendas ?? []).map(v => ({ valor: v.valor, itens: v.itens, descricao: v.descricao, data: v.data_venda })))
+
       // Evolução mensal (só para períodos anuais)
       let evolucaoMensal: MesResumo[] | undefined
       if (periodo === 'ano_atual' || periodo === 'ano_anterior') {
@@ -229,6 +241,7 @@ export default function RelatoriosScreen() {
         maioresDevedores: (devedores ?? []).map((c) => ({ id: c.id, nome: c.nome, saldo: c.saldo_devedor ?? 0, telefone: c.telefone })),
         melhoresClientes,
         porCategoria,
+        porItem,
         evolucaoMensal,
       })
 
@@ -730,6 +743,38 @@ export default function RelatoriosScreen() {
                   <Text style={estilos.rankValorBom}>{formatarMoeda(c.total)}</Text>
                 </View>
               ))}
+            </View>
+          )}
+
+          {/* Por item: só aparece quando alguma venda do período foi lançada com item */}
+          {resumo.porItem.linhas.length > 0 && (
+            <View style={[estilos.rankingCard, { marginTop: 10 }]}>
+              <Text style={estilos.rankingTitulo}>🧺 Vendas por item</Text>
+              <Text style={[estilos.rankingSubTitulo, { marginBottom: 10 }]}>Quanto saiu de cada item no período</Text>
+              {resumo.porItem.linhas.slice(0, 15).map((l, i, lista) => (
+                <View key={l.chave} style={[estilos.rankRow, i === lista.length - 1 && resumo.porItem.semItem.vendas === 0 && lista.length === resumo.porItem.linhas.length && { borderBottomWidth: 0 }]}>
+                  <Text style={estilos.posicao}>{medalha(i)}</Text>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={estilos.rankNome} numberOfLines={1}>{l.nome}</Text>
+                    <Text style={estilos.rankingSubTitulo}>{l.qtd} {l.qtd === 1 ? 'unidade' : 'unidades'}</Text>
+                  </View>
+                  <Text style={estilos.rankValorBom}>{l.valor > 0 || !l.semPreco ? formatarMoeda(l.valor) : 'sem preço'}</Text>
+                </View>
+              ))}
+              {resumo.porItem.linhas.length > 15 && (
+                <Text style={[estilos.rankingSubTitulo, { marginTop: 8 }]}>…e mais {resumo.porItem.linhas.length - 15} itens</Text>
+              )}
+              {resumo.porItem.semItem.vendas > 0 && (
+                <View style={[estilos.rankRow, { borderBottomWidth: 0 }]}>
+                  <Text style={estilos.posicao}>•</Text>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={estilos.rankNome} numberOfLines={1}>Sem item</Text>
+                    <Text style={estilos.rankingSubTitulo}>{resumo.porItem.semItem.vendas} {resumo.porItem.semItem.vendas === 1 ? 'venda lançada' : 'vendas lançadas'} sem escolher item</Text>
+                  </View>
+                  <Text style={estilos.rankValorBom}>{formatarMoeda(resumo.porItem.semItem.valor)}</Text>
+                </View>
+              )}
+              <Text style={[estilos.rankingSubTitulo, { marginTop: 8 }]}>Valor = quantidade × preço do item na hora da venda.</Text>
             </View>
           )}
 

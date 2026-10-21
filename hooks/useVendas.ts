@@ -1,9 +1,10 @@
 import { useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
-import { enfileirarOperacao, estaOnlineRapido, sinalComTimeoutDeEscrita } from './useOffline'
+import { enfileirarOperacao, estaOnlineRapido, sinalComTimeoutDeEscrita, colunaItensAusente } from './useOffline'
 import { resolverTenantId } from '../lib/tenant'
 import { reconciliarPagoCliente } from '../lib/reconciliacao'
 import { gerarUUID } from '../lib/uuid'
+import type { ItemVenda } from '../lib/itensVenda'
 import type { Venda, Pagamento } from '../types'
 
 // Erro do Postgres/PostgREST sempre vem com `.code` preenchido (ex: "23505",
@@ -63,6 +64,7 @@ export function useVendas(clienteId?: string) {
     data_venda?: string
     categoria: string
     foto_url?: string
+    itens?: ItemVenda[]   // o que foi vendido (relatório "Por item"); venda sem item segue como sempre
   }) => {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session?.user) throw new Error('Sessão expirada. Faça login novamente.')
@@ -81,17 +83,28 @@ export function useVendas(clienteId?: string) {
     }
     if (dados.data_vencimento) payload.data_vencimento = dados.data_vencimento
     if (dados.foto_url) payload.foto_url = dados.foto_url
+    if (dados.itens && dados.itens.length > 0) payload.itens = dados.itens
 
     const online = await estaOnlineRapido()
     if (online) {
       let data: Venda | undefined
       try {
-        const resp = await supabase
+        let resp = await supabase
           .from('vendas')
           .insert(payload)
           .select()
           .abortSignal(sinalComTimeoutDeEscrita())
           .single()
+        if (resp.error && payload.itens && colunaItensAusente(resp.error)) {
+          // banco sem vendas.itens: grava a venda sem o detalhe dos itens (a venda nunca falha por isso)
+          const { itens: _itens, ...semItens } = payload
+          resp = await supabase
+            .from('vendas')
+            .insert(semItens)
+            .select()
+            .abortSignal(sinalComTimeoutDeEscrita())
+            .single()
+        }
         if (resp.error) throw resp.error
         data = resp.data
       } catch (e: any) {

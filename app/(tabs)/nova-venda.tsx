@@ -23,7 +23,7 @@ import { C } from '../../constants/colors'
 import { evento } from '../../lib/instalacao'
 import { useCategorias } from '../../hooks/useCategorias'
 import { useItens } from '../../hooks/useItens'
-import { montarDescricaoItens, somarItens, categoriaDosItens } from '../../lib/itensVenda'
+import { somarItens, proximoPreenchimento, ehEdicaoManual, montarItensVenda } from '../../lib/itensVenda'
 import { useOffline } from '../../hooks/useOffline'
 import { useDiaCobranca } from '../../hooks/useDiaCobranca'
 import { calcularVencimentoPadrao, dataParaBR, dataParaISO, somarMesesLimitando } from '../../lib/vencimento'
@@ -79,9 +79,14 @@ export default function NovaVendaScreen() {
   }, [diaCobranca, vencimentoEditado]))
   const [categoria, setCategoria] = useState('Mercadoria')
   const [novaCategoria, setNovaCategoria] = useState('')
-  const [editandoCategoria, setEditandoCategoria] = useState<string | null>(null)
-  const [nomeEdicao, setNomeEdicao] = useState('')
-  const { todas: todasCategorias, extras: categoriasExtra, adicionar: adicionarCat, remover: removerCat, renomear: renomearCat } = useCategorias(tenantId || usuario?.id)
+  const { todas: todasCategorias, adicionar: adicionarCat, carregar: carregarCategorias } = useCategorias(tenantId || usuario?.id)
+  // categoria padrão = "Mercadoria"; se o lojista ocultou/renomeou, a 1ª que ainda existe
+  const categoriaPadrao = todasCategorias.includes('Mercadoria') ? 'Mercadoria' : (todasCategorias.includes('Outro') ? 'Outro' : (todasCategorias[0] ?? 'Mercadoria'))
+  // a aba fica montada: ao voltar de "Minhas categorias" a lista precisa ser a nova
+  useFocusEffect(useCallback(() => { carregarCategorias() }, [carregarCategorias]))
+  useEffect(() => {
+    if (todasCategorias.length > 0 && !todasCategorias.includes(categoria)) setCategoria(categoriaPadrao)
+  }, [todasCategorias, categoria, categoriaPadrao])
   // ── Itens (atalhos): item é sempre opcional; sem item a venda é lançada como sempre ──
   const { ativosPorUso: itensAtivos, disponivel: itensDisponiveis, registrarUso: registrarUsoItens, carregar: carregarItens } = useItens(tenantId || usuario?.id)
   const [qtds, setQtds] = useState<Record<string, number>>({})
@@ -89,6 +94,8 @@ export default function NovaVendaScreen() {
   const [valorManual, setValorManual] = useState(false)           // o lojista mexeu no valor: não sobrescreve
   const [mostrarCategorias, setMostrarCategorias] = useState(false)
   const preencheuPelosItens = useRef(false)
+  const descricaoAuto = useRef<string | null>(null)   // último texto que o APP preencheu (para saber se o lojista editou)
+  const valorAuto = useRef<string | null>(null)
   const temItens = itensDisponiveis && itensAtivos.length > 0
   const escolhidos = useMemo(
     () => itensAtivos.filter(i => (qtds[i.id] ?? 0) > 0).map(i => ({ id: i.id, nome: i.nome, qtd: qtds[i.id], preco: i.preco, categoria: i.categoria })),
@@ -108,18 +115,18 @@ export default function NovaVendaScreen() {
   function aplicarItens(forcar: boolean) {
     if (escolhidos.length === 0) return
     preencheuPelosItens.current = true
-    if (forcar || !descricaoManual) setDescricao(montarDescricaoItens(escolhidos))
-    const { total } = somarItens(escolhidos)
-    if ((forcar || !valorManual) && total > 0) setValor(formatarInputMoeda(String(Math.round(total * 100))))
-    setCategoria(categoriaDosItens(escolhidos, 'Mercadoria'))
+    const novo = proximoPreenchimento(escolhidos, { descricaoManual, valorManual }, forcar)
+    if (novo.descricao !== null) { descricaoAuto.current = novo.descricao; setDescricao(novo.descricao) }
+    if (novo.valor !== null) { valorAuto.current = novo.valor; setValor(novo.valor) }
+    setCategoria(novo.categoria)
   }
   useEffect(() => {
     if (escolhidos.length === 0) {
       // tirou todos os itens: limpa só o que os itens tinham preenchido (nunca o que o lojista digitou)
       if (preencheuPelosItens.current) {
         preencheuPelosItens.current = false
-        if (!descricaoManual) setDescricao('')
-        if (!valorManual) setValor('')
+        if (!descricaoManual) { descricaoAuto.current = null; setDescricao('') }
+        if (!valorManual) { valorAuto.current = null; setValor('') }
       }
       return
     }
@@ -130,6 +137,8 @@ export default function NovaVendaScreen() {
     setValorManual(false)
     aplicarItens(true)
   }
+  // ao terminar uma venda: zera tudo que era automático
+  function limparAutoPreenchimento() { descricaoAuto.current = null; valorAuto.current = null }
   // Teclado aberto: o botão fixo do rodapé deixa de mostrar o resumo do cliente (sobra mais espaço para os campos).
   // E o teclado NÃO pode cobrir o botão: depois que o teclado abre, mede o rodapé; se o teclado cobre o botão (iOS, ou Android
   // em tela inteira, onde a janela não encolhe), sobe o rodapé exatamente o quanto cobre. Se a janela já encolheu e o
@@ -137,18 +146,25 @@ export default function NovaVendaScreen() {
   const [tecladoAberto, setTecladoAberto] = useState(false)
   const [elevarRodape, setElevarRodape] = useState(0)
   const rodapeRef = useRef<View>(null)
+  const medidas = useRef<ReturnType<typeof setTimeout>[]>([])
   useEffect(() => {
     const a = Keyboard.addListener('keyboardDidShow', (e) => {
       setTecladoAberto(true)
-      setTimeout(() => {
-        rodapeRef.current?.measureInWindow((_x, y, _w, h) => {
-          const cobre = y + h - e.endCoordinates.screenY
-          setElevarRodape(prev => Math.max(0, prev + cobre))
-        })
-      }, 150)
+      medidas.current.forEach(clearTimeout); medidas.current = []
+      // mede 3 vezes (janela e animação do teclado terminam em tempos diferentes por aparelho): cada medição corrige o que
+      // ainda falta (+ folga de 6 px) e converge para "botão inteiro acima do teclado" sem dobrar o ajuste
+      for (const ms of [120, 380, 800]) {
+        medidas.current.push(setTimeout(() => {
+          rodapeRef.current?.measureInWindow((_x, y, _w, h) => {
+            const cobre = y + h + 6 - e.endCoordinates.screenY
+            if (Math.abs(cobre) < 2) return
+            setElevarRodape(prev => Math.max(0, prev + cobre))
+          })
+        }, ms))
+      }
     })
-    const b = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => { setTecladoAberto(false); setElevarRodape(0) })
-    return () => { a.remove(); b.remove() }
+    const b = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => { medidas.current.forEach(clearTimeout); medidas.current = []; setTecladoAberto(false); setElevarRodape(0) })
+    return () => { medidas.current.forEach(clearTimeout); a.remove(); b.remove() }
   }, [])
   const [fotoUri, setFotoUri] = useState<string | null>(null)
   const [erros, setErros] = useState<Record<string, string>>({})
@@ -306,17 +322,9 @@ export default function NovaVendaScreen() {
     if (nova.length < 2) return
     const jaExiste = todasCategorias.find(c => c.toLowerCase() === nova.toLowerCase())
     if (jaExiste) { setCategoria(jaExiste); setNovaCategoria(''); return }
-    await adicionarCat(nova)
+    try { await adicionarCat(nova) } catch { /* sem rede: a categoria vale neste aparelho e sobe depois */ }
     setCategoria(nova)
     setNovaCategoria('')
-  }
-
-  async function confirmarEdicao() {
-    if (!editandoCategoria) return
-    const ok = await renomearCat(editandoCategoria, nomeEdicao)
-    if (ok && categoria === editandoCategoria) setCategoria(nomeEdicao.trim())
-    setEditandoCategoria(null)
-    setNomeEdicao('')
   }
 
   function validar(): boolean {
@@ -385,6 +393,7 @@ export default function NovaVendaScreen() {
 
       const descricaoLimpa = sanitizarTexto(descricao)
       const valorTotal = parseFloat(valor.replace(',', '.'))
+      const itensDaVenda = escolhidos.length > 0 ? montarItensVenda(escolhidos) : undefined
 
       if (tipoPagamento === 'parcelado') {
         const valorParcela = Math.round((valorTotal / numParcelas) * 100) / 100
@@ -402,6 +411,7 @@ export default function NovaVendaScreen() {
             data_vencimento: parcISO,
             categoria,
             foto_url: i === 0 ? fotoUrl : undefined,
+            itens: i === 0 ? itensDaVenda : undefined,   // parcelas 2..n não repetem os itens (contariam em dobro)
           })
           if (v?.id) parcelasIds.push(v.id)
           if (i === 0) primeiroId = v?.id ?? null
@@ -418,6 +428,7 @@ export default function NovaVendaScreen() {
           data_vencimento: vencimentoISO,
           categoria,
           foto_url: fotoUrl,
+          itens: itensDaVenda,
         })
         setUltimaVendaId(venda?.id ?? null)
         setSalvouOffline(venda?.id?.startsWith('local_') ?? false)
@@ -434,8 +445,8 @@ export default function NovaVendaScreen() {
       solicitarPermissaoNotificacoesUmaVez().then(ok => { if (ok) agendarNotificacoesVencimento() })
       // Volta para o início automaticamente após 2s
       redirectTimer.current = setTimeout(() => router.replace('/(tabs)'), 2000)
-      setClienteId(''); setBuscaCliente(''); setDescricao(''); setValor(''); setDataVenda(''); setDataVencimento(dataParaBR(calcularVencimentoPadrao(new Date(), diaCobranca))); setVencimentoEditado(false); setSemVencimento(false); setCategoria('Mercadoria'); setErros({}); setFotoUri(null); setTipoPagamento('fiado'); setNumParcelas(2)
-      setQtds({}); setDescricaoManual(false); setValorManual(false); setMostrarCategorias(false); preencheuPelosItens.current = false
+      setClienteId(''); setBuscaCliente(''); setDescricao(''); setValor(''); setDataVenda(''); setDataVencimento(dataParaBR(calcularVencimentoPadrao(new Date(), diaCobranca))); setVencimentoEditado(false); setSemVencimento(false); setCategoria(categoriaPadrao); setErros({}); setFotoUri(null); setTipoPagamento('fiado'); setNumParcelas(2)
+      setQtds({}); setDescricaoManual(false); setValorManual(false); setMostrarCategorias(false); preencheuPelosItens.current = false; limparAutoPreenchimento()
     } catch (e: any) {
       setErroGeral(e.message ?? 'Erro ao salvar. Tente novamente.')
     } finally {
@@ -688,8 +699,8 @@ export default function NovaVendaScreen() {
       {/* Detalhes */}
       <View style={estilos.secaoBox}>
         <Text style={estilos.secaoLabel}>🧾 Detalhes</Text>
-        <Campo label="Descrição" value={descricao} onChangeText={t => { setDescricao(t); setDescricaoManual(true) }} erro={erros.descricao} placeholder="Ex: Arroz, Feijão, Serviço..." />
-        <Campo label="Valor (R$)" value={valor} onChangeText={v => { setValor(formatarInputMoeda(v)); setValorManual(true) }} erro={erros.valor} keyboardType="decimal-pad" placeholder="0,00" />
+        <Campo label="Descrição" value={descricao} onChangeText={t => { setDescricao(t); if (ehEdicaoManual(t, descricaoAuto.current)) setDescricaoManual(true) }} erro={erros.descricao} placeholder="Ex: Arroz, Feijão, Serviço..." />
+        <Campo label="Valor (R$)" value={valor} onChangeText={v => { const f = formatarInputMoeda(v); setValor(f); if (ehEdicaoManual(f, valorAuto.current)) setValorManual(true) }} erro={erros.valor} keyboardType="decimal-pad" placeholder="0,00" />
 
         {/* Data da venda */}
         <View style={{ marginBottom: 12 }}>
@@ -898,60 +909,13 @@ export default function NovaVendaScreen() {
       {modulos.categorias && (!temItens || mostrarCategorias) && <View style={estilos.secaoBox}>
         <Text style={estilos.secaoLabel}>🏷️ Categoria</Text>
 
-        {/* Modal editar categoria */}
-        <Modal visible={!!editandoCategoria} transparent animationType="fade">
-          <View style={estilos.editOverlay}>
-            <View style={estilos.editModal}>
-              <Text style={estilos.editTitulo}>Renomear categoria</Text>
-              <TextInput
-                style={estilos.editInput}
-                value={nomeEdicao}
-                onChangeText={setNomeEdicao}
-                autoFocus
-                onSubmitEditing={confirmarEdicao}
-                returnKeyType="done"
-              />
-              <View style={estilos.editBtns}>
-                <TouchableOpacity style={estilos.editBtnCancelar} onPress={() => { setEditandoCategoria(null); setNomeEdicao('') }}>
-                  <Text style={{ color: C.text2, fontWeight: '600' }}>Cancelar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={estilos.editBtnSalvar} onPress={confirmarEdicao}>
-                  <Text style={{ color: C.white, fontWeight: '700' }}>Salvar</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
-
         <View style={estilos.categorias}>
           {todasCategorias.map((cat) => {
-            const isExtra = categoriasExtra.includes(cat)
             const isAtiva = categoria === cat
             return (
-              <View key={cat} style={[estilos.chip, isAtiva && estilos.chipAtivo, { flexDirection: 'row', alignItems: 'center', gap: 4, paddingRight: isExtra ? 4 : undefined }]}>
-                <TouchableOpacity onPress={() => setCategoria(cat)}>
-                  <Text style={[estilos.chipTexto, isAtiva && estilos.chipTextoAtivo]}>{cat}</Text>
-                </TouchableOpacity>
-                {isExtra && (
-                  <TouchableOpacity
-                    onPress={() => { setEditandoCategoria(cat); setNomeEdicao(cat) }}
-                    hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
-                  >
-                    <Ionicons name="pencil-outline" size={13} color={isAtiva ? C.green : C.text3} />
-                  </TouchableOpacity>
-                )}
-                {isExtra && (
-                  <TouchableOpacity
-                    onPress={() => {
-                      removerCat(cat)
-                      if (categoria === cat) setCategoria('Mercadoria')
-                    }}
-                    hitSlop={{ top: 6, bottom: 6, left: 4, right: 6 }}
-                  >
-                    <Ionicons name="close" size={13} color={isAtiva ? C.white : C.text3} />
-                  </TouchableOpacity>
-                )}
-              </View>
+              <TouchableOpacity key={cat} style={[estilos.chip, isAtiva && estilos.chipAtivo]} onPress={() => setCategoria(cat)} accessibilityRole="button">
+                <Text style={[estilos.chipTexto, isAtiva && estilos.chipTextoAtivo]}>{cat}</Text>
+              </TouchableOpacity>
             )
           })}
         </View>

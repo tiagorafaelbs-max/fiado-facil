@@ -162,6 +162,7 @@ export default function RootLayout() {
           <Stack.Screen name="cobrancas" options={{ headerShown: true, title: 'Cobranças Vencidas', headerShadowVisible: false, headerStyle: { backgroundColor: '#F2F5F9' }, headerTintColor: '#1A2332', headerBackTitle: 'Voltar' }} />
           <Stack.Screen name="mensagem-cobranca" options={{ headerShown: true, title: 'Mensagem de cobrança', headerShadowVisible: false, headerStyle: { backgroundColor: '#F2F5F9' }, headerTintColor: '#1A2332', headerBackTitle: 'Voltar' }} />
           <Stack.Screen name="itens" options={{ headerShown: true, title: 'Meus itens', headerShadowVisible: false, headerStyle: { backgroundColor: '#F2F5F9' }, headerTintColor: '#1A2332', headerBackTitle: 'Voltar' }} />
+          <Stack.Screen name="categorias" options={{ headerShown: true, title: 'Minhas categorias', headerShadowVisible: false, headerStyle: { backgroundColor: '#F2F5F9' }, headerTintColor: '#1A2332', headerBackTitle: 'Voltar' }} />
           <Stack.Screen name="ajuda" options={{ headerShown: true, title: 'Central de Ajuda', headerShadowVisible: false, headerStyle: { backgroundColor: '#F2F5F9' }, headerTintColor: '#1A2332', headerBackTitle: 'Voltar' }} />
           <Stack.Screen name="ranking" options={{ headerShown: false }} />
           <Stack.Screen name="equipe" options={{ headerShown: true, title: 'Equipe & Funcionários', headerShadowVisible: false, headerStyle: { backgroundColor: '#F2F5F9' }, headerTintColor: '#1A2332', headerBackTitle: 'Voltar' }} />

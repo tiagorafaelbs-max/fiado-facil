@@ -99,6 +99,13 @@ export function sinalComTimeoutDeEscrita(): AbortSignal {
   return sinalComTimeout(8000)
 }
 
+// O banco ainda não tem vendas.itens (OTA chegou antes da migration, ou ambiente sem ela): a venda NUNCA pode falhar por
+// causa do detalhe dos itens. 42703 = coluna inexistente; PGRST204 = coluna fora do schema do PostgREST.
+export function colunaItensAusente(error: { code?: string; message?: string } | null | undefined): boolean {
+  if (!error) return false
+  return (error.code === '42703' || error.code === 'PGRST204') && /itens/i.test(error.message ?? '')
+}
+
 async function sincronizarFilaInterno(): Promise<number> {
   // Leitura solta, sem trava: é só um retrato do que tentar processar agora -- não
   // gera escrita baseada nela (a escrita final relê o estado atual de verdade).
@@ -134,10 +141,19 @@ async function sincronizarFilaInterno(): Promise<number> {
         // o app achar que falhou), o conflito é ignorado em vez de criar um registro
         // duplicado — client_op_id é gerado uma única vez no aparelho, não a cada retry.
         // Só vendas/pagamentos passam por aqui hoje; ambos têm a coluna.
-        const { error } = await supabase
+        let { error } = await supabase
           .from(op.tabela)
           .upsert(payload, { onConflict: 'client_op_id', ignoreDuplicates: true })
           .abortSignal(sinalComTimeout())
+        if (op.tabela === 'vendas' && payload.itens && colunaItensAusente(error)) {
+          // reenvia a venda SEM os itens (mesmo client_op_id: não duplica); sem isto ela ficaria presa na fila para sempre
+          const { itens: _itens, ...semItens } = payload
+          const reenvio = await supabase
+            .from(op.tabela)
+            .upsert(semItens, { onConflict: 'client_op_id', ignoreDuplicates: true })
+            .abortSignal(sinalComTimeout())
+          error = reenvio.error
+        }
         if (error?.code === '23514' && /venda escolhida/i.test(error.message ?? '') && op.tabela === 'pagamentos' && payload.venda_id) {
           // 23514 = a venda escolhida foi apagada (ou não é deste cliente) antes de sincronizar. Sem isto a operação
           // ficaria na fila para sempre e o dinheiro nunca entraria: reenvia SEM venda_id (o client_op_id é o mesmo,

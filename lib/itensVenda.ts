@@ -65,3 +65,115 @@ export function ordenarPorUso(itens: ItemCadastrado[], uso: Record<string, numbe
 }
 
 export const LIMITE_ITENS_GRATUITO = 10
+
+// "150,00" (mesmo formato do campo Valor do app).
+export function formatarReais(total: number): string {
+  const c = Math.round(total * 100)
+  return Math.floor(c / 100) + ',' + String(c % 100).padStart(2, '0')
+}
+
+// O que a escolha de itens preenche. Soma TODOS os itens com preço (qtd × preço); itens sem preço não entram na soma
+// (o app avisa para completar o valor). Descrição/valor que o lojista já digitou à mão só mudam com `forcar`.
+export function proximoPreenchimento(
+  escolhidos: ItemEscolhido[],
+  manual: { descricaoManual: boolean; valorManual: boolean },
+  forcar = false,
+  categoriaPadrao = 'Mercadoria',
+): { descricao: string | null; valor: string | null; categoria: string } {
+  const { total } = somarItens(escolhidos)
+  return {
+    descricao: forcar || !manual.descricaoManual ? montarDescricaoItens(escolhidos) : null,
+    valor: (forcar || !manual.valorManual) && total > 0 ? formatarReais(total) : null,
+    categoria: categoriaDosItens(escolhidos, categoriaPadrao),
+  }
+}
+
+// Edição MANUAL = o texto do campo mudou para algo diferente do que o próprio app preencheu por último. Em alguns aparelhos o
+// TextInput devolve o valor preenchido por código como se fosse digitação: comparar com o último valor automático evita
+// travar o preenchimento depois do 1º item (o valor ficava só com o primeiro item).
+export function ehEdicaoManual(textoNovo: string, ultimoAutomatico: string | null): boolean {
+  return ultimoAutomatico === null || textoNovo !== ultimoAutomatico
+}
+
+// ── O que foi vendido, guardado em vendas.itens (jsonb) para o relatório "Por item" ──
+export interface ItemVenda {
+  id: string
+  nome: string
+  qtd: number
+  preco: number | null
+}
+
+const LIMITE_ITENS_POR_VENDA = 50
+
+// Foto do que foi escolhido na hora da venda (nome e preço congelados: mudar o cadastro depois não reescreve o passado).
+export function montarItensVenda(escolhidos: Pick<ItemEscolhido, 'id' | 'nome' | 'qtd' | 'preco'>[]): ItemVenda[] {
+  return escolhidos
+    .filter(i => i.qtd > 0)
+    .slice(0, LIMITE_ITENS_POR_VENDA)
+    .map(i => ({ id: i.id, nome: i.nome.slice(0, 60), qtd: Math.min(99, Math.round(i.qtd)), preco: i.preco === null || i.preco === undefined ? null : Math.round(i.preco * 100) / 100 }))
+}
+
+// Lê vendas.itens com tolerância: venda antiga (NULL), JSON estranho ou item quebrado nunca derrubam o relatório.
+export function lerItensVenda(bruto: unknown): ItemVenda[] {
+  if (!Array.isArray(bruto)) return []
+  const saida: ItemVenda[] = []
+  for (const x of bruto) {
+    if (!x || typeof x !== 'object') continue
+    const o = x as Record<string, unknown>
+    const nome = typeof o.nome === 'string' ? o.nome.trim() : ''
+    const qtd = Number(o.qtd)
+    if (!nome || !Number.isFinite(qtd) || qtd <= 0) continue
+    const preco = o.preco === null || o.preco === undefined ? null : Number(o.preco)
+    saida.push({
+      id: typeof o.id === 'string' && o.id ? o.id : 'nome:' + nome.toLowerCase(),
+      nome,
+      qtd,
+      preco: preco !== null && Number.isFinite(preco) && preco >= 0 ? preco : null,
+    })
+  }
+  return saida
+}
+
+export interface LinhaPorItem { chave: string; nome: string; qtd: number; valor: number; semPreco: boolean; vendas: number }
+export interface PorItem {
+  linhas: LinhaPorItem[]
+  semItem: { vendas: number; valor: number }   // vendas lançadas sem escolher item (inclui todas as anteriores a esta função)
+  vendasComItem: number
+}
+
+// "Camisa (2/3)": parcelas 2..n não repetem os itens (ficam só na 1ª); não contam como "Sem item".
+function ehParcelaDeContinuacao(descricao: string | null | undefined): boolean {
+  const m = /\((\d+)\/(\d+)\)\s*$/.exec(descricao ?? '')
+  return !!m && Number(m[1]) >= 2 && Number(m[2]) >= Number(m[1])
+}
+
+// Quantidade e valor (qtd × preço da hora da venda) por item no período; o nome mostrado é o da venda mais recente.
+export function agruparPorItem(vendas: { valor: number; itens?: unknown; descricao?: string | null; data?: string | null }[]): PorItem {
+  const mapa = new Map<string, LinhaPorItem & { nomeData: string }>()
+  const semItem = { vendas: 0, valor: 0 }
+  let vendasComItem = 0
+  for (const v of vendas) {
+    const itens = lerItensVenda(v.itens)
+    if (itens.length === 0) {
+      if (ehParcelaDeContinuacao(v.descricao)) continue
+      semItem.vendas++
+      semItem.valor += Number(v.valor) || 0
+      continue
+    }
+    vendasComItem++
+    for (const i of itens) {
+      const atual = mapa.get(i.id) ?? { chave: i.id, nome: i.nome, qtd: 0, valor: 0, semPreco: false, vendas: 0, nomeData: '' }
+      atual.qtd += i.qtd
+      atual.vendas++
+      if (i.preco === null) atual.semPreco = true
+      else atual.valor += Math.round(i.preco * 100) * i.qtd / 100
+      const d = v.data ?? ''
+      if (d >= atual.nomeData) { atual.nome = i.nome; atual.nomeData = d }
+      mapa.set(i.id, atual)
+    }
+  }
+  const linhas = [...mapa.values()]
+    .map(({ nomeData: _n, ...l }) => ({ ...l, valor: Math.round(l.valor * 100) / 100 }))
+    .sort((a, b) => b.valor - a.valor || b.qtd - a.qtd || a.nome.localeCompare(b.nome, 'pt-BR'))
+  return { linhas, semItem: { vendas: semItem.vendas, valor: Math.round(semItem.valor * 100) / 100 }, vendasComItem }
+}
