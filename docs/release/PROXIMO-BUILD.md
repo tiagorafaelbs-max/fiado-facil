@@ -791,3 +791,12 @@ Migration categorias_e_vendas_itens APLICADA ANTES da OTA (simulada em bloco rev
 |---|---|---|---|
 | Android 55 | 01a15e59-1e11-7edf-8820-d5339fd4d172 | c2bfe742-c287-4562-8a98-b3d61d138f31 | eas update:republish --group 90e3329e-cb1f-4448-9831-57218b6ad934 --platform android |
 Rollback da migration (perde o detalhe dos itens vendidos): bloco ROLLBACK no fim do arquivo.
+
+## 21/10 — ANDROID 55 SÓ: Registrar acima do teclado (2ª tentativa) + aviso de erro perto do botão (ordem do Tiago; Fiscal aprovou; hash conferido; sem build nem push)
+Pedido do Growth após teste no A51 (soma, Novo item, parcelado e Por item OK). Código af6fbfd (build-1.0.13), só nova-venda.tsx.
+- Rodapé x teclado: as 3 medições por posição não bastaram no teclado numérico do Samsung. Agora, a cada medição (100/350/800/1400 ms), calcula a posição do rodapé SEM elevação; se está coberto (> −40) sobe o MAIOR entre a posição e (altura do teclado − barra de abas 68+insets), limitado à altura do teclado; se a janela encolheu (≤ −40) não sobe. NÃO validado no aparelho. Pode haver um "pulo" curto entre medições; o Growth deve observar vão grande ou pulo.
+- Erro de validação: ao tocar Registrar com erro, rola até a seção (Cliente ou Descrição/Valor/Datas) e mostra faixa vermelha dentro do rodapé fixo, acima do botão (1º erro + "e mais N", some em 7 s; erros de salvamento também).
+| Binário | Update ID | Group ID | Rollback (só com ordem; volta à OTA de itens fase 1.1) |
+|---|---|---|---|
+| Android 55 | 01a15e64-1289-7cb3-bb06-72dcc522e132 | e996b7e7-ad90-4010-bd1f-81df4c2ec6bf | eas update:republish --group c2bfe742-c287-4562-8a98-b3d61d138f31 --platform android |
+Android 54 e iOS 88/89 NÃO receberam.
