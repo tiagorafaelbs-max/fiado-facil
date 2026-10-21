@@ -131,18 +131,22 @@ export default function MinhasCategoriasScreen() {
           const fixa = cat === CATEGORIA_FIXA
           return (
             <View key={cat} style={estilos.linha}>
-              <Ionicons name={padrao ? 'pricetag' : 'pricetag-outline'} size={18} color={padrao ? C.text3 : C.green} />
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={estilos.nome} numberOfLines={1}>{cat}</Text>
-                <Text style={estilos.sub}>{fixa ? 'padrão · recebe o que for excluído' : padrao ? 'padrão' : 'criada por você'}</Text>
+              <View style={estilos.linhaTopo}>
+                <Ionicons name={padrao ? 'pricetag' : 'pricetag-outline'} size={18} color={padrao ? C.text3 : C.green} />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={estilos.nome}>{cat}</Text>
+                  <Text style={estilos.sub}>{fixa ? 'padrão · recebe o que for excluído' : padrao ? 'padrão' : 'criada por você'}</Text>
+                </View>
               </View>
               {!fixa && (
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <TouchableOpacity style={estilos.btn} disabled={ocupado} onPress={() => abrirRenomear(cat)} accessibilityLabel={`Renomear ${cat}`}>
-                    <Ionicons name="pencil-outline" size={16} color={C.green} />
+                <View style={estilos.acoes}>
+                  <TouchableOpacity style={estilos.btn} disabled={ocupado} onPress={() => abrirRenomear(cat)} accessibilityRole="button" accessibilityLabel={`Editar categoria ${cat}`}>
+                    <Ionicons name="pencil-outline" size={18} color={C.green} />
+                    <Text style={estilos.btnTexto}>Editar</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[estilos.btn, estilos.btnPerigo]} disabled={ocupado} onPress={() => pedirExclusao(cat)} accessibilityLabel={padrao ? `Ocultar ${cat}` : `Excluir ${cat}`}>
-                    <Ionicons name={padrao ? 'eye-off-outline' : 'trash-outline'} size={16} color={C.red} />
+                  <TouchableOpacity style={[estilos.btn, estilos.btnPerigo]} disabled={ocupado} onPress={() => pedirExclusao(cat)} accessibilityRole="button" accessibilityLabel={padrao ? `Ocultar categoria ${cat}` : `Excluir categoria ${cat}`}>
+                    <Ionicons name={padrao ? 'eye-off-outline' : 'trash-outline'} size={18} color={C.red} />
+                    <Text style={[estilos.btnTexto, { color: C.red }]}>{padrao ? 'Ocultar' : 'Excluir'}</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -154,12 +158,17 @@ export default function MinhasCategoriasScreen() {
           <>
             <Text style={estilos.titulo}>Ocultas</Text>
             {ocultas.map(cat => (
-              <View key={cat} style={[estilos.linha, { opacity: 0.7 }]}>
-                <Ionicons name="pricetag" size={18} color={C.text3} />
-                <Text style={[estilos.nome, { flex: 1 }]} numberOfLines={1}>{cat}</Text>
-                <TouchableOpacity disabled={ocupado} onPress={() => mostrarDeNovo(cat)} accessibilityRole="button">
-                  <Text style={estilos.link}>Mostrar</Text>
-                </TouchableOpacity>
+              <View key={cat} style={[estilos.linha, { opacity: 0.85 }]}>
+                <View style={estilos.linhaTopo}>
+                  <Ionicons name="pricetag" size={18} color={C.text3} />
+                  <Text style={[estilos.nome, { flex: 1 }]}>{cat}</Text>
+                </View>
+                <View style={estilos.acoes}>
+                  <TouchableOpacity style={estilos.btn} disabled={ocupado} onPress={() => mostrarDeNovo(cat)} accessibilityRole="button" accessibilityLabel={`Mostrar categoria ${cat}`}>
+                    <Ionicons name="eye-outline" size={18} color={C.green} />
+                    <Text style={estilos.btnTexto}>Mostrar</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             ))}
           </>
@@ -216,10 +225,13 @@ const estilos = StyleSheet.create({
   intro: { fontSize: 13, color: C.text2, lineHeight: 19, marginBottom: 12 },
   aviso: { fontSize: 13, color: C.greenDark, fontWeight: '600', backgroundColor: C.greenLight, borderRadius: 10, padding: 10, marginBottom: 12, borderWidth: 1, borderColor: C.greenMid },
   titulo: { fontSize: 13, fontWeight: '800', color: C.text2, marginTop: 20, marginBottom: 8 },
-  linha: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.card, borderRadius: 12, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: C.border },
+  linha: { gap: 10, backgroundColor: C.card, borderRadius: 12, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: C.border },
+  linhaTopo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  acoes: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   nome: { fontSize: 15, fontWeight: '700', color: C.text },
   sub: { fontSize: 12, color: C.text3, marginTop: 2 },
-  btn: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.greenMid, backgroundColor: C.greenLight },
+  btn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, minWidth: 44, paddingHorizontal: 14, borderRadius: 10, borderWidth: 1, borderColor: C.greenMid, backgroundColor: C.greenLight },
+  btnTexto: { fontSize: 14, fontWeight: '700', color: C.green },
   btnPerigo: { borderColor: C.redBorder, backgroundColor: C.redLight },
   link: { fontSize: 13, color: C.green, fontWeight: '700' },
   novaRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },

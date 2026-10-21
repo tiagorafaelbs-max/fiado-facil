@@ -124,7 +124,7 @@ export default function MeusItensScreen() {
             {plano === 'gratuito' ? `${ativos.length} de ${LIMITE_ITENS_GRATUITO} itens ativos (plano gratuito)` : `${ativos.length} ${ativos.length === 1 ? 'item ativo' : 'itens ativos'} · ilimitados no Pro`}
           </Text>
           {plano === 'gratuito' && (
-            <TouchableOpacity onPress={() => router.push('/planos')} accessibilityRole="button">
+            <TouchableOpacity onPress={() => router.push('/planos')} accessibilityRole="button" accessibilityLabel="Ver o plano Pro com itens ilimitados" style={{ minHeight: 44, justifyContent: 'center' }}>
               <Text style={estilos.limiteLink}>Pro: ilimitados →</Text>
             </TouchableOpacity>
           )}
@@ -137,38 +137,46 @@ export default function MeusItensScreen() {
 
         {[...ativos].sort((a, b) => a.ordem - b.ordem).map((item, i, lista) => (
           <View key={item.id} style={estilos.linha}>
-            <View style={estilos.setas}>
-              <TouchableOpacity disabled={i === 0} onPress={() => mexer(item.id, -1)} accessibilityLabel={`Subir ${item.nome}`} hitSlop={8}>
-                <Ionicons name="chevron-up" size={20} color={i === 0 ? C.border : C.text2} />
+            <TouchableOpacity onPress={() => abrir(item)} accessibilityRole="button" accessibilityLabel={`Editar item ${item.nome}`}>
+              <Text style={estilos.nome}>{item.nome}</Text>
+              <Text style={estilos.sub}>{item.preco != null ? formatarMoeda(item.preco) : 'sem preço fixo'} · {item.categoria}</Text>
+            </TouchableOpacity>
+            <View style={estilos.acoes}>
+              <TouchableOpacity style={[estilos.btnSeta, i === 0 && { opacity: 0.35 }]} disabled={i === 0} onPress={() => mexer(item.id, -1)} accessibilityRole="button" accessibilityLabel={`Subir ${item.nome}`}>
+                <Ionicons name="chevron-up" size={22} color={C.text2} />
               </TouchableOpacity>
-              <TouchableOpacity disabled={i === lista.length - 1} onPress={() => mexer(item.id, 1)} accessibilityLabel={`Descer ${item.nome}`} hitSlop={8}>
-                <Ionicons name="chevron-down" size={20} color={i === lista.length - 1 ? C.border : C.text2} />
+              <TouchableOpacity style={[estilos.btnSeta, i === lista.length - 1 && { opacity: 0.35 }]} disabled={i === lista.length - 1} onPress={() => mexer(item.id, 1)} accessibilityRole="button" accessibilityLabel={`Descer ${item.nome}`}>
+                <Ionicons name="chevron-down" size={22} color={C.text2} />
+              </TouchableOpacity>
+              <TouchableOpacity style={estilos.btn} onPress={() => abrir(item)} accessibilityRole="button" accessibilityLabel={`Editar item ${item.nome}`}>
+                <Ionicons name="pencil-outline" size={18} color={C.green} />
+                <Text style={estilos.btnTexto}>Editar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[estilos.btn, estilos.btnCinza]} onPress={() => mudarAtivo(item, false)} accessibilityRole="button" accessibilityLabel={`Desativar item ${item.nome}`}>
+                <Ionicons name="eye-off-outline" size={18} color={C.text2} />
+                <Text style={[estilos.btnTexto, { color: C.text2 }]}>Desativar</Text>
               </TouchableOpacity>
             </View>
-            <TouchableOpacity style={{ flex: 1, minWidth: 0 }} onPress={() => abrir(item)} accessibilityRole="button">
-              <Text style={estilos.nome} numberOfLines={1}>{item.nome}</Text>
-              <Text style={estilos.sub} numberOfLines={1}>{item.preco != null ? formatarMoeda(item.preco) : 'sem preço fixo'} · {item.categoria}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => mudarAtivo(item, false)} accessibilityLabel={`Desativar ${item.nome}`} hitSlop={8}>
-              <Ionicons name="eye-off-outline" size={20} color={C.text3} />
-            </TouchableOpacity>
           </View>
         ))}
 
         {desativados.length > 0 && (
-          <TouchableOpacity onPress={() => setVerDesativados(v => !v)} style={{ marginTop: 16 }} accessibilityRole="button">
+          <TouchableOpacity onPress={() => setVerDesativados(v => !v)} style={{ marginTop: 16, minHeight: 44, justifyContent: 'center' }} accessibilityRole="button" accessibilityLabel={verDesativados ? 'Esconder itens desativados' : 'Ver itens desativados'}>
             <Text style={estilos.limiteLink}>{verDesativados ? 'Esconder' : 'Ver'} desativados ({desativados.length})</Text>
           </TouchableOpacity>
         )}
         {verDesativados && desativados.map(item => (
-          <View key={item.id} style={[estilos.linha, { opacity: 0.6 }]}>
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={estilos.nome} numberOfLines={1}>{item.nome}</Text>
-              <Text style={estilos.sub} numberOfLines={1}>{item.preco != null ? formatarMoeda(item.preco) : 'sem preço fixo'} · {item.categoria}</Text>
+          <View key={item.id} style={[estilos.linha, { opacity: 0.85 }]}>
+            <View>
+              <Text style={estilos.nome}>{item.nome}</Text>
+              <Text style={estilos.sub}>{item.preco != null ? formatarMoeda(item.preco) : 'sem preço fixo'} · {item.categoria}</Text>
             </View>
-            <TouchableOpacity onPress={() => mudarAtivo(item, true)} accessibilityRole="button">
-              <Text style={estilos.limiteLink}>Reativar</Text>
-            </TouchableOpacity>
+            <View style={estilos.acoes}>
+              <TouchableOpacity style={estilos.btn} onPress={() => mudarAtivo(item, true)} accessibilityRole="button" accessibilityLabel={`Reativar item ${item.nome}`}>
+                <Ionicons name="eye-outline" size={18} color={C.green} />
+                <Text style={estilos.btnTexto}>Reativar</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         ))}
       </ScrollView>
@@ -182,7 +190,7 @@ export default function MeusItensScreen() {
           <ScrollView contentContainerStyle={estilos.modalContent} keyboardShouldPersistTaps="handled">
             <View style={estilos.modalTopo}>
               <Text style={estilos.modalTitulo}>{modal?.item ? 'Editar item' : 'Novo item'}</Text>
-              <TouchableOpacity onPress={() => setModal(null)} accessibilityLabel="Fechar" hitSlop={8}>
+              <TouchableOpacity onPress={() => setModal(null)} accessibilityRole="button" accessibilityLabel="Fechar" style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}>
                 <Ionicons name="close" size={22} color={C.text2} />
               </TouchableOpacity>
             </View>
@@ -222,8 +230,12 @@ const estilos = StyleSheet.create({
   limiteTexto: { fontSize: 12, color: C.greenDark, fontWeight: '600', flexShrink: 1 },
   limiteLink: { fontSize: 13, color: C.green, fontWeight: '700' },
   vazio: { fontSize: 13, color: C.text3, textAlign: 'center', marginVertical: 24 },
-  linha: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.card, borderRadius: 12, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: C.border },
-  setas: { gap: 2 },
+  linha: { gap: 10, backgroundColor: C.card, borderRadius: 12, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: C.border },
+  acoes: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  btn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, minWidth: 44, paddingHorizontal: 14, borderRadius: 10, borderWidth: 1, borderColor: C.greenMid, backgroundColor: C.greenLight },
+  btnCinza: { borderColor: C.border, backgroundColor: C.bg },
+  btnTexto: { fontSize: 14, fontWeight: '700', color: C.green },
+  btnSeta: { width: 44, height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.border, backgroundColor: C.bg },
   nome: { fontSize: 15, fontWeight: '700', color: C.text },
   sub: { fontSize: 12, color: C.text2, marginTop: 2 },
   rodape: { position: 'absolute', left: 0, right: 0, bottom: 0, padding: 16, backgroundColor: C.bg, borderTopWidth: 1, borderTopColor: C.border },
