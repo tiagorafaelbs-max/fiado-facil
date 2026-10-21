@@ -813,3 +813,13 @@ Android 54 e iOS 88/89 NÃO receberam.
 | iOS 89 (sem anual) | 7f2b7439… | 01a15f4a-6b55-7699-af38-b7444d0b86b7 | b30797a9-0592-43a5-a87f-e2c29f38f0b6 | eas update:republish --group 40566cbe-fbaa-4f0e-8239-ad6069789744 --platform ios |
 - ATENÇÃO: toda OTA futura do iOS 89 continua exigindo 9ae9895 e d98b9b1 revertidos em branch temporária enquanto o anual não for liberado no iPhone.
 - Smoke test (Fiscal): abrir o app 2 vezes em cada plataforma; cadastrar item, venda com item, teclado (rodapé some e volta), Relatórios "Por item", renomear categoria. Itens são a 1ª vez no Android 54 e no iPhone.
+
+## 21/10 — OTA NOS 4 RUNTIMES: botões com ícone + texto em Minhas categorias e Meus itens (achado do Growth no A51; ordem do Tiago; Fiscal aprovou; hash conferido por runtime; sem migration, build nem push)
+Só apresentação (commit e811f72 na build-1.0.13; cherry-pick na android-combinada): "Editar", "Ocultar"/"Mostrar" (padrão), "Excluir" (vermelho), "Desativar"/"Reativar", setas Subir/Descer; ações quebram em 2 linhas sem cortar texto; accessibilityRole/Label em todos; área de toque mínima 44×44. Confirmação de excluir igual. Observação do Fiscal (não bloqueou): "Ocultar" usa o mesmo vermelho de "Excluir" mas é reversível; se quiser, trocar para cinza.
+iOS 89 saiu de branch temporária (apagada) com 9ae9895 e d98b9b1 revertidos: segue SEM anual.
+| Binário | Hash | Update ID | Group ID | Rollback (só com ordem; volta à OTA anterior) |
+|---|---|---|---|---|
+| Android 55 | ca835dc1… | 01a15f5c-205b-7002-a0fc-9ddb3557d641 | b990a455-229e-4f03-854d-ffc64657229d | eas update:republish --group 417b3862-1dd5-4116-95e2-3b3bec694387 --platform android |
+| Android 54 | 61a2955d… | 01a15f5f-1a2f-7aac-87c5-b64dc2e2ae15 | b3b924a9-ca78-4057-bf21-de82afa969c1 | eas update:republish --group 32457df8-efe0-4293-825f-a7941ae51fb1 --platform android |
+| iOS 88 | 3ae31820… | 01a15f60-d2d5-75b6-bca1-46959f3a2529 | 1b1d25e7-65d1-4757-988e-9cc12b194953 | eas update:republish --group a8b7df27-8e8b-4bf7-bb11-908a5eda7461 --platform ios |
+| iOS 89 (sem anual) | 7f2b7439… | 01a15f63-d740-74fd-8d71-6b77a199ea43 | faf17afd-bd1f-447e-a741-624a133427a2 | eas update:republish --group b30797a9-0592-43a5-a87f-e2c29f38f0b6 --platform ios |
