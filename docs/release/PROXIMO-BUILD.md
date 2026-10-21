@@ -774,3 +774,9 @@ Commit local na build-1.0.13 (sem push). Pedido de 2 clientes Pro, autorizado pe
 - CONFERÊNCIA OBRIGATÓRIA NO APARELHO (Fiscal): botão fixo com o teclado aberto no A51 e no iPhone (digitando o valor); se o botão sumir, ajustar o rodapé (KeyboardAvoidingView no iOS / margem pelo teclado no Android).
 - Testes antes da OTA: plano grátis no 11º item (convite ao Pro); funcionário vê os itens e não cadastra; venda com itens com e sem preço; venda sem item igual a hoje; parcelado; venda offline e sincronização; teclado/rodapé em tela pequena.
 - Para publicar (com ordem): aplicar as 2 migrations, OTA nos 4 runtimes (cherry-pick na android-combinada para 54/88; iOS 89 sai da build-1.0.13 com 9ae9895 e d98b9b1 revertidos enquanto o anual não for liberado no iOS), hash conferido, rollback = OTA anterior.
+
+## 21/10 — ANDROID 55 SÓ: cadastro de itens + itens na Nova venda + botão Registrar fixo (ordem do Tiago; Fiscal aprovou; hash conferido; sem build nem push)
+Migrations APLICADAS (simuladas antes): itens_cadastro (RLS ligada, 4 políticas, gatilho de limite de 10 itens no gratuito, anon sem acesso) e instalacoes_app_itens_funil (CHECK com 22 etapas). Código: 20dbc34 (build-1.0.13). OTA SÓ no Android 55; Android 54 e iOS 88/89 NÃO receberam (só com nova ordem; Android 54/iOS 88 precisam do cherry-pick na android-combinada; iOS 89 sai com 9ae9895 e d98b9b1 revertidos enquanto o anual não for liberado no iOS). O Growth testa no A51.
+| Binário | Update ID | Group ID | Rollback (só com ordem; volta à OTA do vence hoje no Android 55) |
+|---|---|---|---|
+| Android 55 | 01a15e3b-1353-72d8-b486-db69a2c3611d | 90e3329e-cb1f-4448-9831-57218b6ad934 | eas update:republish --group 31b79fab-1303-4765-984f-fedd4c6d32d6 --platform android |
