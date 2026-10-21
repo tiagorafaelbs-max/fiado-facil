@@ -4,7 +4,6 @@ import {
   StyleSheet, TextInput, Modal, Image, Alert, Platform, KeyboardAvoidingView, ActionSheetIOS, Animated, Keyboard,
 } from 'react-native'
 import { useRouter, useFocusEffect } from 'expo-router'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import * as ImagePicker from 'expo-image-picker'
 import { useVendas } from '../../hooks/useVendas'
@@ -140,42 +139,15 @@ export default function NovaVendaScreen() {
   }
   // ao terminar uma venda: zera tudo que era automático
   function limparAutoPreenchimento() { descricaoAuto.current = null; valorAuto.current = null }
-  // Teclado aberto: o botão fixo do rodapé deixa de mostrar o resumo do cliente (sobra mais espaço para os campos).
-  // E o teclado NÃO pode cobrir o botão: depois que o teclado abre, mede o rodapé; se o teclado cobre o botão (iOS, ou Android
-  // em tela inteira, onde a janela não encolhe), sobe o rodapé exatamente o quanto cobre. Se a janela já encolheu e o
-  // botão está acima do teclado, não sobra nada a subir (não dobra o ajuste).
+  // Teclado aberto: o botão fixo do rodapé (Registrar) FICA ESCONDIDO e volta quando o teclado fecha (OK/voltar). Tentamos subir o
+  // botão pela altura/posição medidas, mas no teclado numérico do Samsung a barra de ferramentas do teclado não entra na altura
+  // informada e o botão ficava pela metade; esconder nunca deixa nada atrás do teclado.
   const [tecladoAberto, setTecladoAberto] = useState(false)
-  const [elevarRodape, setElevarRodape] = useState(0)
-  const insets = useSafeAreaInsets()
-  const rodapeRef = useRef<View>(null)
-  const elevacaoAtual = useRef(0)
-  const medidas = useRef<ReturnType<typeof setTimeout>[]>([])
-  const alturaBarraAbas = 68 + insets.bottom   // mesma conta da barra de abas (app/(tabs)/_layout.tsx)
-  function aplicarElevacao(px: number) { elevacaoAtual.current = px; setElevarRodape(px) }
   useEffect(() => {
-    const a = Keyboard.addListener('keyboardDidShow', (e) => {
-      setTecladoAberto(true)
-      medidas.current.forEach(clearTimeout); medidas.current = []
-      const topoTeclado = e.endCoordinates.screenY
-      const alturaTeclado = e.endCoordinates.height
-      // O teclado pode ou não encolher a janela (depende do aparelho/teclado). Medimos onde o rodapé estaria SEM elevação
-      // (posição atual + elevação já aplicada): bem acima do teclado = a janela encolheu, não faz nada; senão sobe o MAIOR entre
-      // o que a posição pede e (altura do teclado − barra de abas), que cobre diferenças de origem entre as medidas.
-      for (const ms of [100, 350, 800, 1400]) {
-        medidas.current.push(setTimeout(() => {
-          rodapeRef.current?.measureInWindow((_x, y, _w, h) => {
-            const precisaSemElevacao = y + h + 6 - topoTeclado + elevacaoAtual.current
-            const coberto = precisaSemElevacao > -40
-            const porAltura = alturaTeclado - alturaBarraAbas
-            const alvo = coberto ? Math.min(alturaTeclado, Math.max(precisaSemElevacao, porAltura, 0)) : 0
-            if (Math.abs(alvo - elevacaoAtual.current) >= 2) aplicarElevacao(Math.max(0, alvo))
-          })
-        }, ms))
-      }
-    })
-    const b = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => { medidas.current.forEach(clearTimeout); medidas.current = []; setTecladoAberto(false); aplicarElevacao(0) })
-    return () => { medidas.current.forEach(clearTimeout); a.remove(); b.remove() }
-  }, [alturaBarraAbas])
+    const a = Keyboard.addListener('keyboardDidShow', () => setTecladoAberto(true))
+    const b = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setTecladoAberto(false))
+    return () => { a.remove(); b.remove() }
+  }, [])
   const [fotoUri, setFotoUri] = useState<string | null>(null)
   const [erros, setErros] = useState<Record<string, string>>({})
   const [salvando, setSalvando] = useState(false)
@@ -969,15 +941,15 @@ export default function NovaVendaScreen() {
       </View>}
 
     </ScrollView>
-    {/* Rodapé FIXO acima da barra de abas: o botão principal fica sempre visível, sem rolar */}
-    <View ref={rodapeRef} style={[estilos.rodapeFixo, elevarRodape > 0 && { marginBottom: elevarRodape }]}>
+    {/* Rodapé FIXO acima da barra de abas: o botão principal fica visível sem rolar; some enquanto o teclado está aberto */}
+    {!tecladoAberto && <View style={estilos.rodapeFixo}>
       {avisoRodape ? (
         <View style={estilos.avisoRodape} accessibilityLiveRegion="polite" accessibilityRole="alert">
           <Ionicons name="alert-circle" size={18} color={C.red} />
           <Text style={estilos.avisoRodapeTexto}>{avisoRodape}</Text>
         </View>
       ) : null}
-      {clienteSelecionado && !tecladoAberto && (
+      {clienteSelecionado && (
         <View style={estilos.resumoClienteFixo}>
           <Avatar nome={clienteSelecionado.nome} tamanho={24} />
           <Text style={estilos.resumoClienteNome} numberOfLines={1}>
@@ -990,7 +962,7 @@ export default function NovaVendaScreen() {
         onPress={handleSalvar}
         carregando={salvando}
       />
-    </View>
+    </View>}
     {/* Modal novo cliente inline */}
     <Modal visible={modalNovoCliente} animationType="slide" presentationStyle="formSheet">
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
