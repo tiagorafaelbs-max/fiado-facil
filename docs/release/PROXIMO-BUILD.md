@@ -800,3 +800,16 @@ Pedido do Growth após teste no A51 (soma, Novo item, parcelado e Por item OK). 
 |---|---|---|---|
 | Android 55 | 01a15e64-1289-7cb3-bb06-72dcc522e132 | e996b7e7-ad90-4010-bd1f-81df4c2ec6bf | eas update:republish --group c2bfe742-c287-4562-8a98-b3d61d138f31 --platform android |
 Android 54 e iOS 88/89 NÃO receberam.
+
+## 21/10 — OTA NOS 4 RUNTIMES: itens completos (fase 1 + 1.1 + faixa de erro) + Nova venda esconde o rodapé com o teclado aberto (ordem do Tiago; Fiscal aprovou; hash conferido por runtime; sem build nem push)
+- Rodapé x teclado (3ª tentativa): no teclado numérico do Samsung a barra de ferramentas não entra na altura informada, então subir o botão falhou 3 vezes. Agora, com o teclado ABERTO o "Registrar" fica escondido e volta ao fechar (Concluir/voltar). Saiu toda a lógica de elevação. Commit f235cd1 (build-1.0.13).
+- Android 54 e iOS 88 saem da `android-combinada` com cherry-pick limpo de 20dbc34, b11c195, af6fbfd, f235cd1 (a1c5071 = último). tsc limpo e 9 scripts teste-*.js passando; diferença vs build-1.0.13 só em planos.tsx/precoPlano.ts (anual). iOS 89 saiu de branch TEMPORÁRIA (já apagada) com 9ae9895 e d98b9b1 revertidos: segue SEM anual e SEM RECOMENDADO no iPhone. build-1.0.13 NÃO foi alterada (Android 55 mantém o anual).
+- Migrations (já aplicadas): itens_cadastro, instalacoes_app_itens_funil, categorias_e_vendas_itens. Venda grava sem `itens` se a coluna faltar.
+| Binário | Hash | Update ID | Group ID | Rollback (só com ordem) |
+|---|---|---|---|---|
+| Android 55 | ca835dc1… | 01a15f41-dd63-7ce6-90b2-77278af05012 | 417b3862-1dd5-4116-95e2-3b3bec694387 | eas update:republish --group e996b7e7-ad90-4010-bd1f-81df4c2ec6bf --platform android |
+| Android 54 | 61a2955d… | 01a15f45-9039-7c80-8d8b-407b3413a10d | 32457df8-efe0-4293-825f-a7941ae51fb1 | eas update:republish --group bf326ff5-c2a9-4abf-9ec0-1bc1cad6c2c3 --platform android |
+| iOS 88 | 3ae31820… | 01a15f47-cf3e-7fdc-80a7-af4684c45cfc | a8b7df27-8e8b-4bf7-bb11-908a5eda7461 | eas update:republish --group 318cd847-d91a-45d0-bc47-37644129a5cc --platform ios |
+| iOS 89 (sem anual) | 7f2b7439… | 01a15f4a-6b55-7699-af38-b7444d0b86b7 | b30797a9-0592-43a5-a87f-e2c29f38f0b6 | eas update:republish --group 40566cbe-fbaa-4f0e-8239-ad6069789744 --platform ios |
+- ATENÇÃO: toda OTA futura do iOS 89 continua exigindo 9ae9895 e d98b9b1 revertidos em branch temporária enquanto o anual não for liberado no iPhone.
+- Smoke test (Fiscal): abrir o app 2 vezes em cada plataforma; cadastrar item, venda com item, teclado (rodapé some e volta), Relatórios "Por item", renomear categoria. Itens são a 1ª vez no Android 54 e no iPhone.
