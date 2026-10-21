@@ -1,7 +1,7 @@
-﻿import { useState, useEffect, useCallback, useRef } from 'react'
+﻿import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, TextInput, Modal, Image, Alert, Platform, KeyboardAvoidingView, ActionSheetIOS, Animated,
+  StyleSheet, TextInput, Modal, Image, Alert, Platform, KeyboardAvoidingView, ActionSheetIOS, Animated, Keyboard,
 } from 'react-native'
 import { useRouter, useFocusEffect } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
@@ -22,6 +22,8 @@ import { usePerfilCobranca } from '../../hooks/usePerfilCobranca'
 import { C } from '../../constants/colors'
 import { evento } from '../../lib/instalacao'
 import { useCategorias } from '../../hooks/useCategorias'
+import { useItens } from '../../hooks/useItens'
+import { montarDescricaoItens, somarItens, categoriaDosItens } from '../../lib/itensVenda'
 import { useOffline } from '../../hooks/useOffline'
 import { useDiaCobranca } from '../../hooks/useDiaCobranca'
 import { calcularVencimentoPadrao, dataParaBR, dataParaISO, somarMesesLimitando } from '../../lib/vencimento'
@@ -37,7 +39,7 @@ export default function NovaVendaScreen() {
   const toastTranslate = useRef(new Animated.Value(20)).current
   const { criar, vendas } = useVendas()
   const { clientes, buscar, criar: criarCliente } = useClientes()
-  const { tenantId } = useTenant()
+  const { tenantId, souFuncionario } = useTenant()
   const { modulos } = useModulos(tenantId || usuario?.id)
   const { tocar } = useBeep()
 
@@ -80,6 +82,74 @@ export default function NovaVendaScreen() {
   const [editandoCategoria, setEditandoCategoria] = useState<string | null>(null)
   const [nomeEdicao, setNomeEdicao] = useState('')
   const { todas: todasCategorias, extras: categoriasExtra, adicionar: adicionarCat, remover: removerCat, renomear: renomearCat } = useCategorias(tenantId || usuario?.id)
+  // ── Itens (atalhos): item é sempre opcional; sem item a venda é lançada como sempre ──
+  const { ativosPorUso: itensAtivos, disponivel: itensDisponiveis, registrarUso: registrarUsoItens, carregar: carregarItens } = useItens(tenantId || usuario?.id)
+  const [qtds, setQtds] = useState<Record<string, number>>({})
+  const [descricaoManual, setDescricaoManual] = useState(false)   // o lojista mexeu na descrição: não sobrescreve
+  const [valorManual, setValorManual] = useState(false)           // o lojista mexeu no valor: não sobrescreve
+  const [mostrarCategorias, setMostrarCategorias] = useState(false)
+  const preencheuPelosItens = useRef(false)
+  const temItens = itensDisponiveis && itensAtivos.length > 0
+  const escolhidos = useMemo(
+    () => itensAtivos.filter(i => (qtds[i.id] ?? 0) > 0).map(i => ({ id: i.id, nome: i.nome, qtd: qtds[i.id], preco: i.preco, categoria: i.categoria })),
+    [itensAtivos, qtds],
+  )
+  const itensSemPreco = somarItens(escolhidos).semPreco
+  useFocusEffect(useCallback(() => { carregarItens() }, [carregarItens]))
+  function mudarQtd(id: string, delta: number) {
+    setQtds(q => {
+      const nova = Math.max(0, Math.min(99, (q[id] ?? 0) + delta))
+      const copia = { ...q }
+      if (nova === 0) delete copia[id]
+      else copia[id] = nova
+      return copia
+    })
+  }
+  function aplicarItens(forcar: boolean) {
+    if (escolhidos.length === 0) return
+    preencheuPelosItens.current = true
+    if (forcar || !descricaoManual) setDescricao(montarDescricaoItens(escolhidos))
+    const { total } = somarItens(escolhidos)
+    if ((forcar || !valorManual) && total > 0) setValor(formatarInputMoeda(String(Math.round(total * 100))))
+    setCategoria(categoriaDosItens(escolhidos, 'Mercadoria'))
+  }
+  useEffect(() => {
+    if (escolhidos.length === 0) {
+      // tirou todos os itens: limpa só o que os itens tinham preenchido (nunca o que o lojista digitou)
+      if (preencheuPelosItens.current) {
+        preencheuPelosItens.current = false
+        if (!descricaoManual) setDescricao('')
+        if (!valorManual) setValor('')
+      }
+      return
+    }
+    aplicarItens(false)
+  }, [escolhidos])
+  function refazerPelosItens() {
+    setDescricaoManual(false)
+    setValorManual(false)
+    aplicarItens(true)
+  }
+  // Teclado aberto: o botão fixo do rodapé deixa de mostrar o resumo do cliente (sobra mais espaço para os campos).
+  // E o teclado NÃO pode cobrir o botão: depois que o teclado abre, mede o rodapé; se o teclado cobre o botão (iOS, ou Android
+  // em tela inteira, onde a janela não encolhe), sobe o rodapé exatamente o quanto cobre. Se a janela já encolheu e o
+  // botão está acima do teclado, não sobra nada a subir (não dobra o ajuste).
+  const [tecladoAberto, setTecladoAberto] = useState(false)
+  const [elevarRodape, setElevarRodape] = useState(0)
+  const rodapeRef = useRef<View>(null)
+  useEffect(() => {
+    const a = Keyboard.addListener('keyboardDidShow', (e) => {
+      setTecladoAberto(true)
+      setTimeout(() => {
+        rodapeRef.current?.measureInWindow((_x, y, _w, h) => {
+          const cobre = y + h - e.endCoordinates.screenY
+          setElevarRodape(prev => Math.max(0, prev + cobre))
+        })
+      }, 150)
+    })
+    const b = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => { setTecladoAberto(false); setElevarRodape(0) })
+    return () => { a.remove(); b.remove() }
+  }, [])
   const [fotoUri, setFotoUri] = useState<string | null>(null)
   const [erros, setErros] = useState<Record<string, string>>({})
   const [salvando, setSalvando] = useState(false)
@@ -353,6 +423,10 @@ export default function NovaVendaScreen() {
         setSalvouOffline(venda?.id?.startsWith('local_') ?? false)
       }
 
+      if (escolhidos.length > 0) {
+        registrarUsoItens(escolhidos.map(i => i.id))
+        evento('venda_com_item')   // funil anônimo
+      }
       setClienteSucesso(clienteSelecionado ?? null)
       setPrimeiraVenda(ehPrimeira)
       setSucesso(true)
@@ -361,6 +435,7 @@ export default function NovaVendaScreen() {
       // Volta para o início automaticamente após 2s
       redirectTimer.current = setTimeout(() => router.replace('/(tabs)'), 2000)
       setClienteId(''); setBuscaCliente(''); setDescricao(''); setValor(''); setDataVenda(''); setDataVencimento(dataParaBR(calcularVencimentoPadrao(new Date(), diaCobranca))); setVencimentoEditado(false); setSemVencimento(false); setCategoria('Mercadoria'); setErros({}); setFotoUri(null); setTipoPagamento('fiado'); setNumParcelas(2)
+      setQtds({}); setDescricaoManual(false); setValorManual(false); setMostrarCategorias(false); preencheuPelosItens.current = false
     } catch (e: any) {
       setErroGeral(e.message ?? 'Erro ao salvar. Tente novamente.')
     } finally {
@@ -558,11 +633,63 @@ export default function NovaVendaScreen() {
         )}
       </View>
 
+      {/* Itens: atalhos para lançar mais rápido (só se o lojista cadastrou itens) */}
+      {temItens && (
+        <View style={estilos.secaoBox}>
+          <Text style={estilos.secaoLabel}>🧺 Itens</Text>
+          <View style={estilos.categorias}>
+            {itensAtivos.map(item => {
+              const q = qtds[item.id] ?? 0
+              if (q === 0) {
+                return (
+                  <TouchableOpacity key={item.id} style={estilos.chip} onPress={() => mudarQtd(item.id, 1)} accessibilityRole="button" accessibilityLabel={'Adicionar ' + item.nome}>
+                    <Text style={estilos.chipTexto}>{item.nome}{item.preco != null ? ' · ' + formatarMoeda(item.preco) : ''}</Text>
+                  </TouchableOpacity>
+                )
+              }
+              return (
+                <View key={item.id} style={[estilos.chip, estilos.chipAtivo, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}>
+                  <TouchableOpacity onPress={() => mudarQtd(item.id, -1)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel={'Tirar ' + item.nome}>
+                    <Ionicons name="remove-circle" size={22} color={C.green} />
+                  </TouchableOpacity>
+                  <Text style={estilos.chipTextoAtivo}>{q}× {item.nome}</Text>
+                  <TouchableOpacity onPress={() => mudarQtd(item.id, 1)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel={'Mais um ' + item.nome}>
+                    <Ionicons name="add-circle" size={22} color={C.green} />
+                  </TouchableOpacity>
+                </View>
+              )
+            })}
+          </View>
+          {escolhidos.length > 0 && itensSemPreco > 0 && (
+            <Text style={estilos.dicaItens}>Algum item não tem preço: complete o valor abaixo.</Text>
+          )}
+          {escolhidos.length > 0 && (descricaoManual || valorManual) && (
+            <TouchableOpacity onPress={refazerPelosItens} accessibilityRole="button">
+              <Text style={estilos.linkItens}>Refazer descrição e valor pelos itens</Text>
+            </TouchableOpacity>
+          )}
+          <View style={estilos.categoriaLinha}>
+            <Text style={estilos.categoriaLinhaTexto}>🏷️ Categoria: {categoria}</Text>
+            {modulos.categorias && (
+              <TouchableOpacity onPress={() => setMostrarCategorias(v => !v)} accessibilityRole="button">
+                <Text style={estilos.linkItens}>{mostrarCategorias ? 'fechar' : 'alterar'}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      )}
+      {!temItens && itensDisponiveis && !souFuncionario && (
+        <TouchableOpacity onPress={() => router.push('/itens' as never)} style={estilos.linkCadastrarItens} accessibilityRole="button">
+          <Ionicons name="flash-outline" size={16} color={C.green} />
+          <Text style={estilos.linkItens}>Cadastre seus itens para lançar mais rápido</Text>
+        </TouchableOpacity>
+      )}
+
       {/* Detalhes */}
       <View style={estilos.secaoBox}>
         <Text style={estilos.secaoLabel}>🧾 Detalhes</Text>
-        <Campo label="Descrição" value={descricao} onChangeText={setDescricao} erro={erros.descricao} placeholder="Ex: Arroz, Feijão, Serviço..." />
-        <Campo label="Valor (R$)" value={valor} onChangeText={v => setValor(formatarInputMoeda(v))} erro={erros.valor} keyboardType="decimal-pad" placeholder="0,00" />
+        <Campo label="Descrição" value={descricao} onChangeText={t => { setDescricao(t); setDescricaoManual(true) }} erro={erros.descricao} placeholder="Ex: Arroz, Feijão, Serviço..." />
+        <Campo label="Valor (R$)" value={valor} onChangeText={v => { setValor(formatarInputMoeda(v)); setValorManual(true) }} erro={erros.valor} keyboardType="decimal-pad" placeholder="0,00" />
 
         {/* Data da venda */}
         <View style={{ marginBottom: 12 }}>
@@ -768,7 +895,7 @@ export default function NovaVendaScreen() {
       </View>}
 
       {/* Categoria */}
-      {modulos.categorias && <View style={estilos.secaoBox}>
+      {modulos.categorias && (!temItens || mostrarCategorias) && <View style={estilos.secaoBox}>
         <Text style={estilos.secaoLabel}>🏷️ Categoria</Text>
 
         {/* Modal editar categoria */}
@@ -848,24 +975,23 @@ export default function NovaVendaScreen() {
         </View>
       </View>}
 
-      {/* Rodapé */}
-      <View style={estilos.rodape}>
-        {clienteSelecionado && (
-          <View style={estilos.resumoCliente}>
-            <Avatar nome={clienteSelecionado.nome} tamanho={32} />
-            <Text style={estilos.resumoClienteNome}>
-              Para: <Text style={{ color: C.green, fontWeight: '700' }}>{clienteSelecionado.nome}</Text>
-            </Text>
-          </View>
-        )}
-        <Botao
-          titulo={tipoPagamento === 'parcelado' ? `Registrar ${numParcelas}x parcelas` : 'Registrar venda fiado'}
-          onPress={handleSalvar}
-          carregando={salvando}
-        />
-      </View>
-
     </ScrollView>
+    {/* Rodapé FIXO acima da barra de abas: o botão principal fica sempre visível, sem rolar */}
+    <View ref={rodapeRef} style={[estilos.rodapeFixo, elevarRodape > 0 && { marginBottom: elevarRodape }]}>
+      {clienteSelecionado && !tecladoAberto && (
+        <View style={estilos.resumoClienteFixo}>
+          <Avatar nome={clienteSelecionado.nome} tamanho={24} />
+          <Text style={estilos.resumoClienteNome} numberOfLines={1}>
+            Para: <Text style={{ color: C.green, fontWeight: '700' }}>{clienteSelecionado.nome}</Text>
+          </Text>
+        </View>
+      )}
+      <Botao
+        titulo={tipoPagamento === 'parcelado' ? 'Registrar ' + numParcelas + 'x parcelas' : 'Registrar venda fiado'}
+        onPress={handleSalvar}
+        carregando={salvando}
+      />
+    </View>
     {/* Modal novo cliente inline */}
     <Modal visible={modalNovoCliente} animationType="slide" presentationStyle="formSheet">
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -944,7 +1070,14 @@ export default function NovaVendaScreen() {
 
 const estilos = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.bg },
-  content: { paddingTop: 8, paddingBottom: 110 },
+  content: { paddingTop: 8, paddingBottom: 24 },
+  rodapeFixo: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 12, backgroundColor: C.bg, borderTopWidth: 1, borderTopColor: C.border, gap: 8 },
+  resumoClienteFixo: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  dicaItens: { fontSize: 12, color: C.yellow, marginBottom: 8 },
+  linkItens: { fontSize: 13, fontWeight: '700', color: C.green },
+  categoriaLinha: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 },
+  categoriaLinhaTexto: { fontSize: 12, color: C.text2 },
+  linkCadastrarItens: { flexDirection: 'row', alignItems: 'center', gap: 6, marginHorizontal: 16, marginBottom: 12 },
   offlineBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: '#FFF8E1', borderWidth: 1, borderColor: '#FFE082',

@@ -449,6 +449,9 @@ export default function ConfiguracoesScreen() {
           </>
         )}
         {/* Texto do WhatsApp: o dono edita (Pro); funcionário só vê a mensagem do dono */}
+        {!souFuncionario && (
+          <AcaoRow icone="flash-outline" label="Meus itens" onPress={() => router.push('/itens' as never)} />
+        )}
         <AcaoRow
           icone="chatbubble-ellipses-outline"
           label={souFuncionario ? 'Ver mensagem de cobrança' : perfil.plano === 'pro' ? 'Mensagem de cobrança' : 'Mensagem de cobrança · Pro'}
