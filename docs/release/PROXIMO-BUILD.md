@@ -823,3 +823,12 @@ iOS 89 saiu de branch temporária (apagada) com 9ae9895 e d98b9b1 revertidos: se
 | Android 54 | 61a2955d… | 01a15f5f-1a2f-7aac-87c5-b64dc2e2ae15 | b3b924a9-ca78-4057-bf21-de82afa969c1 | eas update:republish --group 32457df8-efe0-4293-825f-a7941ae51fb1 --platform android |
 | iOS 88 | 3ae31820… | 01a15f60-d2d5-75b6-bca1-46959f3a2529 | 1b1d25e7-65d1-4757-988e-9cc12b194953 | eas update:republish --group a8b7df27-8e8b-4bf7-bb11-908a5eda7461 --platform ios |
 | iOS 89 (sem anual) | 7f2b7439… | 01a15f63-d740-74fd-8d71-6b77a199ea43 | faf17afd-bd1f-447e-a741-624a133427a2 | eas update:republish --group b30797a9-0592-43a5-a87f-e2c29f38f0b6 --platform ios |
+
+## 21/10 — OTA NOS 4 RUNTIMES: "Ocultar"/"Mostrar" em cinza neutro; vermelho só em "Excluir" (sugestão do Fiscal aprovada pelo Tiago; Growth validou os botões anteriores no A51; hash conferido; sem migration, build nem push)
+Só estilo (commit 63b915c na build-1.0.13; cherry-pick na android-combinada). iOS 89 de branch temporária (apagada) com o anual revertido: segue SEM anual.
+| Binário | Hash | Update ID | Group ID | Rollback (só com ordem; volta à OTA dos botões com ícone+texto) |
+|---|---|---|---|---|
+| Android 55 | ca835dc1… | 01a15f6b-fdd5-7e58-9ad0-6fc62063b9aa | 11d0f350-9abc-48e5-94ab-8adcf672d2b5 | eas update:republish --group b990a455-229e-4f03-854d-ffc64657229d --platform android |
+| Android 54 | 61a2955d… | 01a15f6e-1270-712c-85eb-0e847413c159 | 3ea68879-a14a-4649-a5ab-db8e871168d7 | eas update:republish --group b3b924a9-ca78-4057-bf21-de82afa969c1 --platform android |
+| iOS 88 | 3ae31820… | 01a15f71-701d-72e7-8cbc-21f379ab1b97 | 411c5b42-d22c-4911-aa28-bdceb8f67609 | eas update:republish --group 1b1d25e7-65d1-4757-988e-9cc12b194953 --platform ios |
+| iOS 89 (sem anual) | 7f2b7439… | 01a15f74-d4a6-7f92-a7ff-eb1f0da72148 | e25327bb-5283-4e12-9554-8e752ce399c1 | eas update:republish --group faf17afd-bd1f-447e-a741-624a133427a2 --platform ios |
