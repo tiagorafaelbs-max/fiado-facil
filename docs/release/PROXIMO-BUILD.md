@@ -845,3 +845,8 @@ Só estilo (commit 63b915c na build-1.0.13; cherry-pick na android-combinada). i
 | iOS 88 | 3ae31820… | 01a1602d-323a-7ebe-9010-a7a9107dfc17 | 852094da-f595-457b-b7bf-89c5034eff3e | eas update:republish --group 411c5b42-d22c-4911-aa28-bdceb8f67609 --platform ios |
 | iOS 89 (sem anual) | 7f2b7439… | 01a16030-bf9f-7b0b-9061-95727e383bab | b4a9b6f1-7be5-4893-bfff-9c175cc1ea42 | eas update:republish --group e25327bb-5283-4e12-9554-8e752ce399c1 --platform ios |
 Rollback da migration: drop table public.acessos_diarios.
+
+## 21/10 — PUSH DA MAIN (ordem do Tiago; Fiscal aprovou) + frase "vinculados à sua conta" na política
+- Push fast-forward limpo, sem force: origin/main a350f2b → 17c0446 (= topo da build-1.0.13; 24 commits). Nenhum segredo nos commits (Fiscal conferiu). Código no GitHub não publica nada para usuários: o que chega aos aparelhos são as OTAs por runtime (iOS 89 continua exigindo o anual revertido em branch temporária).
+- Texto: ", vinculados à sua conta" (mesma frase do site) em app/privacidade.tsx e docs/politica-de-privacidade.html (commit 17c0446). Vai na PRÓXIMA OTA; sem OTA só por isso.
+- docs/ é servido pelo GitHub Pages: o docs/politica-de-privacidade.html continua defasado (cita MercadoPago) e agora está público com as 4 mudanças. As lojas apontam para fiadoapp.app.br. Decisão do Tiago: reescrever igual ao site OU trocar por redirecionamento para fiadoapp.app.br/privacidade, para não haver duas políticas diferentes públicas.
