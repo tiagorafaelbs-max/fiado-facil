@@ -850,3 +850,9 @@ Rollback da migration: drop table public.acessos_diarios.
 - Push fast-forward limpo, sem force: origin/main a350f2b → 17c0446 (= topo da build-1.0.13; 24 commits). Nenhum segredo nos commits (Fiscal conferiu). Código no GitHub não publica nada para usuários: o que chega aos aparelhos são as OTAs por runtime (iOS 89 continua exigindo o anual revertido em branch temporária).
 - Texto: ", vinculados à sua conta" (mesma frase do site) em app/privacidade.tsx e docs/politica-de-privacidade.html (commit 17c0446). Vai na PRÓXIMA OTA; sem OTA só por isso.
 - docs/ é servido pelo GitHub Pages: o docs/politica-de-privacidade.html continua defasado (cita MercadoPago) e agora está público com as 4 mudanças. As lojas apontam para fiadoapp.app.br. Decisão do Tiago: reescrever igual ao site OU trocar por redirecionamento para fiadoapp.app.br/privacidade, para não haver duas políticas diferentes públicas.
+
+## 22/10 — docs/politica-de-privacidade.html vira REDIRECIONAMENTO (decisão do Tiago; era a recomendação do Fiscal)
+- A página (texto de junho, citava MercadoPago) agora só redireciona para https://fiadoapp.app.br/privacidade.html (meta refresh + JS + link visível "A política do FiadoApp está em fiadoapp.app.br/privacidade", canonical e noindex). Era a única página de docs/ com política/termos citando MercadoPago; docs/index.html (landing) não cita e continua apontando para ela.
+- Retenção dos dias de uso: enquanto a conta existir, apagados junto com a conta (já está no site). Sem rotina de limpeza (decisão do Tiago).
+- A frase ", vinculados à sua conta" segue na PRÓXIMA OTA (já está em app/privacidade.tsx).
+- Sem OTA e sem build; só commit + push da main.
