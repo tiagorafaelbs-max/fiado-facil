@@ -1,6 +1,6 @@
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  Alert, Linking, Platform, ActivityIndicator,
+  Alert, Linking, Platform, ActivityIndicator, AppState,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useRouter, useFocusEffect } from 'expo-router'
@@ -26,6 +26,7 @@ import { escolherPreco, equivalenteMensal } from '../lib/precoPlano'
 import {
   SKU_MENSAL, SKU_ANUAL, SKUS, MODULOS_CACHE_KEY,
   garantirConexaoIAP, enviarParaVerificacaoApple, verificarComprasApplePendentes,
+  aoReconectarIAP, reconectarIAP, reconectandoIAP, comReconexaoIAP, comTempoIAP, erroDeConexaoIAP,
 } from '../lib/appleIAP'
 import {
   comprarAssinaturaGoogle, enviarParaVerificacaoGoogle, concluirCompraGoogle,
@@ -67,6 +68,11 @@ export default function PlanosScreen() {
   // Falha ao carregar a loja/planos: mostra o aviso com "Tentar de novo" (muda a tentativa e refaz a inicialização).
   const [erroProdutos, setErroProdutos] = useState(false)
   const [tentativaLoja, setTentativaLoja] = useState(0)
+  // Android: o botão Assinar só libera depois que a loja devolveu os produtos (senão o toque cai em "loja não pronta").
+  const [produtosOk, setProdutosOk] = useState(false)
+  const loadingRef = useRef(loading)
+  loadingRef.current = loading
+  const recarregarLojaRef = useRef<(() => Promise<void>) | null>(null)
 
   // Funil de compra (anônimo, 1x por dia): abriu a tela Planos. Só o dono (funcionário vê a tela de bloqueio).
   useEffect(() => {
@@ -113,80 +119,113 @@ export default function PlanosScreen() {
   function registrarFalhaCompra(err: any) {
     if (err?.code === ErrorCode.UserCancelled) { evento('compra_cancelou'); return }
     const interno = ['loja_indisponivel', 'oferta_indisponivel', 'sem_sessao'].includes(err?.message) ? err.message : null
-    evento('compra_erro', err?.code ?? interno ?? 'desconhecido')
+    // Funil: código exato + se houve nova tentativa de conexão e se ela funcionou (retry_falhou / retry_sem_conexao).
+    const base = err?.code ?? interno ?? 'desconhecido'
+    evento('compra_erro', err?.reconexao ? base + ':' + err.reconexao : base)
   }
 
   // Inicializa IAP (iOS: App Store; Android: Google Play) -- a conexão é compartilhada com o AppleBackfillListener
   // global (app/_layout.tsx), então esta tela nunca fecha a conexão sozinha (endConnection
   // derrubaria a verificação em segundo plano do app inteiro).
   useEffect(() => {
-    let purchaseUpdateSub: ReturnType<typeof purchaseUpdatedListener>
-    let purchaseErrorSub: ReturnType<typeof purchaseErrorListener>
+    let purchaseUpdateSub: ReturnType<typeof purchaseUpdatedListener> | undefined
+    let purchaseErrorSub: ReturnType<typeof purchaseErrorListener> | undefined
 
     let ativo = true
     const esperar = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms))
     // Funil anônimo: código + começo da mensagem do erro técnico da loja (nunca dado do usuário), no formato aceito pelo banco.
+    // Se houve nova tentativa de conexão, o resultado vem logo depois do código (o banco corta em 60 caracteres).
     const detalheExcecao = (e: any) =>
-      'excecao_produtos:' + String(e?.code ?? 'sem_codigo') + ':' + String(e?.message ?? '').replace(/\s+/g, '_')
+      'excecao_produtos:' + String(e?.code ?? 'sem_codigo') + (e?.reconexao ? ':' + e.reconexao : '') + ':' + String(e?.message ?? '').replace(/\s+/g, '_')
+
+    // Os ouvintes de compra são apagados pelo endConnection (reconexão): esta função os registra de novo quando preciso.
+    function anexarOuvintes() {
+      purchaseUpdateSub?.remove()
+      purchaseErrorSub?.remove()
+      purchaseUpdateSub = purchaseUpdatedListener(async (purchase: Purchase) => {
+        // IAP v15 / Nitro: receipt está em purchaseToken (JWS) ou transactionReceipt
+        const receipt = (purchase as any).purchaseToken ?? (purchase as any).transactionReceipt
+        // Aceita purchaseState 'purchased' (string) ou undefined (iOS subscriptions às vezes omite)
+        // Nunca aceita 'pending' ou 'failed'
+        // Os tipos do IAP v15 não listam 'failed', mas o valor pode chegar em runtime.
+        const estado = String(purchase.purchaseState)
+        const stateOk = estado !== 'pending' && estado !== 'failed'
+        if (!isIOS && estado === 'pending') {
+          // Google Play: pagamento ainda não confirmado (ex.: Pix). Não ativa nada agora.
+          evento('compra_pendente')
+          Alert.alert(TITULO_PENDENTE, TEXTO_PENDENTE)
+          setLoading(null)
+          return
+        }
+        if (receipt && stateOk) {
+          if (isIOS) await handleApplePurchaseSuccess(purchase)
+          else await handleGooglePurchaseSuccess(purchase)
+        }
+      })
+
+      purchaseErrorSub = purchaseErrorListener((error: PurchaseError) => {
+        // Android: conexão caída. Quem chamou requestPurchase religa e repete sozinho (comReconexaoIAP) e trata o resultado;
+        // aqui não mostramos erro agora. Se nada resolver em 20 s, libera o botão e avisa.
+        if (!isIOS && (reconectandoIAP() || erroDeConexaoIAP(error))) {
+          setTimeout(() => {
+            if (ativo && loadingRef.current !== null) {
+              setLoading(null)
+              Alert.alert('Sem conexão com a Play Store', 'Não conseguimos conectar à Play Store. Verifique sua conexão e toque em Assinar de novo.')
+            }
+          }, 20000)
+          return
+        }
+        registrarFalhaCompra(error)
+        if (!isIOS) aposFimDeCompraAndroid()
+        if (error.code !== ErrorCode.UserCancelled) {
+          Alert.alert('Erro na compra', error.message ?? 'Tente novamente.')
+        }
+        setLoading(null)
+      })
+    }
+
+    // Conecta à loja. Android: se não conectou, religa do zero (endConnection + initConnection) antes de desistir.
+    async function conectarLoja(): Promise<boolean> {
+      let conectado = await garantirConexaoIAP()
+      if (!conectado) { await esperar(1500); conectado = await garantirConexaoIAP() }   // 1 nova tentativa
+      if (!conectado && !isIOS) conectado = await reconectarIAP()
+      return conectado
+    }
+
+    // Busca os produtos/preços (Android: com reconexão automática e limite de tempo, nunca fica "carregando" para sempre).
+    async function carregarPrecos() {
+      let subs
+      try {
+        subs = await comReconexaoIAP(() => comTempoIAP(fetchProducts({ skus: SKUS, type: 'subs' }))) ?? []
+      } catch {
+        await esperar(1500)   // 1 nova tentativa antes de avisar o usuário
+        subs = await comReconexaoIAP(() => comTempoIAP(fetchProducts({ skus: SKUS, type: 'subs' }))) ?? []
+      }
+      if (subs.length === 0) { evento('loja_erro', 'produtos_vazio'); if (ativo) setErroProdutos(true) }
+      else if (ativo) { setErroProdutos(false); setProdutosOk(true) }
+      for (const sub of subs) {
+        const pid = (sub as any).id ?? (sub as any).productId ?? ''
+        // Só mostra o preço da loja se a moeda for BRL (conta de teste/loja de outro país devolve "$2.99" enquanto a
+        // cobrança real é em reais): senão fica o texto fixo (R$ 19,90/mês e R$ 149,90/ano).
+        const escolha = escolherPreco(sub as any)
+        if (escolha.tipo === 'loja') {
+          if (pid === SKU_MENSAL) setPrecoMensal(escolha.preco)
+          if (pid === SKU_ANUAL) setPrecoAnual(escolha.preco)
+        } else if (escolha.moeda) {
+          evento('loja_erro', 'moeda_' + escolha.moeda)
+        }
+      }
+    }
 
     async function setupIAP() {
-      if (ativo) setErroProdutos(false)
+      if (ativo) { setErroProdutos(false); setProdutosOk(false) }
       try {
-        let conectado = await garantirConexaoIAP()
-        if (!conectado) { await esperar(1500); conectado = await garantirConexaoIAP() }   // 1 nova tentativa
+        const conectado = await conectarLoja()
         if (!conectado) { evento('loja_erro', 'sem_conexao_loja'); if (ativo) setErroProdutos(true); return }
 
         if (!ativo) return   // saiu da tela (ou tocou em Tentar de novo) enquanto conectava: não registra listeners órfãos
-        purchaseUpdateSub = purchaseUpdatedListener(async (purchase: Purchase) => {
-          // IAP v15 / Nitro: receipt está em purchaseToken (JWS) ou transactionReceipt
-          const receipt = (purchase as any).purchaseToken ?? (purchase as any).transactionReceipt
-          // Aceita purchaseState 'purchased' (string) ou undefined (iOS subscriptions às vezes omite)
-          // Nunca aceita 'pending' ou 'failed'
-          // Os tipos do IAP v15 não listam 'failed', mas o valor pode chegar em runtime.
-          const estado = String(purchase.purchaseState)
-          const stateOk = estado !== 'pending' && estado !== 'failed'
-          if (!isIOS && estado === 'pending') {
-            // Google Play: pagamento ainda não confirmado (ex.: Pix). Não ativa nada agora.
-            evento('compra_pendente')
-            Alert.alert(TITULO_PENDENTE, TEXTO_PENDENTE)
-            setLoading(null)
-            return
-          }
-          if (receipt && stateOk) {
-            if (isIOS) await handleApplePurchaseSuccess(purchase)
-            else await handleGooglePurchaseSuccess(purchase)
-          }
-        })
-
-        purchaseErrorSub = purchaseErrorListener((error: PurchaseError) => {
-          registrarFalhaCompra(error)
-          if (!isIOS) aposFimDeCompraAndroid()
-          if (error.code !== ErrorCode.UserCancelled) {
-            Alert.alert('Erro na compra', error.message ?? 'Tente novamente.')
-          }
-          setLoading(null)
-        })
-
-        let subs
-        try {
-          subs = await fetchProducts({ skus: SKUS, type: 'subs' }) ?? []
-        } catch {
-          await esperar(1500)   // 1 nova tentativa antes de avisar o usuário
-          subs = await fetchProducts({ skus: SKUS, type: 'subs' }) ?? []
-        }
-        if (subs.length === 0) { evento('loja_erro', 'produtos_vazio'); if (ativo) setErroProdutos(true) }
-        for (const sub of subs) {
-          const pid = (sub as any).id ?? (sub as any).productId ?? ''
-          // Só mostra o preço da loja se a moeda for BRL (conta de teste/loja de outro país devolve "$2.99" enquanto a
-          // cobrança real é em reais): senão fica o texto fixo (R$ 19,90/mês e R$ 149,90/ano).
-          const escolha = escolherPreco(sub as any)
-          if (escolha.tipo === 'loja') {
-            if (pid === SKU_MENSAL) setPrecoMensal(escolha.preco)
-            if (pid === SKU_ANUAL) setPrecoAnual(escolha.preco)
-          } else if (escolha.moeda) {
-            evento('loja_erro', 'moeda_' + escolha.moeda)
-          }
-        }
+        anexarOuvintes()
+        await carregarPrecos()
       } catch (e: any) {
         evento('loja_erro', detalheExcecao(e))
         if (ativo) setErroProdutos(true)
@@ -194,13 +233,38 @@ export default function PlanosScreen() {
       }
     }
 
+    // Voltou do 2º plano (Android): revalida a conexão e recarrega os produtos, a menos que haja uma compra em andamento.
+    recarregarLojaRef.current = async () => {
+      if (!ativo || loadingRef.current !== null) return
+      try {
+        const conectado = await conectarLoja()
+        if (!conectado) { evento('loja_erro', 'sem_conexao_loja'); if (ativo) { setErroProdutos(true); setProdutosOk(false) } return }
+        await carregarPrecos()
+      } catch (e: any) {
+        evento('loja_erro', detalheExcecao(e))
+        if (ativo) { setErroProdutos(true); setProdutosOk(false) }
+      }
+    }
+    const removerAoReconectar = aoReconectarIAP(() => { if (ativo) anexarOuvintes() })
+
     setupIAP()
     return () => {
       ativo = false
+      recarregarLojaRef.current = null
+      removerAoReconectar()
       purchaseUpdateSub?.remove()
       purchaseErrorSub?.remove()
     }
   }, [tentativaLoja])
+
+  // Android: voltar do 2º plano para a tela Planos revalida a conexão com a Play Store e recarrega os produtos.
+  useEffect(() => {
+    if (isIOS) return
+    const sub = AppState.addEventListener('change', (estado) => {
+      if (estado === 'active') recarregarLojaRef.current?.()
+    })
+    return () => sub.remove()
+  }, [])
 
   // Verifica compras Apple pendentes ao voltar a esta tela (ex: usuário fechou o app
   // no meio da compra e reabriu direto nos planos) -- reaproveita o mesmo mecanismo
@@ -343,7 +407,7 @@ export default function PlanosScreen() {
         setLoading(null)
         return
       }
-      const compra = compraDoPlano((await getAvailablePurchases()) as Purchase[])
+      const compra = compraDoPlano((await comReconexaoIAP(() => getAvailablePurchases())) as Purchase[])
       if (!compra) {
         Alert.alert('Sem compras anteriores', 'Não encontramos uma assinatura ativa nesta conta do Google Play.')
         setLoading(null)
@@ -388,6 +452,9 @@ export default function PlanosScreen() {
     }
   }
 
+  // Android: botão Assinar espera a loja (produtos carregados); se a conexão falhar, vira "tocar para tentar de novo" (nunca silêncio).
+  const lojaConectando = !isIOS && !produtosOk && !erroProdutos
+  const lojaFalhou = !isIOS && erroProdutos && !produtosOk
   const labelMensal = `${precoMensal}/mês`
   const labelAnual  = `${precoAnual}/ano`
   // Equivalente mensal e economia, calculados dos MESMOS preços exibidos (loja em BRL ou padrão): texto secundário.
@@ -519,10 +586,20 @@ export default function PlanosScreen() {
         {planoSel === 'annual' && equiv && (
           <Text style={estilos.precoEquivalente}>equivale a {equiv.porMes}/mês · economize {equiv.economiaPct}%</Text>
         )}
-        <TouchableOpacity style={estilos.btnPro} onPress={() => handleAssinar(planoSel)} disabled={loading !== null}>
+        <TouchableOpacity
+          style={[estilos.btnPro, lojaConectando && { opacity: 0.75 }]}
+          onPress={() => (lojaFalhou ? setTentativaLoja(n => n + 1) : handleAssinar(planoSel))}
+          disabled={loading !== null || lojaConectando}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: loading !== null || lojaConectando, busy: lojaConectando }}
+        >
           {loading === planoSel
             ? <ActivityIndicator color={C.green} />
-            : <><Ionicons name="rocket-outline" size={18} color={C.green} /><Text style={estilos.btnProTexto}>{planoSel === 'annual' ? `Assinar anual por ${precoAnual}` : `Assinar por ${labelMensal}`}</Text></>
+            : lojaConectando
+              ? <><ActivityIndicator color={C.green} size="small" /><Text style={estilos.btnProTexto}>Conectando à loja…</Text></>
+              : lojaFalhou
+                ? <Text style={[estilos.btnProTexto, { textAlign: 'center', flexShrink: 1 }]}>Não conseguimos conectar à Play Store. Tocar para tentar de novo.</Text>
+                : <><Ionicons name="rocket-outline" size={18} color={C.green} /><Text style={estilos.btnProTexto}>{planoSel === 'annual' ? `Assinar anual por ${precoAnual}` : `Assinar por ${labelMensal}`}</Text></>
           }
         </TouchableOpacity>
         {/* Só Android (a Apple não tem Pix). Frase sempre verdadeira: o Pix depende da conta/região no Google Play. */}

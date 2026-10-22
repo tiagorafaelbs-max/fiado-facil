@@ -8,7 +8,7 @@ import {
   type Purchase,
 } from 'react-native-iap'
 import { supabase } from './supabase'
-import { SKU_MENSAL, SKU_ANUAL, MODULOS_CACHE_KEY, garantirConexaoIAP } from './appleIAP'
+import { SKU_MENSAL, SKU_ANUAL, MODULOS_CACHE_KEY, garantirConexaoIAP, comReconexaoIAP, comTempoIAP } from './appleIAP'
 import { escolherOferta, ofertasDoProduto } from './googleOfertas'
 
 const isAndroid = Platform.OS === 'android'
@@ -25,12 +25,13 @@ export async function comprarAssinaturaGoogle(sku: string): Promise<void> {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) throw new Error('sem_sessao')
 
-  const produtos = (await fetchProducts({ skus: [sku], type: 'subs' })) ?? []
+  // Conexão com o Google Play caída (not-prepared / service-disconnected): religa e repete 1 vez, em cada passo.
+  const produtos = (await comReconexaoIAP(() => comTempoIAP(fetchProducts({ skus: [sku], type: 'subs' })))) ?? []
   const produto = (produtos as any[]).find(p => (p.id ?? p.productId) === sku)
   const oferta = produto ? escolherOferta(ofertasDoProduto(produto), PLANO_BASE[sku]) : null
   if (!oferta) throw new Error('oferta_indisponivel')
 
-  await requestPurchase({
+  await comReconexaoIAP(() => requestPurchase({
     request: {
       google: {
         skus: [sku],
@@ -39,7 +40,7 @@ export async function comprarAssinaturaGoogle(sku: string): Promise<void> {
       },
     },
     type: 'subs',
-  })
+  }))
 }
 
 export type ResultadoVerificacao = 'ok' | 'pendente' | 'recusada' | 'falha'
@@ -101,7 +102,7 @@ export async function compraPendenteGoogle(): Promise<boolean> {
   try {
     const conectado = await garantirConexaoIAP()
     if (!conectado) return false
-    const compras = (await getAvailablePurchases()) as Purchase[] | undefined
+    const compras = (await comReconexaoIAP(() => getAvailablePurchases())) as Purchase[] | undefined
     return !!compras?.some(p => (p.productId === SKU_MENSAL || p.productId === SKU_ANUAL) && String(p.purchaseState) === 'pending')
   } catch {
     return false
@@ -128,7 +129,7 @@ async function reconciliarGoogle(): Promise<boolean> {
 
     const conectado = await garantirConexaoIAP()
     if (!conectado) return false
-    const compra = compraDoPlano((await getAvailablePurchases()) as Purchase[])
+    const compra = compraDoPlano((await comReconexaoIAP(() => getAvailablePurchases())) as Purchase[])
     if (!compra) return false
     const r = await enviarParaVerificacaoGoogle(compra)
     if (r === 'ok') await concluirCompraGoogle(compra)

@@ -2,10 +2,12 @@ import { Platform } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import {
   initConnection,
+  endConnection,
   getAvailablePurchases,
   type Purchase,
 } from 'react-native-iap'
 import { supabase } from './supabase'
+import { evento } from './instalacao'
 
 const isIOS = Platform.OS === 'ios'
 const isAndroid = Platform.OS === 'android'
@@ -37,6 +39,80 @@ export async function garantirConexaoIAP(): Promise<boolean> {
   }
   await iapIniciando
   return iapPronto
+}
+
+// ── Reconexão da loja (Android) ──
+// O BillingClient do Google Play se desconecta sozinho (app em 2º plano, rede, Play Store atualizando) e o módulo nativo
+// continua achando que está "inicializado": chamar initConnection de novo NÃO reconecta (devolve true na hora). Só
+// endConnection + initConnection religa de verdade. Atenção: endConnection LIMPA todos os ouvintes de compra do JS; por
+// isso quem registra ouvintes (tela Planos) assina aoReconectarIAP para registrá-los de novo depois de religar.
+const ouvintesReconexao = new Set<() => void>()
+export function aoReconectarIAP(cb: () => void): () => void {
+  ouvintesReconexao.add(cb)
+  return () => { ouvintesReconexao.delete(cb) }
+}
+
+let reconectando: Promise<boolean> | null = null
+export function reconectandoIAP(): boolean { return reconectando !== null }
+
+export function codigoErroIAP(e: any): string {
+  const code = typeof e?.code === 'string' && e.code ? e.code : ''
+  if (code) return code
+  const msg = String(e?.message ?? '').replace(/[^A-Za-z0-9_.-]/g, '_').slice(0, 30)
+  return msg || 'desconhecido'
+}
+
+// A loja não está pronta (conexão caiu): vale reconectar e repetir UMA vez.
+export function erroDeConexaoIAP(e: any): boolean {
+  const code = String(e?.code ?? '').toLowerCase()
+  if (code === 'not-prepared' || code === 'service-disconnected') return true
+  return /not.?prepared|billing.?client.?not.?ready|service.?disconnected|billingclient.*(not|disconnected)/i.test(String(e?.message ?? ''))
+}
+
+export function reconectarIAP(): Promise<boolean> {
+  if (!isAndroid) return garantirConexaoIAP()
+  if (!reconectando) {
+    reconectando = (async () => {
+      iapPronto = false
+      iapIniciando = null
+      try { await endConnection() } catch { /* já estava fechada */ }
+      const ok = await garantirConexaoIAP()
+      if (ok) ouvintesReconexao.forEach(cb => { try { cb() } catch { /* nunca atrapalha */ } })
+      return ok
+    })().finally(() => { reconectando = null })
+  }
+  return reconectando
+}
+
+// Roda a operação da loja; se falhar por conexão caída (Android), reconecta e repete 1 vez. Funil: loja_erro com o código
+// exato + ":retry_ok" quando a 2ª tentativa funcionou; se falhar de novo o erro volta com .reconexao = "retry_falhou"
+// (ou "retry_sem_conexao" se nem religou) para quem chamou gravar em compra_erro/loja_erro. iOS: sem mudança.
+export async function comReconexaoIAP<T>(op: () => Promise<T>): Promise<T> {
+  if (!isAndroid) return op()
+  try {
+    return await op()
+  } catch (e: any) {
+    if (!erroDeConexaoIAP(e)) throw e
+    const codigo = codigoErroIAP(e)
+    const religou = await reconectarIAP()
+    if (!religou) { try { e.reconexao = 'retry_sem_conexao' } catch { /* erro congelado */ } throw e }
+    try {
+      const valor = await op()
+      evento('loja_erro', codigo + ':retry_ok')
+      return valor
+    } catch (e2: any) {
+      try { e2.reconexao = 'retry_falhou' } catch { /* erro congelado */ }
+      throw e2
+    }
+  }
+}
+
+// Evita ficar "preso" para sempre se a loja não responder.
+export function comTempoIAP<T>(p: Promise<T>, ms = 15000): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject(Object.assign(new Error('tempo_esgotado'), { code: 'timeout' })), ms)
+    p.then(v => { clearTimeout(t); resolve(v) }, e => { clearTimeout(t); reject(e) })
+  })
 }
 
 // Envia um purchase pro backend ativar o plano, com retentativa automática --
