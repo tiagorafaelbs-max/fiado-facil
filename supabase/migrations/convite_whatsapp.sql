@@ -1,6 +1,7 @@
 -- PARA REVISÃO — NÃO APLICADA. Aplicar só com autorização do Tiago (22/10/2026).
 -- Convite de funcionário pelo WhatsApp (6 de 9 convites travavam: o link do e-mail era aberto fora do celular e gastava o convite).
--- 1) convites_link: guarda o token no servidor; o link do WhatsApp é só um id opaco (nunca o token, nunca em log nem no funil).
+-- 1) convites_link: o link do WhatsApp é só um id opaco que aponta para (dono, funcionário). O token de acesso NÃO é guardado: o Auth
+--    vence o token em ~1 h, então ele é gerado na hora em que o funcionário ABRE o link (função abrir-convite). Nunca em log nem no funil.
 -- 2) membro_tem_senha(uuid): só o service_role (edge function) pergunta se o funcionário já criou a senha.
 -- 3) equipe_status(): o DONO vê, para os próprios funcionários, quem já criou a senha (status Ativo x Aguardando).
 -- 4) Funil anônimo: etapas convite_whatsapp e convite_reenviado (sem dado pessoal).
@@ -11,11 +12,11 @@ create table if not exists public.convites_link (
   id         uuid primary key default gen_random_uuid(),
   dono_id    uuid not null references auth.users(id) on delete cascade,
   membro_id  uuid not null references auth.users(id) on delete cascade,
-  tipo       text not null check (tipo in ('invite', 'recovery', 'email')),
-  token_hash text,
+  tipo       text not null check (tipo in ('link', 'email')),
+  aberturas  integer not null default 0,
   criado_em  timestamptz not null default now()
 );
-comment on table public.convites_link is 'Convites de funcionário: token (tipo invite/recovery) para o link do WhatsApp ou registro de reenvio por e-mail (tipo email). Só a service_role lê e escreve.';
+comment on table public.convites_link is 'Convites de funcionário: link do WhatsApp (tipo link, aberturas = quantas vezes foi aberto) ou registro de reenvio por e-mail (tipo email). Sem token. Só a service_role lê e escreve.';
 create index if not exists convites_link_membro on public.convites_link (membro_id, criado_em);
 alter table public.convites_link enable row level security;
 revoke all on public.convites_link from public, anon, authenticated;   -- sem policy: ninguém do app lê o token

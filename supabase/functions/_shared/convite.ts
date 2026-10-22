@@ -3,6 +3,7 @@
 
 export const LIMITE_LINKS_POR_HORA = 10
 export const VALIDADE_REGISTRO_DIAS = 7
+export const LIMITE_ABERTURAS = 50
 
 export type TipoLinkConvite = 'invite' | 'recovery'
 

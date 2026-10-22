@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { escolherTipoLink, uuidValido, linkDeAbertura, LIMITE_LINKS_POR_HORA, VALIDADE_REGISTRO_DIAS } from '../_shared/convite.ts'
+import { uuidValido, linkDeAbertura, LIMITE_LINKS_POR_HORA, VALIDADE_REGISTRO_DIAS } from '../_shared/convite.ts'
 
 // Convida um funcionário para operar sob a conta do dono, com login próprio
 // (email/senha) mas atuando sobre os mesmos dados do negócio (via membros_equipe
@@ -8,7 +8,8 @@ import { escolherTipoLink, uuidValido, linkDeAbertura, LIMITE_LINKS_POR_HORA, VA
 //
 // Ações (campo "acao" do corpo; sem ele = convidar, como sempre):
 //   convidar        cria o usuário, envia o e-mail de convite e vincula à equipe.
-//   link            gera o link de acesso para o dono mandar pelo WhatsApp (devolve só para o dono que convidou).
+//   link            cria o link do WhatsApp (opaco) para o dono mandar; devolve só para o dono que convidou. O token de acesso
+//                   é gerado depois, quando o funcionário ABRE o link (função abrir-convite), porque o Auth o vence em ~1 h.
 //   reenviar_email  reenvia o convite por e-mail (convite novo ou recuperação de senha).
 // O link/token NUNCA vai para log nem para o funil: só existe no banco (public.convites_link) e no retorno ao dono.
 
@@ -133,19 +134,10 @@ serve(async (req) => {
       return json({ success: true })
     }
 
-    // acao === 'link': gera o token no servidor; o app recebe só um link opaco (abrir-convite?c=<id>)
-    const tipo = escolherTipoLink(confirmado)
-    const { data: gerado, error: erroLink } = await supabase.auth.admin.generateLink({
-      type: tipo,
-      email: func.email,
-      options: { redirectTo: REDIRECT_APP },
-    })
-    const hash = gerado?.properties?.hashed_token
-    if (erroLink || !hash) return json({ error: 'Não foi possível gerar o link agora. Tente de novo.' }, 400)
-
+    // acao === 'link': só registra (dono, funcionário); o app recebe um link opaco (abrir-convite?c=<id>)
     const { data: registro, error: erroRegistro } = await supabase
       .from('convites_link')
-      .insert({ dono_id: dono.id, membro_id: func.id, tipo, token_hash: hash })
+      .insert({ dono_id: dono.id, membro_id: func.id, tipo: 'link' })
       .select('id')
       .single()
     if (erroRegistro || !registro?.id) return json({ error: 'Não foi possível gerar o link agora. Tente de novo.' }, 500)
