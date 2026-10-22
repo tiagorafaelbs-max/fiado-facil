@@ -32,6 +32,8 @@ export type EventoCompra =
   | 'cadastro_toque'   // tocou em "Criar conta" na tela de cadastro
   | 'cadastro_ja_existe' // o e-mail já tinha conta: mostrou "Você já tem uma conta" (sem dado pessoal)
   | 'cadastro_ir_login'  // nesse aviso, tocou em Entrar
+  | 'convite_whatsapp' // dono abriu o WhatsApp com o convite do funcionário (sem dado pessoal, nunca o link)
+  | 'convite_reenviado' // dono reenviou o convite (detalhe: whatsapp | email)
   | 'cadastro_erro'    // cadastro não concluiu (detalhe: validacao:<campos> ou signup:<código do erro>), nunca e-mail/nome/senha
 
 const CHAVE_ID = '@fiado_instalacao_id'
