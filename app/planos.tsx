@@ -26,7 +26,7 @@ import { escolherPreco, equivalenteMensal } from '../lib/precoPlano'
 import {
   SKU_MENSAL, SKU_ANUAL, SKUS, MODULOS_CACHE_KEY,
   garantirConexaoIAP, enviarParaVerificacaoApple, verificarComprasApplePendentes,
-  aoReconectarIAP, reconectarIAP, reconectandoIAP, comReconexaoIAP, comTempoIAP, erroDeConexaoIAP,
+  aoReconectarIAP, reconectarIAP, comReconexaoIAP, comTempoIAP, erroDeConexaoIAP, criarGuardaConexao,
 } from '../lib/appleIAP'
 import {
   comprarAssinaturaGoogle, enviarParaVerificacaoGoogle, concluirCompraGoogle,
@@ -73,6 +73,7 @@ export default function PlanosScreen() {
   const loadingRef = useRef(loading)
   loadingRef.current = loading
   const recarregarLojaRef = useRef<(() => Promise<void>) | null>(null)
+  const guardaConexaoRef = useRef<ReturnType<typeof criarGuardaConexao> | null>(null)
 
   // Funil de compra (anônimo, 1x por dia): abriu a tela Planos. Só o dono (funcionário vê a tela de bloqueio).
   useEffect(() => {
@@ -132,6 +133,14 @@ export default function PlanosScreen() {
     let purchaseErrorSub: ReturnType<typeof purchaseErrorListener> | undefined
 
     let ativo = true
+    // Erro de conexão no ouvinte: se o retry automático não resolver em 20 s, libera o botão (cancelável; ver criarGuardaConexao).
+    const guarda = criarGuardaConexao(20000, () => {
+      if (ativo && loadingRef.current !== null) {
+        setLoading(null)
+        Alert.alert('Sem conexão com a Play Store', 'Não conseguimos conectar à Play Store. Verifique sua conexão e toque em Assinar de novo.')
+      }
+    })
+    guardaConexaoRef.current = guarda
     const esperar = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms))
     // Funil anônimo: código + começo da mensagem do erro técnico da loja (nunca dado do usuário), no formato aceito pelo banco.
     // Se houve nova tentativa de conexão, o resultado vem logo depois do código (o banco corta em 60 caracteres).
@@ -143,6 +152,7 @@ export default function PlanosScreen() {
       purchaseUpdateSub?.remove()
       purchaseErrorSub?.remove()
       purchaseUpdateSub = purchaseUpdatedListener(async (purchase: Purchase) => {
+        guarda.cancelar()   // chegou resultado de compra: a conexão está viva
         // IAP v15 / Nitro: receipt está em purchaseToken (JWS) ou transactionReceipt
         const receipt = (purchase as any).purchaseToken ?? (purchase as any).transactionReceipt
         // Aceita purchaseState 'purchased' (string) ou undefined (iOS subscriptions às vezes omite)
@@ -164,17 +174,10 @@ export default function PlanosScreen() {
       })
 
       purchaseErrorSub = purchaseErrorListener((error: PurchaseError) => {
-        // Android: conexão caída. Quem chamou requestPurchase religa e repete sozinho (comReconexaoIAP) e trata o resultado;
-        // aqui não mostramos erro agora. Se nada resolver em 20 s, libera o botão e avisa.
-        if (!isIOS && (reconectandoIAP() || erroDeConexaoIAP(error))) {
-          setTimeout(() => {
-            if (ativo && loadingRef.current !== null) {
-              setLoading(null)
-              Alert.alert('Sem conexão com a Play Store', 'Não conseguimos conectar à Play Store. Verifique sua conexão e toque em Assinar de novo.')
-            }
-          }, 20000)
-          return
-        }
+        // Android: erro de CONEXÃO (só esse). Quem chamou requestPurchase religa e repete sozinho (comReconexaoIAP) e trata o
+        // resultado; aqui não mostramos erro agora. Se nada resolver em 20 s, a guarda libera o botão e avisa.
+        if (!isIOS && erroDeConexaoIAP(error)) { guarda.armar(); return }
+        guarda.cancelar()
         registrarFalhaCompra(error)
         if (!isIOS) aposFimDeCompraAndroid()
         if (error.code !== ErrorCode.UserCancelled) {
@@ -251,6 +254,8 @@ export default function PlanosScreen() {
     return () => {
       ativo = false
       recarregarLojaRef.current = null
+      guarda.cancelar()
+      guardaConexaoRef.current = null
       removerAoReconectar()
       purchaseUpdateSub?.remove()
       purchaseErrorSub?.remove()
@@ -383,8 +388,10 @@ export default function PlanosScreen() {
         return
       }
       await comprarAssinaturaGoogle(sku)
+      guardaConexaoRef.current?.cancelar()   // a tela de pagamento do Google abriu: pode demorar para pagar, sem alerta
       // Resultado chega via purchaseUpdatedListener
     } catch (err: any) {
+      guardaConexaoRef.current?.cancelar()
       registrarFalhaCompra(err)
       if (err?.code !== ErrorCode.UserCancelled) {
         const msg = err?.message === 'loja_indisponivel'

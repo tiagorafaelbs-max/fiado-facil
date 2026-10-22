@@ -132,6 +132,33 @@ const NOT_PREPARED = () => Object.assign(new Error('Billing client not ready'), 
     t('iOS: 1 chamada, sem endConnection, sem marca', n === 1 && reg.end === 0 && !erro.reconexao)
   }
 
+  // 11) Guarda de 20 s do ouvinte de erro: cancelável (o retry abriu a tela do Google e o lojista demorou para pagar)
+  {
+    const { lib } = carregar('android')
+    const espera = (ms) => new Promise(r => setTimeout(r, ms))
+    // erro de conexão chega no ouvinte -> arma; o retry resolve (tela da loja abriu) -> cancela; passa o tempo: NENHUM alerta
+    let alertas = 0
+    const g1 = lib.criarGuardaConexao(60, () => alertas++)
+    g1.armar(); t('guarda armada', g1.armado())
+    g1.cancelar(); t('retry resolveu: guarda cancelada', !g1.armado())
+    await espera(150)
+    t('lojista demorou mais que o tempo: alerta NÃO aparece', alertas === 0)
+    // nada resolve: avisa uma vez só
+    let avisos = 0
+    const g2 = lib.criarGuardaConexao(40, () => avisos++)
+    g2.armar(); g2.armar()   // 2 erros seguidos não duplicam
+    await espera(150)
+    t('sem solução: avisa exatamente 1 vez', avisos === 1 && !g2.armado())
+    // chegou purchaseUpdated / erro que não é de conexão -> cancela
+    let a3 = 0
+    const g3 = lib.criarGuardaConexao(40, () => a3++)
+    g3.armar(); g3.cancelar(); await espera(100)
+    t('resultado de compra cancela a guarda', a3 === 0)
+    // só erros de conexão são silenciados
+    t('cancelar (user-cancelled) NÃO é conexão', !lib.erroDeConexaoIAP({ code: 'user-cancelled', message: 'x' }))
+    t('billing-unavailable NÃO é conexão (mostra o erro)', !lib.erroDeConexaoIAP({ code: 'billing-unavailable', message: 'x' }))
+  }
+
   console.log(falhas === 0 ? ` TODOS OS TESTES PASSARAM (${total})` : `${falhas} FALHA(S) de ${total}`)
   process.exit(falhas === 0 ? 0 : 1)
 })()

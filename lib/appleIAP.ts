@@ -107,6 +107,18 @@ export async function comReconexaoIAP<T>(op: () => Promise<T>): Promise<T> {
   }
 }
 
+// Guarda do botão Assinar: quando um erro de CONEXÃO chega pelo ouvinte de compra, quem chamou requestPurchase religa e repete
+// sozinho. Se nada resolver em `ms`, libera o botão (aoEsgotar). Cancelável: a tela de pagamento do Google abrir (o retry
+// resolveu), chegar qualquer resultado/erro de compra ou desmontar a tela cancela — o lojista pode demorar para pagar.
+export function criarGuardaConexao(ms: number, aoEsgotar: () => void) {
+  let timer: ReturnType<typeof setTimeout> | null = null
+  return {
+    armar() { if (timer) clearTimeout(timer); timer = setTimeout(() => { timer = null; aoEsgotar() }, ms) },
+    cancelar() { if (timer) { clearTimeout(timer); timer = null } },
+    armado() { return timer !== null },
+  }
+}
+
 // Evita ficar "preso" para sempre se a loja não responder.
 export function comTempoIAP<T>(p: Promise<T>, ms = 15000): Promise<T> {
   return new Promise<T>((resolve, reject) => {
