@@ -35,6 +35,12 @@ export function urlDoAppConvite(tokenHash: string, tipo: TipoLinkConvite): strin
   return `fiadofacil://nova-senha?token_hash=${encodeURIComponent(tokenHash)}&type=${tipo}`
 }
 
+// Link que o dono manda no WhatsApp: a página do site (botão "Abrir no FiadoApp"), que chama abrir-convite?modo=json.
+export function linkDoConvite(id: string): string {
+  return `https://fiadoapp.app.br/convite.html?c=${id}`
+}
+
+// Link direto da função (302 para o app), sem a página. Fica só como alternativa.
 export function linkDeAbertura(supabaseUrl: string, id: string): string {
   return `${supabaseUrl.replace(/\/+$/, '')}/functions/v1/abrir-convite?c=${id}`
 }

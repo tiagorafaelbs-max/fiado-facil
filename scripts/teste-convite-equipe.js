@@ -47,6 +47,7 @@ t('deep link usa token_hash e type', u.startsWith('fiadofacil://nova-senha?token
 t('token_hash codificado na URL', u.includes(encodeURIComponent('abc+/=123')) && !u.includes('abc+/='))
 t('recovery', C.urlDoAppConvite('x', 'recovery').endsWith('&type=recovery'))
 t('link de abertura é opaco e sem barra dupla', C.linkDeAbertura('https://proj.supabase.co/', '11111111-2222-3333-4444-555555555555') === 'https://proj.supabase.co/functions/v1/abrir-convite?c=11111111-2222-3333-4444-555555555555')
+t('link enviado no WhatsApp = página do site com o id (opaco)', C.linkDoConvite('11111111-2222-3333-4444-555555555555') === 'https://fiadoapp.app.br/convite.html?c=11111111-2222-3333-4444-555555555555')
 t('uuid válido / inválido', C.uuidValido('11111111-2222-3333-4444-555555555555') && !C.uuidValido('x') && !C.uuidValido(null) && !C.uuidValido("1' or 1=1"))
 
 // ── texto do WhatsApp ──

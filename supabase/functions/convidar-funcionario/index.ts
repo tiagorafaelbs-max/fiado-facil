@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { uuidValido, linkDeAbertura, LIMITE_LINKS_POR_HORA, VALIDADE_REGISTRO_DIAS } from '../_shared/convite.ts'
+import { uuidValido, linkDoConvite, LIMITE_LINKS_POR_HORA, VALIDADE_REGISTRO_DIAS } from '../_shared/convite.ts'
 
 // Convida um funcionário para operar sob a conta do dono, com login próprio
 // (email/senha) mas atuando sobre os mesmos dados do negócio (via membros_equipe
@@ -147,7 +147,7 @@ serve(async (req) => {
       .single()
     if (erroRegistro || !registro?.id) return json({ error: 'Não foi possível gerar o link agora. Tente de novo.' }, 500)
 
-    return json({ link: linkDeAbertura(supabaseUrl, registro.id), loja: perfil?.nome_negocio ?? null, nome: membro.nome })
+    return json({ link: linkDoConvite(registro.id), loja: perfil?.nome_negocio ?? null, nome: membro.nome })
   } catch (err: any) {
     console.error('[convidar-funcionario] Exceção:', err?.message ?? 'desconhecida')   // nunca o link/token
     return json({ error: `Erro interno: ${err?.message ?? 'desconhecido'}` }, 500)
