@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Convite para a equipe | FiadoApp</title>
+<style>
+  :root{ --green:#00A651; --green-dark:#007A3C; --bg:#F8FAFC; --surface:#FFFFFF; --text:#0F172A; --soft:#475569; --border:#E2E8F0; }
+  @media (prefers-color-scheme: dark){ :root{ --bg:#0B1512; --surface:#101E19; --text:#F1F5F4; --soft:#A9B7B2; --border:#1F332C; } }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.6}
+  main{max-width:480px;margin:0 auto;padding:32px 20px 48px;text-align:center}
+  .logo{font-weight:900;font-size:22px;color:var(--green);margin-bottom:8px}
+  h1{font-size:22px;margin:8px 0 12px}
+  p{color:var(--soft);margin:0 0 16px}
+  .botao{display:block;width:100%;padding:20px 16px;border-radius:16px;background:var(--green);color:#fff;font-size:20px;font-weight:800;text-decoration:none;margin:24px 0 8px}
+  .botao[aria-disabled="true"]{opacity:.55;pointer-events:none}
+  .lojas{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;margin-top:24px}
+  .lojas a{color:var(--green-dark);font-weight:700}
+  .erro{color:#B91C1C;font-weight:700}
+  .pequeno{font-size:13px}
+</style>
+</head>
+<body>
+<main>
+  <div class="logo">FiadoApp</div>
+  <h1>Convite para a equipe</h1>
+  <p id="msg">Preparando o seu convite…</p>
+  <a id="abrir" class="botao" href="#" aria-disabled="true">Abrir no FiadoApp</a>
+  <p class="pequeno">Abra esta página <strong>no seu celular</strong>, com o FiadoApp já instalado, para criar sua senha. O link vale uma vez.</p>
+  <div class="lojas">
+    <p><strong>Não tem o app?</strong> Baixe aqui:</p>
+    <p><a href="https://play.google.com/store/apps/details?id=com.fiadofacil.app">Android (Google Play)</a><br>
+       <a href="https://apps.apple.com/app/id6783416254">iPhone (App Store)</a></p>
+  </div>
+</main>
+<script>
+(function () {
+  // O link do WhatsApp é opaco (?c=<id>). O token de acesso só nasce AQUI, quando a pessoa abre a página num navegador de verdade
+  // (pré-visualizações e robôs não executam JavaScript, então não gastam o convite).
+  var FUNCAO = 'https://eyipcpwmwtajrywouxub.supabase.co/functions/v1/abrir-convite';
+  var msg = document.getElementById('msg');
+  var botao = document.getElementById('abrir');
+  var id = new URLSearchParams(location.search).get('c');
+  if (!id) { msg.className = 'erro'; msg.textContent = 'Link inválido. Peça ao dono do negócio para reenviar o convite.'; return; }
+  fetch(FUNCAO + '?c=' + encodeURIComponent(id) + '&modo=json', { referrerPolicy: 'no-referrer' })
+    .then(function (r) { return r.json().catch(function () { return {}; }); })
+    .then(function (j) {
+      if (j && j.url) {
+        botao.href = j.url;
+        botao.removeAttribute('aria-disabled');
+        msg.textContent = 'Toque no botão para abrir o FiadoApp e criar a sua senha.';
+        try { location.href = j.url; } catch (e) { /* o botão faz o mesmo com um toque */ }
+      } else {
+        msg.className = 'erro';
+        msg.textContent = (j && j.erro) || 'Não foi possível abrir o convite agora. Tente de novo em instantes.';
+      }
+    })
+    .catch(function () {
+      msg.className = 'erro';
+      msg.textContent = 'Sem conexão. Verifique a internet do celular e abra o link de novo.';
+    });
+})();
+</script>
+</body>
+</html>

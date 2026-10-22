@@ -123,7 +123,12 @@ serve(async (req) => {
           redirectTo: REDIRECT_APP,
           data: { nome_negocio: perfil?.nome_negocio ?? null },
         })
-        if (error) return json({ error: 'Não foi possível reenviar o e-mail agora. Tente de novo.' }, 400)
+        if (error) {
+          // o Auth pode recusar novo convite para usuário já criado: cai para o e-mail de redefinição de senha
+          const anon = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!)
+          const { error: erroRec } = await anon.auth.resetPasswordForEmail(func.email, { redirectTo: REDIRECT_APP })
+          if (erroRec) return json({ error: 'Não foi possível reenviar o e-mail agora. Tente de novo.' }, 400)
+        }
       } else {
         // convite já aberto (e-mail confirmado) mas sem senha: e-mail de redefinição de senha
         const anon = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!)
